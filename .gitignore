@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Local data: your sightings database stays on your machine
+data/*.db
+data/*.db-journal
+
+# Secrets
+.env
+.streamlit/secrets.toml
+
+# Editors / OS
+.idea/
+.vscode/
+Thumbs.db
+.DS_Store
