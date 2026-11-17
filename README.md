@@ -73,11 +73,13 @@ Run the tests with `pytest`.
 
 - [x] Manual sighting log and life list for the top 100 breeds
 - [x] Accounts and a hosted database (Supabase)
+- [ ] 🧭 "Help me identify": answer a few questions (size, coat, ears) to narrow down the breed
 - [ ] 📷 Photo upload with a sighting (Supabase Storage)
-- [ ] 🤖 Breed identification from a photo (an image classification model)
-- [ ] More breeds beyond the top 100 (just add rows to `data/breeds.csv`)
-- [ ] Map of where you've spotted dogs
-- [ ] Password reset and "stay signed in"
+- [ ] 🤖 Photo ID: breed suggestions from a photo (an image classification model)
+- [ ] 🔊 Sound ID: detect a bark from a recording (experimental)
+- [ ] More breeds, a sightings map, password reset and "stay signed in", installable home-screen app
+
+Inspired by bird ID apps like Merlin, which identify birds by description, photo or sound. The full plan, with notes on each item, is in [ROADMAP.md](ROADMAP.md).
 
 ## Data source
 

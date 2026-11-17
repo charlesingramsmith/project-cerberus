@@ -44,11 +44,11 @@ Backend selection (in `app.py` `make_backend`): `CERBERUS_DEMO=1` forces memory;
 
 - **Pushing to `main` deploys to production** (Streamlit Community Cloud redeploys automatically). Run the tests before every push. For bigger features, prefer a branch and merge once it's tested.
 - Commit messages: imperative summary line, e.g. "Add photo upload to sightings".
-- **Keep this file current, unprompted.** Before every commit, check whether the change makes anything here wrong or missing (new files, commands, rules, gotchas, roadmap items done). If so, update CLAUDE.md in the same commit. Keep it short and accurate; don't log history here (that's what git is for).
+- **Keep this file current, unprompted.** Before every commit, check whether the change makes anything here wrong or missing (new files, commands, rules, gotchas). If so, update CLAUDE.md in the same commit. Keep it short and accurate; don't log history here (that's what git is for).
 - Git commits use the owner's GitHub noreply email (already configured globally). Don't change git config.
 - Keep `README.md` up to date (features, roadmap, architecture) when features change; it's the project's shop window.
 - When dependencies change, pin exact versions in `requirements.txt` (Streamlit Cloud installs from it).
 
-## Roadmap ideas (from README)
+## Roadmap
 
-Photo upload (Supabase Storage), photo breed identification, a sightings map, "stay signed in", more breeds.
+`ROADMAP.md` is the source of truth for planned work (Done / Now / Next / Later / Ideas, with approach notes). Read it before starting a feature. When a feature lands, tick it there and update the README's short roadmap summary in the same commit. The big theme is three ways to identify a dog, like Merlin for birds: guided manual ID, photo ID, sound ID.
