@@ -20,9 +20,12 @@ If `.venv` is missing: `python -m venv .venv`, then install the requirements. Py
 
 | File | Role |
 |---|---|
-| `app.py` | Streamlit UI only: sign-in/sign-up screens, then tabs (Log a sighting / Life list / Sightings). |
+| `app.py` | Streamlit UI only: sign-in/sign-up screens (incl. Continue with Google), then a top bar (account popover), stat cards and tabs (Log / Life list / Sightings). `MOBILE_CSS` holds the mobile styling. |
+| `.streamlit/config.toml` | Theme (light and dark) and minimal toolbar. Committed; no secrets. |
 | `cerberus/logic.py` | Pure functions (`load_breeds`, `life_list`, `is_lifer`, `sightings_frame`). No I/O. Put new business logic here. |
 | `cerberus/backends.py` | `Backend` protocol, with `SupabaseBackend` (real) and `MemoryBackend` (tests and demo mode). Both must behave the same. |
+| `cerberus/oauth.py` | `PENDING` store for Google sign-in PKCE verifiers, keyed by a random `?flow=` id. |
+| `docs/google-sign-in.md` | Owner's one-time setup for Google Cloud + Supabase. |
 | `data/breeds.csv` | `rank,breed`: AKC 2025 top 100. Adding breeds means adding rows. |
 | `supabase/schema.sql` | Source of truth for the DB: tables plus row-level security (RLS) policies. Idempotent. |
 | `tests/` | `test_logic.py`, `test_backends.py` (MemoryBackend), `test_supabase_backend.py` (fake client), `test_app.py` (Streamlit `AppTest`, demo mode). |
@@ -32,6 +35,7 @@ Backend selection (in `app.py` `make_backend`): `CERBERUS_DEMO=1` forces memory;
 ## Rules and gotchas
 
 - **Never put the Supabase backend in `st.cache_resource` or any shared/global cache.** Each browser session gets its own backend in `st.session_state`; sharing would leak one user's login to another.
+- **Google sign-in:** returning from Google starts a new Streamlit session (empty `session_state`), so the PKCE verifier waits in `cerberus.oauth.PENDING` (server memory, single-use, 10-minute expiry). It must only ever hold verifiers, never sessions or backends. The link opens in a new tab because Google refuses to load inside Streamlit Cloud's iframe. Supabase **Redirect URLs** must allow `<app url>/**`. `MemoryBackend` fakes the round trip for demo mode and tests.
 - **Only the publishable/anon key is ever used.** Never add the secret/service_role key to the app. Per-user data isolation relies on RLS, not app code.
 - **Schema changes:** edit `supabase/schema.sql` (keep it idempotent), add RLS policies for any new table, and tell the owner to run it in the Supabase SQL Editor. Nothing applies migrations automatically.
 - **Adding a backend method:** add it to the `Backend` protocol and to **both** `SupabaseBackend` and `MemoryBackend`, with tests for each.
@@ -39,16 +43,19 @@ Backend selection (in `app.py` `make_backend`): `CERBERUS_DEMO=1` forces memory;
 - Supabase auth errors are wrapped in `AuthError`; the UI shows `str(err)`. Data calls that raise `AuthError` (expired session) send the user back to sign-in via `end_session()`.
 - `AppTest` widgets are found by `key=` (e.g. `sign_up_email`). Give new form inputs explicit keys.
 - Dates are stored and compared as ISO strings (`YYYY-MM-DD`).
+- **Mobile first.** Design for a ~375px phone, then check desktop. Avoid `st.sidebar`, `st.columns` for side-by-side items (they stack on phones; use `st.container(horizontal=True)`) and wide `st.dataframe`s (use list rows or bordered cards). Buttons that end a form use `width="stretch"`.
+- `MOBILE_CSS` targets Streamlit internals (`data-testid`, `.st-key-<key>` classes, `role="tablist"`), which can change when Streamlit is upgraded: recheck the phone layout after bumping the version. The bottom tab bar's colours must match `[theme.light]`/`[theme.dark]` `backgroundColor`.
+- To check the phone layout: the `cerberus-demo` entry in `.claude/launch.json` runs demo mode on port 8502; view it at 375px wide in light and dark.
 
 ## Workflow
 
 - **Pushing to `main` deploys to production** (Streamlit Community Cloud redeploys automatically). Run the tests before every push. For bigger features, prefer a branch and merge once it's tested.
 - Commit messages: imperative summary line, e.g. "Add photo upload to sightings".
-- **Keep this file current, unprompted.** Before every commit, check whether the change makes anything here wrong or missing (new files, commands, rules, gotchas, roadmap items done). If so, update CLAUDE.md in the same commit. Keep it short and accurate; don't log history here (that's what git is for).
+- **Keep this file current, unprompted.** Before every commit, check whether the change makes anything here wrong or missing (new files, commands, rules, gotchas). If so, update CLAUDE.md in the same commit. Keep it short and accurate; don't log history here (that's what git is for).
 - Git commits use the owner's GitHub noreply email (already configured globally). Don't change git config.
 - Keep `README.md` up to date (features, roadmap, architecture) when features change; it's the project's shop window.
 - When dependencies change, pin exact versions in `requirements.txt` (Streamlit Cloud installs from it).
 
-## Roadmap ideas (from README)
+## Roadmap
 
-Photo upload (Supabase Storage), photo breed identification, a sightings map, "stay signed in", more breeds.
+`ROADMAP.md` is the source of truth for planned work (Done / Now / Next / Later / Ideas, with approach notes). Read it before starting a feature. When a feature lands, tick it there and update the README's short roadmap summary in the same commit. The big theme is three ways to identify a dog, like Merlin for birds: guided manual ID, photo ID, sound ID.

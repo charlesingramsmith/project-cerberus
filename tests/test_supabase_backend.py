@@ -39,6 +39,23 @@ class FakeAuth:
             raise RuntimeError("Invalid login credentials")
         return self._response(creds["email"], {"username": "charlie"})
 
+    # "Continue with Google": the real client stashes its PKCE verifier in _storage.
+    _storage_key = "sb-auth"
+
+    def sign_in_with_oauth(self, creds):
+        self.oauth_creds = creds
+        self._storage = SimpleNamespace(get_item=lambda key: {
+            "sb-auth-code-verifier": "verifier-123"}.get(key))
+        return SimpleNamespace(url="https://project.supabase.co/auth/v1/authorize?provider=google")
+
+    def exchange_code_for_session(self, params):
+        if params != {"auth_code": "good-code", "code_verifier": "verifier-123"}:
+            raise RuntimeError("invalid flow state")
+        user = SimpleNamespace(id="uuid-2", email="pat@gmail.com",
+                               user_metadata={"full_name": "Pat Smith"})
+        self.session = object()
+        return SimpleNamespace(user=user, session=self.session)
+
     def get_session(self):
         return self.session
 
@@ -88,3 +105,25 @@ def test_expired_session_asks_user_to_sign_in_again():
     backend.client.auth.session = None  # simulate a refresh token that has expired
     with pytest.raises(AuthError, match="expired"):
         backend.list_sightings()
+
+
+def test_google_sign_in_returns_url_and_verifier():
+    backend, _ = make_backend()
+    url, verifier = backend.start_google_sign_in("https://app.example/?flow=abc")
+    assert "provider=google" in url
+    assert verifier == "verifier-123"
+    assert backend.client.auth.oauth_creds == {
+        "provider": "google", "options": {"redirect_to": "https://app.example/?flow=abc"}}
+
+
+def test_google_sign_in_finishes_with_the_users_google_name():
+    backend, _ = make_backend()
+    user = backend.finish_google_sign_in("good-code", "verifier-123")
+    assert (user.username, user.email) == ("Pat Smith", "pat@gmail.com")
+    assert backend.list_sightings() == []  # signed in, so data calls work
+
+
+def test_failed_google_exchange_becomes_a_friendly_auth_error():
+    backend, _ = make_backend()
+    with pytest.raises(AuthError, match="Google sign-in didn't work"):
+        backend.finish_google_sign_in("stale-code", "verifier-123")

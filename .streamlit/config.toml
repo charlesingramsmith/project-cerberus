@@ -1,0 +1,23 @@
+# App-wide Streamlit settings (safe to commit: no secrets here).
+
+[client]
+# Hide the developer toolbar ("Deploy", rerun menu) so the app looks like an app.
+toolbarMode = "minimal"
+
+[theme]
+baseRadius = "0.75rem"
+buttonRadius = "0.75rem"
+# Default headings are sized for desktop; these suit a phone screen.
+headingFontSizes = ["2rem", "1.5rem", "1.25rem"]
+metricValueFontSize = "1.6rem"
+
+# Defining both a light and a dark theme keeps "follow the phone's light/dark
+# setting" working. The background colours must match the bottom tab bar in
+# MOBILE_CSS in app.py.
+[theme.light]
+primaryColor = "#E8833A"
+backgroundColor = "#FFFFFF"
+
+[theme.dark]
+primaryColor = "#E8833A"
+backgroundColor = "#171614"

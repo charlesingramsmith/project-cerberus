@@ -3,6 +3,7 @@
 Run with:  streamlit run app.py
 """
 import datetime as dt
+import html
 import os
 
 import pandas as pd
@@ -10,8 +11,62 @@ import streamlit as st
 
 from cerberus import logic
 from cerberus.backends import AuthError, MemoryBackend, SupabaseBackend
+from cerberus.oauth import PENDING, with_query
 
-st.set_page_config(page_title="Project Cerberus", page_icon="🐕", layout="wide")
+st.set_page_config(
+    page_title="Project Cerberus",
+    page_icon="🐕",
+    layout="centered",
+    initial_sidebar_state="collapsed",
+)
+
+# Mobile-first styling. Streamlit has no built-in "phone app" mode, so this small
+# stylesheet does the rest: a phone-width column (also on desktop), 16px inputs so
+# iPhones don't zoom in when you tap a field, comfortable tap targets, and on
+# phones a bottom tab bar within thumb reach.
+MOBILE_CSS = """
+<style>
+[data-testid="stMainBlockContainer"] {
+    max-width: 560px;
+    padding: 1rem 1rem 6rem;
+}
+input, textarea { font-size: 16px !important; }
+button { min-height: 2.75rem; }
+
+/* Life list and sightings rows */
+.cerb-row {
+    display: flex; align-items: center; gap: .75rem;
+    padding: .6rem .25rem; border-bottom: 1px solid rgba(128, 128, 128, .2);
+}
+.cerb-row .icon { font-size: 1.25rem; width: 1.5rem; text-align: center; }
+.cerb-row .dot {
+    display: inline-block; width: 1rem; height: 1rem;
+    border: 2px solid rgba(128, 128, 128, .5); border-radius: 50%;
+}
+.cerb-row .main { flex: 1; min-width: 0; }
+.cerb-row .name { font-weight: 600; }
+.cerb-row .sub { font-size: .85rem; opacity: .7; }
+.cerb-row .rank { font-size: .8rem; opacity: .6; }
+.cerb-row.missing .name { font-weight: 400; opacity: .75; }
+
+/* Main tabs: equal widths, and pinned to the bottom of the screen on phones */
+.st-key-main_nav [role="tablist"] { gap: 0; }
+.st-key-main_nav [data-testid="stTab"] { flex: 1; justify-content: center; }
+@media (max-width: 640px) {
+    .st-key-main_nav [role="tablist"] {
+        position: fixed; left: 0; right: 0; bottom: 0; z-index: 100;
+        padding-bottom: env(safe-area-inset-bottom);
+        background: #FFFFFF;  /* matches [theme.light] in .streamlit/config.toml */
+        border-top: 1px solid rgba(128, 128, 128, .25);
+    }
+    .st-key-main_nav [data-testid="stTab"] { height: 3.5rem; }
+}
+@media (max-width: 640px) and (prefers-color-scheme: dark) {
+    .st-key-main_nav [role="tablist"] { background: #171614; }
+}
+</style>
+"""
+st.html(MOBILE_CSS)
 
 DEMO_NOTICE = (
     "**Demo mode:** no Supabase keys are configured, so accounts and sightings "
@@ -51,6 +106,53 @@ def end_session(message: str | None = None):
     st.rerun()
 
 
+# --- Continue with Google ---------------------------------------------------------------
+# 1. The button links to Google, with a return address of this app plus `?flow=<id>`.
+#    It opens in a new tab: Google refuses to show its sign-in page inside the frame
+#    that Streamlit Community Cloud wraps apps in.
+# 2. Google sends the user back here with `?flow=<id>&code=<one-time code>`. That's a
+#    fresh Streamlit session, so the verifier needed to finish is fetched from PENDING
+#    (see cerberus/oauth.py) using the flow id.
+def app_url() -> str:
+    """Where Google should send people back to: this app, as the browser sees it."""
+    try:
+        return st.secrets["supabase"]["redirect_url"]  # optional override
+    except Exception:
+        return st.context.url or "http://localhost:8501/"
+
+
+def google_sign_in_url() -> str:
+    """One sign-in link per visit, remade only once its flow has expired."""
+    url, flow_id = st.session_state.get("google_link", (None, None))
+    if url is None or flow_id not in PENDING:
+        flow_id = PENDING.new_flow_id()
+        url, verifier = backend.start_google_sign_in(with_query(app_url(), flow=flow_id))
+        PENDING.add(flow_id, verifier)
+        st.session_state.google_link = (url, flow_id)
+    return url
+
+
+def finish_google_sign_in():
+    """If Google just sent the user back here, finish signing them in."""
+    params = st.query_params
+    code, flow_id, error = params.get("code"), params.get("flow"), params.get("error")
+    if not (code or error):
+        return
+    st.query_params.clear()  # so a refresh doesn't try to reuse the one-time code
+    if error:
+        st.session_state.auth_notice = ("Google sign-in was cancelled or failed: "
+                                        + params.get("error_description", error))
+        return
+    verifier = PENDING.pop(flow_id) if flow_id else None
+    if verifier is None:
+        st.session_state.auth_notice = "That Google sign-in link expired. Please try again."
+        return
+    try:
+        st.session_state.user = backend.finish_google_sign_in(code, verifier)
+    except AuthError as err:
+        st.session_state.auth_notice = str(err)
+
+
 # --- Sign in / create account ---------------------------------------------------------
 def auth_screen():
     st.title("🐕 Project Cerberus")
@@ -61,13 +163,21 @@ def auth_screen():
     if notice:
         st.info(notice)
 
+    st.link_button("Continue with Google", google_sign_in_url(), type="primary",
+                   width="stretch")
+    st.caption("New here? This creates your account too. Opens in a new tab.")
+    st.divider()
+    st.caption("Or use your email and a password:")
+
     sign_in_tab, sign_up_tab = st.tabs(["Sign in", "Create account"])
 
     with sign_in_tab:
         with st.form("sign_in"):
-            email = st.text_input("Email", key="sign_in_email")
-            password = st.text_input("Password", type="password", key="sign_in_password")
-            if st.form_submit_button("Sign in", type="primary"):
+            email = st.text_input("Email", key="sign_in_email", type="email",
+                                  autocomplete="email")
+            password = st.text_input("Password", type="password", key="sign_in_password",
+                                     autocomplete="current-password")
+            if st.form_submit_button("Sign in", type="primary", width="stretch"):
                 try:
                     st.session_state.user = backend.sign_in(email, password)
                 except AuthError as err:
@@ -78,12 +188,16 @@ def auth_screen():
     with sign_up_tab:
         with st.form("sign_up"):
             username = st.text_input("Username", key="sign_up_username",
+                                     autocomplete="username",
                                      help="Shown on your life list. 3 to 30 characters.")
-            email = st.text_input("Email", key="sign_up_email")
+            email = st.text_input("Email", key="sign_up_email", type="email",
+                                  autocomplete="email")
             password = st.text_input("Password", type="password", key="sign_up_password",
+                                     autocomplete="new-password",
                                      help="At least 8 characters.")
-            confirm = st.text_input("Confirm password", type="password", key="sign_up_confirm")
-            if st.form_submit_button("Create account", type="primary"):
+            confirm = st.text_input("Confirm password", type="password", key="sign_up_confirm",
+                                    autocomplete="new-password")
+            if st.form_submit_button("Create account", type="primary", width="stretch"):
                 if password != confirm:
                     st.error("Passwords don't match.")
                 else:
@@ -101,21 +215,24 @@ def auth_screen():
 
 
 if "user" not in st.session_state:
+    finish_google_sign_in()
+if "user" not in st.session_state:
     auth_screen()
     st.stop()
 
 user = st.session_state.user
 
-# --- Sidebar --------------------------------------------------------------------------------
-with st.sidebar:
-    st.title("🐕 Project Cerberus")
-    st.write(f"Signed in as **{user.username}**")
-    st.caption(user.email)
-    if st.button("Sign out"):
-        backend.sign_out()
-        end_session()
-    if backend.demo:
-        st.warning(DEMO_NOTICE)
+# --- Top bar: title plus an account menu (a sidebar is easy to miss on a phone) ---------------
+with st.container(horizontal=True, vertical_alignment="center", horizontal_alignment="distribute"):
+    st.header(f"{user.username}'s life list")
+    with st.popover("👤", help="Account"):
+        st.write(f"Signed in as **{user.username}**")
+        st.caption(user.email)
+        if st.button("Sign out", width="stretch"):
+            backend.sign_out()
+            end_session()
+if backend.demo:
+    st.caption("⚠️ Demo mode: accounts and sightings vanish when you close this tab.")
 
 # --- Load this spotter's data ---------------------------------------------------------------
 breeds = load_breeds()
@@ -128,11 +245,11 @@ life = logic.life_list(breeds, sightings)
 seen = life["times_seen"] > 0
 collected, total = int(seen.sum()), len(life)
 
-st.header(f"{user.username}'s life list")
-c1, c2, c3 = st.columns(3)
-c1.metric("Lifers", f"{collected} / {total}")
-c2.metric("Total sightings", len(sightings))
-c3.metric("Still to find", total - collected)
+# Three small stat cards side by side, even on a narrow phone (st.columns would stack them).
+with st.container(horizontal=True, wrap=False, gap="small"):
+    st.metric("Lifers", f"{collected}/{total}", border=True)
+    st.metric("Sightings", len(sightings), border=True)
+    st.metric("To find", total - collected, border=True)
 st.progress(collected / total if total else 0.0)
 
 flash = st.session_state.pop("flash", None)
@@ -144,7 +261,9 @@ if flash:
     else:
         st.info(f"Logged another **{breed_name}**.")
 
-tab_log, tab_life, tab_history = st.tabs(["Log a sighting", "Life list", "Sightings"])
+# The "main_nav" key lets the stylesheet turn these tabs into a bottom tab bar on phones.
+with st.container(key="main_nav"):
+    tab_log, tab_life, tab_history = st.tabs(["🐾 Log", "📋 Life list", "🕘 Sightings"])
 
 # --- Log a sighting -------------------------------------------------------------------------
 with tab_log:
@@ -153,7 +272,7 @@ with tab_log:
     def breed_label(name: str) -> str:
         return name if name in seen_breeds else f"{name}  ✨ new"
 
-    with st.form("log_sighting", clear_on_submit=True):
+    with st.form("log_sighting", clear_on_submit=True, border=False):
         breed = st.selectbox(
             "Breed",
             breeds["breed"].tolist(),
@@ -162,11 +281,10 @@ with tab_log:
             placeholder="Start typing a breed…",
         )
         seen_on = st.date_input("Date seen", value=dt.date.today(), max_value=dt.date.today())
-        left, right = st.columns(2)
-        dog_name = left.text_input("Dog's name (if you found out)")
-        location = right.text_input("Where")
-        notes = st.text_area("Notes", placeholder="Good boy. Very fluffy.")
-        submitted = st.form_submit_button("Log sighting", type="primary")
+        dog_name = st.text_input("Dog's name (if you found out)")
+        location = st.text_input("Where")
+        notes = st.text_area("Notes", placeholder="Good boy. Very fluffy.", height=80)
+        submitted = st.form_submit_button("Log sighting", type="primary", width="stretch")
 
     st.caption("📷 Photo identification is on the roadmap. For now, pick the breed yourself.")
 
@@ -183,42 +301,54 @@ with tab_log:
             st.rerun()
 
 # --- Life list ----------------------------------------------------------------------------------
-with tab_life:
-    show = st.radio("Show", ["All", "Collected", "Still to find"], horizontal=True)
-    view = life
-    if show == "Collected":
-        view = life[seen]
-    elif show == "Still to find":
-        view = life[~seen]
+def life_row(row) -> str:
+    """One breed as a compact list row (a wide table is hard to read on a phone)."""
+    if row.times_seen:
+        css, icon = "cerb-row", "✅"
+        detail = f"First seen {row.first_seen} · seen {row.times_seen}×"
+    else:
+        css, icon, detail = "cerb-row missing", "<span class=\"dot\"></span>", "Not spotted yet"
+    return (
+        f'<div class="{css}"><span class="icon">{icon}</span>'
+        f'<div class="main"><div class="name">{html.escape(row.breed)}</div>'
+        f'<div class="sub">{detail}</div></div>'
+        f'<span class="rank">#{row.rank}</span></div>'
+    )
 
-    table = pd.DataFrame({
-        "Rank": view["rank"],
-        "": view["times_seen"].map(lambda n: "✅" if n else "⬜"),
-        "Breed": view["breed"],
-        "First seen": view["first_seen"],
-        "Times seen": view["times_seen"],
-    })
-    st.dataframe(table, hide_index=True)
+
+with tab_life:
+    show = st.segmented_control(
+        "Show", logic.LIFE_LIST_FILTERS, default="All", required=True,
+        key="life_filter", label_visibility="collapsed", width="stretch",
+    )
+    query = st.text_input("Search breeds", key="life_search", type="search",
+                          placeholder="Search breeds", label_visibility="collapsed")
+    view = logic.filter_life_list(life, show, query)
+    if view.empty:
+        st.info("No breeds match.")
+    else:
+        st.markdown("".join(life_row(r) for r in view.itertuples()), unsafe_allow_html=True)
     st.caption("Breeds ranked by AKC 2025 popularity.")
 
 # --- Sightings history ----------------------------------------------------------------------
 with tab_history:
     if sightings.empty:
         st.info("No sightings yet. Go find a dog!")
-    else:
-        st.dataframe(
-            sightings.drop(columns="id").rename(columns={
-                "seen_on": "Date", "breed": "Breed", "dog_name": "Name",
-                "location": "Where", "notes": "Notes",
-            }),
-            hide_index=True,
-        )
-        with st.expander("Delete a sighting"):
-            labels = {int(r.id): f"{r.seen_on} · {r.breed}" for r in sightings.itertuples()}
-            to_delete = st.selectbox("Sighting", list(labels), format_func=labels.get)
-            if st.button("Delete sighting"):
-                try:
-                    backend.delete_sighting(to_delete)
-                except AuthError as err:
-                    end_session(str(err))
-                st.rerun()
+    for s in logic.recent_first(sightings).itertuples():
+        with st.container(border=True):
+            with st.container(horizontal=True, vertical_alignment="top",
+                              horizontal_alignment="distribute"):
+                st.markdown(f"**{s.breed}**  \n{s.seen_on}"
+                            + (f" · {s.location}" if s.location else ""))
+                with st.popover("🗑", help="Delete this sighting"):
+                    st.write("Delete this sighting? This can't be undone.")
+                    if st.button("Delete", key=f"delete_{s.id}", type="primary"):
+                        try:
+                            backend.delete_sighting(int(s.id))
+                        except AuthError as err:
+                            end_session(str(err))
+                        st.rerun()
+            if s.dog_name:
+                st.caption(f"🐶 {s.dog_name}")
+            if s.notes:
+                st.caption(s.notes)

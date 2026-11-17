@@ -13,12 +13,17 @@ from __future__ import annotations
 import hashlib
 import itertools
 import re
+import secrets
 from dataclasses import dataclass
 from datetime import date
 from typing import Protocol
 
+from cerberus.oauth import with_query
+
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 MIN_PASSWORD_LENGTH = 8
+MAX_USERNAME_LENGTH = 30
+GOOGLE_FAILED = "Google sign-in didn't work. Please try again."
 
 
 class AuthError(Exception):
@@ -39,6 +44,16 @@ class Backend(Protocol):
         """Create an account. Returns the signed-in user, or None if email confirmation is needed."""
 
     def sign_in(self, email: str, password: str) -> User: ...
+
+    def start_google_sign_in(self, redirect_to: str) -> tuple[str, str]:
+        """Begin "Continue with Google". Returns (Google sign-in URL, PKCE code verifier).
+
+        Google sends the user back to `redirect_to` with `code=...` added.
+        """
+
+    def finish_google_sign_in(self, code: str, verifier: str) -> User:
+        """Swap the code Google sent back (plus the verifier) for a signed-in user."""
+
     def sign_out(self) -> None: ...
     def list_sightings(self) -> list[dict]: ...
 
@@ -55,8 +70,8 @@ def validate_sign_up(email: str, password: str, username: str) -> tuple[str, str
         raise AuthError("That doesn't look like a valid email address.")
     if len(password) < MIN_PASSWORD_LENGTH:
         raise AuthError(f"Password must be at least {MIN_PASSWORD_LENGTH} characters.")
-    if not 3 <= len(username) <= 30:
-        raise AuthError("Username must be 3 to 30 characters.")
+    if not 3 <= len(username) <= MAX_USERNAME_LENGTH:
+        raise AuthError(f"Username must be 3 to {MAX_USERNAME_LENGTH} characters.")
     return email, username
 
 
@@ -88,8 +103,11 @@ class SupabaseBackend:
 
     @staticmethod
     def _to_user(sb_user) -> User:
-        username = (sb_user.user_metadata or {}).get("username") or sb_user.email.split("@")[0]
-        return User(id=sb_user.id, email=sb_user.email, username=username)
+        meta = sb_user.user_metadata or {}
+        # Email sign-ups choose a username; Google accounts bring their name instead.
+        username = (meta.get("username") or meta.get("full_name") or meta.get("name")
+                    or sb_user.email.split("@")[0])
+        return User(id=sb_user.id, email=sb_user.email, username=username[:MAX_USERNAME_LENGTH])
 
     def _require_user(self) -> User:
         if self._user is None:
@@ -126,6 +144,26 @@ class SupabaseBackend:
         self._user = self._to_user(res.user)
         return self._user
 
+    def start_google_sign_in(self, redirect_to):
+        auth = self.client.auth
+        res = auth.sign_in_with_oauth(
+            {"provider": "google", "options": {"redirect_to": redirect_to}}
+        )
+        # The client keeps the verifier it just made in its own storage, but that storage
+        # dies with this Streamlit session, so hand it to the caller to keep safe.
+        verifier = auth._storage.get_item(f"{auth._storage_key}-code-verifier")
+        return res.url, verifier
+
+    def finish_google_sign_in(self, code, verifier):
+        try:
+            res = self.client.auth.exchange_code_for_session(
+                {"auth_code": code, "code_verifier": verifier}
+            )
+        except Exception as err:
+            raise AuthError(GOOGLE_FAILED) from err
+        self._user = self._to_user(res.user)
+        return self._user
+
     def sign_out(self):
         try:
             self.client.auth.sign_out()
@@ -159,7 +197,8 @@ class MemoryBackend:
     demo = True
 
     def __init__(self):
-        self._accounts: dict[str, tuple[str, User]] = {}  # email -> (password hash, user)
+        # email -> (password hash, or None for Google-only accounts; user)
+        self._accounts: dict[str, tuple[str | None, User]] = {}
         self._sightings: list[dict] = []
         self._ids = itertools.count(1)
         self._user: User | None = None
@@ -187,6 +226,28 @@ class MemoryBackend:
         if account is None or account[0] != self._hash(password):
             raise AuthError("Invalid login credentials")
         self._user = account[1]
+        return self._user
+
+    # Demo mode can't reach Google, so it pretends: the "Google" URL sends the user straight
+    # back with a code derived from the verifier, which is checked just like the real thing.
+    DEMO_GOOGLE_EMAIL = "demo.google.user@example.com"
+
+    @staticmethod
+    def _demo_code(verifier: str) -> str:
+        return "demo-" + hashlib.sha256(verifier.encode()).hexdigest()[:16]
+
+    def start_google_sign_in(self, redirect_to):
+        verifier = secrets.token_urlsafe(32)
+        return with_query(redirect_to, code=self._demo_code(verifier)), verifier
+
+    def finish_google_sign_in(self, code, verifier):
+        if code != self._demo_code(verifier):
+            raise AuthError(GOOGLE_FAILED)
+        email = self.DEMO_GOOGLE_EMAIL
+        if email not in self._accounts:  # first time: Google sign-in creates the account
+            user = User(id=f"user-{len(self._accounts) + 1}", email=email, username="Google User")
+            self._accounts[email] = (None, user)  # no password, so password sign-in can't match
+        self._user = self._accounts[email][1]
         return self._user
 
     def sign_out(self):

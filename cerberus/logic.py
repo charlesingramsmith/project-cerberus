@@ -40,3 +40,24 @@ def life_list(breeds: pd.DataFrame, sightings: pd.DataFrame) -> pd.DataFrame:
     out = breeds.merge(stats, on="breed", how="left")
     out["times_seen"] = out["times_seen"].fillna(0).astype(int)
     return out.sort_values(["rank", "breed"]).reset_index(drop=True)
+
+
+LIFE_LIST_FILTERS = ["All", "Collected", "Still to find"]
+
+
+def filter_life_list(life: pd.DataFrame, show: str = "All", query: str = "") -> pd.DataFrame:
+    """Narrow a life list to collected / still-to-find breeds and a case-insensitive search."""
+    out = life
+    if show == "Collected":
+        out = out[out["times_seen"] > 0]
+    elif show == "Still to find":
+        out = out[out["times_seen"] == 0]
+    query = (query or "").strip()
+    if query:
+        out = out[out["breed"].str.contains(query, case=False, regex=False)]
+    return out
+
+
+def recent_first(sightings: pd.DataFrame) -> pd.DataFrame:
+    """Sightings newest first (by date seen, then by when they were logged)."""
+    return sightings.sort_values(["seen_on", "id"], ascending=False)

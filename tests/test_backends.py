@@ -74,3 +74,40 @@ def test_sightings_listed_newest_first(backend):
     backend.add_sighting("Pug", date(2026, 11, 1))
     backend.add_sighting("Beagle", date(2026, 11, 5))
     assert [s["breed"] for s in backend.list_sightings()] == ["Beagle", "Pug"]
+
+
+# --- Continue with Google (demo mode pretends to be Google) -------------------------
+
+def google_round_trip(backend, tamper=False):
+    from urllib.parse import parse_qs, urlparse
+
+    url, verifier = backend.start_google_sign_in("https://app.example/?flow=abc")
+    params = parse_qs(urlparse(url).query)
+    assert params["flow"] == ["abc"]  # the return address is kept intact
+    code = params["code"][0] + ("x" if tamper else "")
+    return backend.finish_google_sign_in(code, verifier)
+
+
+def test_google_sign_in_creates_an_account_and_signs_in(backend):
+    user = google_round_trip(backend)
+    assert user.username == "Google User"
+    backend.add_sighting("Pug", date(2026, 11, 1))
+    assert len(backend.list_sightings()) == 1
+
+
+def test_google_sign_in_again_is_the_same_account(backend):
+    first = google_round_trip(backend)
+    backend.sign_out()
+    assert google_round_trip(backend) == first
+
+
+def test_google_sign_in_rejects_a_wrong_code(backend):
+    with pytest.raises(AuthError, match="Google"):
+        google_round_trip(backend, tamper=True)
+
+
+def test_google_accounts_have_no_password(backend):
+    google_round_trip(backend)
+    backend.sign_out()
+    with pytest.raises(AuthError):
+        backend.sign_in(MemoryBackend.DEMO_GOOGLE_EMAIL, "anything-at-all")

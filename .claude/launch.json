@@ -3,9 +3,16 @@
   "configurations": [
     {
       "name": "cerberus",
-      "runtimeExecutable": ".venv\\Scripts\\python.exe",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
       "runtimeArgs": ["-m", "streamlit", "run", "app.py", "--server.headless", "true", "--server.port", "8501"],
       "port": 8501
+    },
+    {
+      "name": "cerberus-demo",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "streamlit", "run", "app.py", "--server.headless", "true", "--server.port", "8502"],
+      "env": { "CERBERUS_DEMO": "1" },
+      "port": 8502
     }
   ]
 }
