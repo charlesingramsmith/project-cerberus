@@ -1,5 +1,7 @@
 # 🐕 Project Cerberus
 
+**[▶ Try it live](https://project-cerberus.streamlit.app)**
+
 **A life list for dog spotters.** Every time you see a dog, log its breed. The first time you log a breed it becomes a *lifer*. The goal is to collect all 100 of the most popular breeds.
 
 It's inspired by bird-watching life lists, but for the dogs you pass in the park.
