@@ -65,6 +65,16 @@ class PendingSignIns:
 PENDING = PendingSignIns()
 
 
+def with_trailing_slash(url: str) -> str:
+    """`https://x.app` -> `https://x.app/`.
+
+    Browsers report the app's address without the final slash, but Supabase's
+    allowed Redirect URLs look like `https://x.app/**`, which needs that slash.
+    Without it Supabase quietly sends the user to the Site URL instead.
+    """
+    return url if url.endswith("/") else url + "/"
+
+
 def with_query(url: str, **params: str) -> str:
     """Add query parameters to a URL that may or may not already have some."""
     return url + ("&" if "?" in url else "?") + urlencode(params)

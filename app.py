@@ -11,7 +11,7 @@ import streamlit as st
 
 from cerberus import logic
 from cerberus.backends import AuthError, MemoryBackend, SupabaseBackend
-from cerberus.oauth import PENDING, with_query
+from cerberus.oauth import PENDING, with_query, with_trailing_slash
 
 st.set_page_config(
     page_title="Project Cerberus",
@@ -116,9 +116,10 @@ def end_session(message: str | None = None):
 def app_url() -> str:
     """Where Google should send people back to: this app, as the browser sees it."""
     try:
-        return st.secrets["supabase"]["redirect_url"]  # optional override
+        url = st.secrets["supabase"]["redirect_url"]  # optional override
     except Exception:
-        return st.context.url or "http://localhost:8501/"
+        url = st.context.url or "http://localhost:8501/"
+    return with_trailing_slash(url)
 
 
 def google_sign_in_url() -> str:

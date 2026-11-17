@@ -122,7 +122,9 @@ def returning_from_google(monkeypatch, **params) -> AppTest:
 def test_continue_with_google_signs_in_on_return(at, monkeypatch):
     from urllib.parse import parse_qs, urlparse
 
-    params = {k: v[0] for k, v in parse_qs(urlparse(google_link(at)).query).items()}
+    link = google_link(at)
+    assert urlparse(link).path == "/"  # Supabase's "<app url>/**" allow list needs the slash
+    params = {k: v[0] for k, v in parse_qs(urlparse(link).query).items()}
     assert set(params) == {"flow", "code"}
 
     back = returning_from_google(monkeypatch, **params)

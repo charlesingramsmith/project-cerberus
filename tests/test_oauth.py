@@ -1,5 +1,5 @@
 """Tests for the store that remembers Google sign-ins while the user is at Google."""
-from cerberus.oauth import PendingSignIns, with_query
+from cerberus.oauth import PendingSignIns, with_query, with_trailing_slash
 
 
 class FakeClock:
@@ -41,3 +41,9 @@ def test_flows_expire():
 def test_with_query_adds_parameters():
     assert with_query("https://x.app/", flow="abc") == "https://x.app/?flow=abc"
     assert with_query("https://x.app/?flow=abc", code="1 2") == "https://x.app/?flow=abc&code=1+2"
+
+
+def test_return_address_gets_the_slash_supabase_needs():
+    # Supabase's allow list uses "https://x.app/**", which "https://x.app?flow=..." fails.
+    assert with_trailing_slash("http://localhost:8501") == "http://localhost:8501/"
+    assert with_trailing_slash("https://x.app/") == "https://x.app/"
