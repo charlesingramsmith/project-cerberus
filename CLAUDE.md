@@ -14,6 +14,8 @@ The owner is new to Git and coding. Explain git/deploy steps in plain language a
 
 If `.venv` is missing: `python -m venv .venv`, then install the requirements. Python 3.12.
 
+`.claude/settings.json` pre-approves the commands above plus read-only git commands, and blocks reading or editing `.streamlit/secrets.toml`. Personal overrides go in `.claude/settings.local.json` (git-ignored).
+
 ## Architecture
 
 | File | Role |
@@ -42,6 +44,7 @@ Backend selection (in `app.py` `make_backend`): `CERBERUS_DEMO=1` forces memory;
 
 - **Pushing to `main` deploys to production** (Streamlit Community Cloud redeploys automatically). Run the tests before every push. For bigger features, prefer a branch and merge once it's tested.
 - Commit messages: imperative summary line, e.g. "Add photo upload to sightings".
+- **Keep this file current, unprompted.** Before every commit, check whether the change makes anything here wrong or missing (new files, commands, rules, gotchas, roadmap items done). If so, update CLAUDE.md in the same commit. Keep it short and accurate; don't log history here (that's what git is for).
 - Git commits use the owner's GitHub noreply email (already configured globally). Don't change git config.
 - Keep `README.md` up to date (features, roadmap, architecture) when features change; it's the project's shop window.
 - When dependencies change, pin exact versions in `requirements.txt` (Streamlit Cloud installs from it).
