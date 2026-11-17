@@ -21,10 +21,11 @@ Bird apps like Merlin let you identify a bird three ways: by answering questions
 
 - [x] Manual sighting log and life list for the top 100 breeds
 - [x] Accounts and a hosted database (Supabase, with row-level security)
+- [x] Continue with Google (setup steps in [docs/google-sign-in.md](docs/google-sign-in.md))
 
 ## Now
 
-- [ ] Sign in with Google: built and tested on the `google-sign-in` branch. Before merging, do the one-time Google Cloud + Supabase setup in [docs/google-sign-in.md](docs/google-sign-in.md) and try it locally (otherwise the live button shows an error).
+_Nothing in progress. Pick the next item from below._
 
 ## Next
 
