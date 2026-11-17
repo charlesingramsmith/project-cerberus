@@ -5,13 +5,16 @@ __pycache__/
 venv/
 .pytest_cache/
 
-# Local data: your sightings database stays on your machine
+# Old local SQLite database (no longer used; data lives in Supabase)
 data/*.db
 data/*.db-journal
 
 # Secrets
 .env
 .streamlit/secrets.toml
+
+# Personal Claude Code settings (shared ones live in .claude/settings.json)
+.claude/settings.local.json
 
 # Editors / OS
 .idea/
