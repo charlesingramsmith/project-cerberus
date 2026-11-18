@@ -51,7 +51,7 @@ Backend selection (in `app.py` `make_backend`): `CERBERUS_DEMO=1` forces memory;
 
 - **Pushing to `main` deploys to production** (Streamlit Community Cloud redeploys automatically). Run the tests before every push. Merge a branch into `main` only once it's tested.
 - **One session, one branch.** At the start of every session, before editing anything, check `git status` and create a new branch for the task, named after it (e.g. `photo-upload`), from an up-to-date `main`: `git fetch` then `git switch -c <name> origin/main`. If the folder has uncommitted work from another branch, don't switch or stash it (another session may own it): make a separate folder with `git worktree add ../project-cerberus-<name> -b <name> origin/main` and work there. Tell the owner which branch you made and why. Only skip this if the owner says to continue on the current branch.
-- Commit messages: imperative summary line, e.g. "Add photo upload to sightings".
+- Commit messages: an imperative summary line, e.g. "Add photo upload to sightings", then a blank line and **always** a short plain-English explanation of what changed and why (a few lines a non-coder can follow). No summary-only commits, even for small changes.
 - **Keep this file current, unprompted.** Before every commit, check whether the change makes anything here wrong or missing (new files, commands, rules, gotchas). If so, update CLAUDE.md in the same commit. Keep it short and accurate; don't log history here (that's what git is for).
 - Git commits use the owner's GitHub noreply email (already configured globally). Don't change git config.
 - Keep `README.md` up to date (features, roadmap, architecture) when features change; it's the project's shop window.
