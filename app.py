@@ -328,8 +328,51 @@ if flash:
 # The five main tabs. The "main_nav" key lets MOBILE_CSS pin them to the bottom of the
 # screen as a tab bar; the "\n" puts each icon above its label.
 NAV_TABS = ["🔍\nDog ID", "📋\nLife list", "👤\nProfile", "👥\nSocial", "⚙️\nSettings"]
+SETTINGS_TAB = NAV_TABS[-1]
+
+
+@st.cache_data
+def load_whats_new() -> tuple[list[logic.Release], list[logic.RoadmapItem]]:
+    """Releases from CHANGELOG.md and upcoming features from ROADMAP.md (read once per deploy)."""
+    changelog = logic.CHANGELOG_MD.read_text(encoding="utf-8")
+    roadmap = logic.ROADMAP_MD.read_text(encoding="utf-8")
+    return logic.parse_changelog(changelog), logic.upcoming_features(roadmap)
+
+
+releases, upcoming = load_whats_new()
+APP_VERSION = releases[0].version if releases else "dev"
+
+# The "new update" dot on Settings. Opening Settings counts as seeing the latest update:
+# the tabs below rerun the app when you switch, and st.session_state.main_tab says which
+# tab is open. The version you've seen is saved to your account, so it follows you
+# between devices.
+NEW_UPDATE_DOT_CSS = """
+<style>
+.st-key-main_nav [data-testid="stTab"]:last-of-type { position: relative; }
+.st-key-main_nav [data-testid="stTab"]:last-of-type::after {  /* new-update-dot */
+    content: ""; position: absolute; top: .45rem; left: calc(50% + .55rem);
+    width: .6rem; height: .6rem; border-radius: 50%;
+    background: #E8833A;  /* primaryColor in .streamlit/config.toml */
+}
+</style>
+"""
+latest = releases[0].version if releases else None
+try:
+    unseen = logic.has_unseen_update(latest, backend.seen_version())
+    if unseen and st.session_state.get("main_tab") == SETTINGS_TAB:
+        backend.mark_version_seen(latest)
+        st.session_state.new_update = latest  # show a "New" badge on it this visit
+        unseen = False
+except AuthError as err:
+    end_session(str(err))
+except Exception:  # the dot is a nice-to-have: never let it break the app
+    unseen = False
+if unseen:
+    st.html(NEW_UPDATE_DOT_CSS)
+
 with st.container(key="main_nav"):
-    tab_id, tab_life, tab_profile, tab_social, tab_settings = st.tabs(NAV_TABS)
+    tab_id, tab_life, tab_profile, tab_social, tab_settings = st.tabs(
+        NAV_TABS, key="main_tab", on_change="rerun")
 
 # --- Dog ID: identify a dog and log the sighting ---------------------------------------------
 with tab_id:
@@ -446,23 +489,13 @@ with tab_social:
     st.info("Coming soon: follow friends, compare life lists and see who spots the most breeds.")
 
 # --- Settings ------------------------------------------------------------------------------
-@st.cache_data
-def load_whats_new() -> tuple[list[logic.Release], list[logic.RoadmapItem]]:
-    """Releases from CHANGELOG.md and upcoming features from ROADMAP.md (read once per deploy)."""
-    changelog = logic.CHANGELOG_MD.read_text(encoding="utf-8")
-    roadmap = logic.ROADMAP_MD.read_text(encoding="utf-8")
-    return logic.parse_changelog(changelog), logic.upcoming_features(roadmap)
-
-
-releases, upcoming = load_whats_new()
-APP_VERSION = releases[0].version if releases else "dev"
-
-
 def release_card(release: logic.Release, border: bool = True):
-    seen = dt.date.fromisoformat(release.date)
+    released = dt.date.fromisoformat(release.date)
+    # "New" marks the update that made the dot on Settings appear, for this visit.
+    badge = " :orange-badge[New]" if st.session_state.get("new_update") == release.version else ""
     with st.container(border=border):
-        st.markdown(f"**Version {release.version}: {release.title}**")
-        st.caption(f"{seen.day} {seen:%B %Y}")
+        st.markdown(f"**Version {release.version}: {release.title}**{badge}")
+        st.caption(f"{released.day} {released:%B %Y}")
         st.markdown("\n".join(f"- {change}" for change in release.changes))
 
 

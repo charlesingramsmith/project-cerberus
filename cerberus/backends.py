@@ -85,6 +85,12 @@ class Backend(Protocol):
     def suggest_feature(self, suggestion: str) -> None:
         """Send a feature idea. Raises ValueError if it's empty or too long."""
 
+    def seen_version(self) -> str | None:
+        """The newest app update (e.g. "0.6.0") the signed-in user has seen, or None."""
+
+    def mark_version_seen(self, version: str) -> None:
+        """Remember that the signed-in user has seen this update (clears the Settings dot)."""
+
 
 def validate_sign_up(email: str, password: str, username: str) -> tuple[str, str]:
     """Check sign-up input and return the cleaned (email, username)."""
@@ -123,6 +129,12 @@ class SupabaseBackend:
 
         self.client = create_client(url, key)
         self._user: User | None = None
+        self._meta: dict = {}  # the signed-in user's Supabase user_metadata
+
+    def _keep(self, sb_user) -> User:
+        """Remember who just signed in (and their metadata), and return them as a User."""
+        self._meta = dict(sb_user.user_metadata or {})
+        return self._to_user(sb_user)
 
     @staticmethod
     def _to_user(sb_user) -> User:
@@ -154,7 +166,7 @@ class SupabaseBackend:
             raise AuthError(getattr(err, "message", str(err))) from err
         if res.session is None:
             return None  # Supabase sent a confirmation email
-        self._user = self._to_user(res.user)
+        self._user = self._keep(res.user)
         return self._user
 
     def sign_in(self, email, password):
@@ -164,7 +176,7 @@ class SupabaseBackend:
             )
         except Exception as err:
             raise AuthError(getattr(err, "message", str(err))) from err
-        self._user = self._to_user(res.user)
+        self._user = self._keep(res.user)
         return self._user
 
     def start_google_sign_in(self, redirect_to):
@@ -184,7 +196,7 @@ class SupabaseBackend:
             )
         except Exception as err:
             raise AuthError(GOOGLE_FAILED) from err
-        self._user = self._to_user(res.user)
+        self._user = self._keep(res.user)
         return self._user
 
     def refresh_token(self):
@@ -201,7 +213,7 @@ class SupabaseBackend:
             res = self.client.auth.refresh_session(refresh_token)
         except Exception as err:  # used, revoked or unknown token
             raise AuthError(RESUME_FAILED) from err
-        self._user = self._to_user(res.user)
+        self._user = self._keep(res.user)
         return self._user
 
     def sign_out(self):
@@ -259,6 +271,18 @@ class SupabaseBackend:
         self.client.table("feature_suggestions").insert(
             {"suggestion": text, "user_id": user.id}).execute()
 
+    # The last update a user has seen lives in their Supabase user_metadata, so no table
+    # is needed and it follows them to every device. Supabase merges `data` into the
+    # existing metadata, so the username is kept.
+    def seen_version(self):
+        self._require_user()
+        return self._meta.get("seen_version")
+
+    def mark_version_seen(self, version):
+        self._require_user()
+        self.client.auth.update_user({"data": {"seen_version": version}})
+        self._meta = {**self._meta, "seen_version": version}
+
 
 # --- In-memory (tests and demo mode) ---------------------------------------------
 
@@ -276,6 +300,7 @@ class MemoryBackend:
         self._token: str | None = None
         self._votes: set[tuple[str, str]] = set()  # (user id, feature)
         self.suggestions: list[dict] = []
+        self._seen: dict[str, str] = {}  # user id -> newest update they've seen
 
     @staticmethod
     def _hash(password: str) -> str:
@@ -378,3 +403,9 @@ class MemoryBackend:
     def suggest_feature(self, suggestion):
         user = self._require_user()
         self.suggestions.append({"user_id": user.id, "suggestion": clean_suggestion(suggestion)})
+
+    def seen_version(self):
+        return self._seen.get(self._require_user().id)
+
+    def mark_version_seen(self, version):
+        self._seen[self._require_user().id] = version
