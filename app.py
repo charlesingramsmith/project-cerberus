@@ -115,8 +115,10 @@ def end_session(message: str | None = None):
 
 # --- Continue with Google ---------------------------------------------------------------
 # 1. The button links to Google, with a return address of this app plus `?flow=<id>`.
-#    It opens in a new tab: Google refuses to show its sign-in page inside the frame
-#    that Streamlit Community Cloud wraps apps in.
+#    Google refuses to show its sign-in page inside the frame that Streamlit Community
+#    Cloud wraps apps in, so the whole browser tab has to go there. That frame blocks
+#    links from leaving it, so SAME_TAB_SIGN_IN_JS hands the trip to the page around
+#    it instead (see below). If that ever fails, the button opens a new tab.
 # 2. Google sends the user back here with `?flow=<id>&code=<one-time code>`. That's a
 #    fresh Streamlit session, so the verifier needed to finish is fetched from PENDING
 #    (see cerberus/oauth.py) using the flow id.
@@ -127,6 +129,32 @@ def app_url() -> str:
     except Exception:
         url = st.context.url or "http://localhost:8501/"
     return with_trailing_slash(url)
+
+
+# When the Google button is clicked, go to Google in this same tab rather than opening a
+# second one. Streamlit Cloud's frame is not allowed to send the tab elsewhere, but the
+# page around it is on the same site, so we put a link on that page and click it there.
+# If the outer page can't be reached, nothing is cancelled and the button's own
+# open-in-a-new-tab behaviour takes over. Running locally there's no frame at all, so
+# window.top is just this page.
+SAME_TAB_SIGN_IN_JS = """
+<script>
+if (!window.cerberusSameTabSignIn) {
+  window.cerberusSameTabSignIn = true;
+  document.addEventListener("click", (event) => {
+    const link = event.target.closest(".st-key-google_sign_in a[href]");
+    if (!link) return;
+    let page;
+    try { page = window.top.document; } catch (err) { return; }
+    event.preventDefault();
+    const hop = page.createElement("a");
+    hop.href = link.href;
+    page.body.appendChild(hop);
+    hop.click();
+  }, true);
+}
+</script>
+"""
 
 
 def google_sign_in_url() -> str:
@@ -172,8 +200,9 @@ def auth_screen():
         st.info(notice)
 
     st.link_button("Continue with Google", google_sign_in_url(), type="primary",
-                   width="stretch")
-    st.caption("New here? This creates your account too. Opens in a new tab.")
+                   width="stretch", key="google_sign_in")
+    st.html(SAME_TAB_SIGN_IN_JS, unsafe_allow_javascript=True)
+    st.caption("New here? This creates your account too.")
     st.divider()
     st.caption("Or use your email and a password:")
 

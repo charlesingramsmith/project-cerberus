@@ -40,7 +40,7 @@ The Client Secret lives only in Supabase. It never goes in the app or in `secret
 
 ## 3. Try it
 
-Run the app locally, click **Continue with Google**, and sign in in the new tab.
+Run the app locally, click **Continue with Google**, and sign in with Google.
 You should land on your life list. Then try it on the live site.
 
 If you land back on the sign-in screen with "That Google sign-in link expired", Supabase
@@ -58,5 +58,8 @@ redirect_url = "https://project-cerberus.streamlit.app/"
   life list comes from the Google account.
 - If someone already has an email/password account and signs in with Google using
   the same (verified) email, Supabase links the two, so they keep their sightings.
-- The Google sign-in opens in a new tab because Google won't show its sign-in page
-  inside the frame that Streamlit Community Cloud puts apps in.
+- Google won't show its sign-in page inside the frame that Streamlit Community Cloud
+  puts apps in, and that frame isn't allowed to send the whole tab elsewhere. A small
+  script in `app.py` (`SAME_TAB_SIGN_IN_JS`) gets round this by asking the page around
+  the frame to go to Google, so everything happens in one tab. If that ever stops
+  working, the button falls back to opening Google in a new tab.
