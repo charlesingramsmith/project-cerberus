@@ -394,3 +394,29 @@ def test_switching_sharing_off_hides_your_sightings(at):
     open_tab(at, "Social")
     assert "Beagle" not in feed_html(at)
     assert "No sightings yet" in at.info[0].value
+
+# --- After a deploy -----------------------------------------------------------------------
+
+def test_changed_helper_files_are_reloaded_without_signing_anyone_out(at):
+    """Like a Streamlit Cloud deploy: cerberus/ files change while the server keeps running."""
+    import os
+    import sys
+    import time
+
+    sign_up(at)
+    log_breed(at, "Beagle")
+    old_logic, old_backend = sys.modules["cerberus.logic"], at.session_state["backend"]
+    path = Path(old_logic.__file__)
+    before = path.stat()
+    try:
+        os.utime(path, (before.st_atime, time.time() + 5))  # "the deploy just rewrote it"
+        at.run()
+        assert not at.exception
+        assert sys.modules["cerberus.logic"] is not old_logic  # the new code was loaded
+        backend = at.session_state["backend"]
+        assert type(backend) is not type(old_backend)  # rebuilt from the new class...
+        assert type(backend).__module__ == "cerberus.backends"
+        assert "charlie's life list" in headers(at)  # ...and still signed in
+        assert at.metric[1].value == "1"  # with the sighting kept
+    finally:
+        os.utime(path, (before.st_atime, before.st_mtime))
