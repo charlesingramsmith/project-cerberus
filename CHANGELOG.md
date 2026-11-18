@@ -10,6 +10,9 @@ Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed b
 - Tap any breed on your life list to open its profile: a photo, a short intro, where it comes from, its temperament and a fun fact.
 - Works for breeds you haven't spotted yet too, so you know what to look out for.
 
+## 0.8.1 - 2026-11-18 - Smoother updates
+- Fixed the app sometimes showing an error right after an update. New versions now load cleanly, and you stay signed in.
+
 ## 0.8.0 - 2026-11-18 - Profiles and a Social feed
 - Make your profile your own: pick a username, a dog emoji as your picture, your favourite breed, and add your own dogs.
 - The Social tab now shows the latest sightings from everyone in the community.

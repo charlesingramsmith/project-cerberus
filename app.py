@@ -6,14 +6,42 @@ import dataclasses
 import datetime as dt
 import html
 import os
+import sys
+from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
-from cerberus import logic
-from cerberus.backends import AuthError, MemoryBackend, SupabaseBackend
-from cerberus.oauth import PENDING, with_query, with_trailing_slash
-from cerberus.remember import MAX_AGE_DAYS, SAVED_SIGN_IN_JS
+CERBERUS_DIR = Path(__file__).resolve().parent / "cerberus"
+
+
+def drop_stale_cerberus_modules() -> bool:
+    """Forget old copies of the cerberus/ modules after a deploy changed their files.
+
+    Streamlit Community Cloud updates the files on a deploy, but the running server can
+    keep the cerberus modules it imported earlier. New app.py code then meets old helpers
+    and crashes (e.g. "AttributeError: ... has no attribute 'my_profile'"). If any
+    cerberus/*.py file is newer than the package import, drop the cached modules so the
+    imports below load the new ones. Returns True if it did.
+    """
+    package = sys.modules.get("cerberus")
+    if package is None:
+        return False
+    newest = max(path.stat().st_mtime for path in CERBERUS_DIR.glob("*.py"))
+    if newest <= getattr(package, "LOADED_AT", 0):  # older packages had no LOADED_AT
+        return False
+    for name in [n for n in sys.modules if n == "cerberus" or n.startswith("cerberus.")]:
+        del sys.modules[name]
+    return True
+
+
+drop_stale_cerberus_modules()
+
+# These come after the stale-module check above, on purpose.
+from cerberus import logic  # noqa: E402
+from cerberus.backends import AuthError, MemoryBackend, SupabaseBackend  # noqa: E402
+from cerberus.oauth import PENDING, with_query, with_trailing_slash  # noqa: E402
+from cerberus.remember import MAX_AGE_DAYS, SAVED_SIGN_IN_JS  # noqa: E402
 
 st.set_page_config(
     page_title="Project Cerberus",
@@ -145,17 +173,39 @@ def make_backend():
     return SupabaseBackend(url, key)
 
 
+def file_version(*paths: Path) -> tuple[float, ...]:
+    """When these files last changed. Passing this to a cached loader makes st.cache_data
+    read the files again after a deploy edits them (it only notices changed arguments)."""
+    return tuple(path.stat().st_mtime for path in paths)
+
+
 @st.cache_data
-def load_breeds() -> pd.DataFrame:
+def load_breeds(version: tuple) -> pd.DataFrame:  # no "_": st.cache_data skips _args
     return logic.load_breeds()
 
 
 @st.cache_data
-def load_breed_profiles() -> dict[str, logic.BreedProfile]:
+def load_breed_profiles(version: tuple) -> dict[str, logic.BreedProfile]:
     return logic.load_breed_profiles()
 
 
+def refresh_stale_backend():
+    """After a deploy reloaded cerberus/, a signed-in visitor's backend is still an object
+    of the old class, missing any new methods. Rebuild it from the new class and carry
+    its contents over (Supabase client, signed-in user), so nobody gets signed out."""
+    old = st.session_state.get("backend")
+    if old is None or isinstance(old, (MemoryBackend, SupabaseBackend)):
+        return
+    new = make_backend()
+    if type(new).__name__ == type(old).__name__:
+        new.__dict__.update(old.__dict__)  # attributes new in this version keep their defaults
+    else:
+        st.session_state.pop("user", None)
+    st.session_state.backend = new
+
+
 # One backend per browser session, so sign-ins are never shared between visitors.
+refresh_stale_backend()
 if "backend" not in st.session_state:
     st.session_state.backend = make_backend()
 backend = st.session_state.backend
@@ -364,7 +414,7 @@ if backend.demo:
     st.caption("⚠️ Demo mode: accounts and sightings vanish when you close this tab.")
 
 # --- Load this spotter's data ---------------------------------------------------------------
-breeds = load_breeds()
+breeds = load_breeds(file_version(logic.BREEDS_CSV))
 try:
     sightings = logic.sightings_frame(backend.list_sightings())
 except AuthError as err:
@@ -400,14 +450,14 @@ SETTINGS_TAB = NAV_TABS[-1]
 
 
 @st.cache_data
-def load_whats_new() -> tuple[list[logic.Release], list[logic.RoadmapItem]]:
+def load_whats_new(version: tuple) -> tuple[list[logic.Release], list[logic.RoadmapItem]]:
     """Releases from CHANGELOG.md and upcoming features from ROADMAP.md (read once per deploy)."""
     changelog = logic.CHANGELOG_MD.read_text(encoding="utf-8")
     roadmap = logic.ROADMAP_MD.read_text(encoding="utf-8")
     return logic.parse_changelog(changelog), logic.upcoming_features(roadmap)
 
 
-releases, upcoming = load_whats_new()
+releases, upcoming = load_whats_new(file_version(logic.CHANGELOG_MD, logic.ROADMAP_MD))
 APP_VERSION = releases[0].version if releases else "dev"
 
 # The "new update" dot on Settings. Opening Settings counts as seeing the latest update:
@@ -540,7 +590,8 @@ with tab_life:
     if view.empty:
         st.info("No breeds match.")
     else:
-        profiles = load_breed_profiles()
+        profiles = load_breed_profiles(
+            file_version(logic.BREED_INFO_CSV, logic.BREED_PHOTOS_CSV))
         st.markdown("".join(life_row(r, profiles.get(r.breed)) for r in view.itertuples()),
                     unsafe_allow_html=True)
     st.caption("Tap a breed to see a photo and a short intro. "
