@@ -6,6 +6,7 @@ Where Project Cerberus is heading, and why. This is the single source of truth f
 - Tick an item (`[x]`) in the same commit that finishes it, and update the README summary.
 - New ideas go under **Ideas** first; move them up when they're ready to be worked on.
 - Each bigger item has a short note on the approach so anyone (or any agent) picking it up knows where to start. Keep notes brief: decisions, not history.
+- Users see the top-level lines under **Now** and **Next** in the app (Settings > What's new) and can +1 them, so write those lines for users. The indented notes stay developer-only. Votes are tied to the **bold** title (or the whole line if there's no bold part), so renaming an item resets its votes.
 
 ## Inspiration: three ways to identify a dog
 
@@ -24,6 +25,8 @@ Bird apps like Merlin let you identify a bird three ways: by answering questions
 - [x] Continue with Google (setup steps in [docs/google-sign-in.md](docs/google-sign-in.md))
 - [x] Bottom tab bar: Dog ID, Life list, Profile, Social (placeholder), Settings
 - [x] "Keep me signed in" for 30 days (refresh token in browser storage, renewed on each visit)
+- [x] **What's new** in Settings: version number and history from `CHANGELOG.md`, "Coming next" from this file's Now and Next sections, a +1 vote on each upcoming feature, and a box to suggest features.
+  - Not done yet: a "new" dot on Settings when there's an update the user hasn't seen.
 
 ## Now
 
@@ -54,10 +57,6 @@ _Nothing in progress. Pick the next item from below._
   - Add a follows table so the feed can show everyone who shares or only people you follow.
   - Keep locations coarse or hidden in the feed so it can't reveal where someone walks their dog every day.
   - Later: likes/comments, and reporting or hiding posts.
-- [ ] **App updates ("What's new")**: shows recent changes and what's coming next on the roadmap.
-  - Read it from the repo so it never goes stale: dated entries from a new `CHANGELOG.md` for "What's new", and the **Now** and **Next** sections of this file for "Coming next". Parsing the Markdown is pure logic in `cerberus/logic.py`, with tests.
-  - Lives in the **Settings** tab as a "What's new" section (no 6th tab: the bottom bar is already full on a 375px phone). Optional: a "new" dot on Settings when there's an update the user hasn't seen.
-  - Write user-friendly lines ("You can now add a photo"), not developer notes.
 - [ ] Installable "Add to Home Screen" app (needs hosting where we control the web app manifest)
 
 ## Ideas (not yet committed to)

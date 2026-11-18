@@ -14,7 +14,7 @@ It's inspired by bird-watching life lists, but for the dogs you pass in the park
 - **Lifer celebrations**: a new breed gets balloons 🎉.
 - **Life list**: progress towards 100 breeds, the date you first saw each one and how many times, filterable by collected or still to find, and searchable.
 - **Your profile**: a summary of your spotting, plus every dog you've logged as a card, newest first, each with its own delete button.
-- **Settings**: your account details and sign out. (The **Social** tab is a placeholder for now.)
+- **Settings**: your account details and sign out, plus **What's new**: the app's version number and recent updates (from [`CHANGELOG.md`](CHANGELOG.md)), the features coming next (straight from [`ROADMAP.md`](ROADMAP.md)) with a **+1** button on each so you can vote for what you want most, and a box to suggest new features. (The **Social** tab is a placeholder for now.)
 - **Demo mode**: with no database configured, the app still runs, keeping data in memory only.
 
 ## Architecture
@@ -31,19 +31,21 @@ It's inspired by bird-watching life lists, but for the dogs you pass in the park
 project-cerberus/
 ├── app.py                  # Streamlit UI: sign-in screens and the life list
 ├── cerberus/
-│   ├── logic.py            # Pure life-list and lifer logic (no I/O)
+│   ├── logic.py            # Pure life-list, lifer and What's new logic
 │   ├── backends.py         # SupabaseBackend (real) and MemoryBackend (tests/demo)
 │   ├── oauth.py            # Remembers a Google sign-in while the user is at Google
 │   └── remember.py         # "Keep me signed in" (browser storage)
 ├── .streamlit/config.toml  # Theme (colours, light/dark) and toolbar settings
 ├── docs/                   # Setup guides (e.g. Google sign-in)
 ├── data/breeds.csv         # Top 100 breeds, AKC 2025 popularity ranking
-├── supabase/schema.sql     # Table plus row-level security policies
+├── supabase/schema.sql     # Tables plus row-level security policies
+├── CHANGELOG.md            # Version history, shown in Settings > What's new
+├── ROADMAP.md              # The plan; its Now and Next items appear in the app
 └── tests/
 ```
 
 **Security notes**
-- The app only ever uses Supabase's *publishable* (anon) key. Postgres row-level security policies in [`supabase/schema.sql`](supabase/schema.sql) enforce that each user can only touch their own sightings, even if someone calls the API directly.
+- The app only ever uses Supabase's *publishable* (anon) key. Postgres row-level security policies in [`supabase/schema.sql`](supabase/schema.sql) enforce that each user can only touch their own sightings, votes and suggestions, even if someone calls the API directly. Vote totals come from a database function that returns only counts, never who voted.
 - Each browser session gets its own Supabase client, so one visitor's sign-in is never shared with another's.
 - "Keep me signed in" stores a single-use Supabase refresh token in the browser's local storage for 30 days, via a tiny invisible component. Each visit swaps it for a new one, and signing out cancels it. It's never sent with web requests, but scripts on the page can read it, so the box can be unticked on shared computers. (Safari clears script-written storage after 7 days without a visit.)
 - Passwords are handled entirely by Supabase Auth and never stored by the app. Google sign-in uses PKCE, so the one-time code Google returns is useless without a secret that never leaves the server.
@@ -83,13 +85,13 @@ Run the tests with `pytest`.
 - [x] Accounts and a hosted database (Supabase)
 - [x] Continue with Google
 - [x] Keep me signed in for 30 days
+- [x] 🆕 "What's new" in Settings: version history, what's coming next, +1 votes and feature suggestions
 - [ ] 🧭 "Help me identify": answer a few questions (size, coat, ears) to narrow down the breed
 - [ ] 📷 Optional photo with a sighting (Supabase Storage)
 - [ ] 📍 Optional location for a sighting (place name or current location)
 - [ ] 🤖 Photo ID: breed suggestions from a photo (an image classification model)
 - [ ] 🔊 Sound ID: detect a bark from a recording (experimental)
 - [ ] 👥 Social: a feed of other members' sightings, following friends and comparing life lists
-- [ ] 🆕 "What's new" in Settings: recent updates and what's coming next
 - [ ] More breeds, a sightings map, password reset, installable home-screen app
 
 Inspired by bird ID apps like Merlin, which identify birds by description, photo or sound. The full plan, with notes on each item, is in [ROADMAP.md](ROADMAP.md).

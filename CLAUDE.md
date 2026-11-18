@@ -20,9 +20,10 @@ If `.venv` is missing: `python -m venv .venv`, then install the requirements. Py
 
 | File | Role |
 |---|---|
-| `app.py` | Streamlit UI only: sign-in/sign-up screens (incl. Continue with Google), then five main tabs shown as a bottom tab bar: Dog ID (log a sighting), Life list (stat cards + breeds), Profile (summary + sightings history), Social (placeholder), Settings (account, sign out). `MOBILE_CSS` holds the mobile styling. |
+| `app.py` | Streamlit UI only: sign-in/sign-up screens (incl. Continue with Google), then five main tabs shown as a bottom tab bar: Dog ID (log a sighting), Life list (stat cards + breeds), Profile (summary + sightings history), Social (placeholder), Settings (account, sign out, What's new: version + changelog, "Coming next" with +1 votes, suggest a feature). `MOBILE_CSS` holds the mobile styling. |
 | `.streamlit/config.toml` | Theme (light and dark) and minimal toolbar. Committed; no secrets. |
-| `cerberus/logic.py` | Pure functions (`load_breeds`, `life_list`, `is_lifer`, `sightings_frame`). No I/O. Put new business logic here. |
+| `cerberus/logic.py` | Pure functions (`load_breeds`, `life_list`, `is_lifer`, `sightings_frame`, plus `parse_changelog` and `upcoming_features` for What's new). Parsers take text; `app.py` reads the files. Put new business logic here. |
+| `CHANGELOG.md` | Version history shown in Settings > What's new. The newest entry's version is the app's version. |
 | `cerberus/backends.py` | `Backend` protocol, with `SupabaseBackend` (real) and `MemoryBackend` (tests and demo mode). Both must behave the same. |
 | `cerberus/oauth.py` | `PENDING` store for Google sign-in PKCE verifiers, keyed by a random `?flow=` id. |
 | `cerberus/remember.py` | "Keep me signed in": `SAVED_SIGN_IN_JS`, an invisible `st.components.v2` component that keeps the refresh token in browser `localStorage` for 30 days. |
@@ -45,6 +46,7 @@ Backend selection (in `app.py` `make_backend`): `CERBERUS_DEMO=1` forces memory;
 - Supabase auth errors are wrapped in `AuthError`; the UI shows `str(err)`. Data calls that raise `AuthError` (expired session) send the user back to sign-in via `end_session()`.
 - `AppTest` widgets are found by `key=` (e.g. `sign_up_email`). Give new form inputs explicit keys.
 - Dates are stored and compared as ISO strings (`YYYY-MM-DD`).
+- **Feature votes:** `feature_votes` RLS hides other users' rows, so totals come from the `feature_vote_counts()` security-definer function (counts only, never who voted). A vote's `feature` is `logic.feature_key()` of the roadmap item's bold title. Suggestions land in `feature_suggestions`; the owner reads them in the Supabase Table Editor. If those tables are missing, Settings shows "Voting isn't available" instead of crashing.
 - **Mobile first.** Design for a ~375px phone, then check desktop. Avoid `st.sidebar`, `st.columns` for side-by-side items (they stack on phones; use `st.container(horizontal=True)`) and wide `st.dataframe`s (use list rows or bordered cards). Buttons that end a form use `width="stretch"`.
 - `MOBILE_CSS` targets Streamlit internals (`data-testid`, `.st-key-<key>` classes, `role="tablist"`), which can change when Streamlit is upgraded: recheck the phone layout after bumping the version. The bottom tab bar (`main_nav` container, labels in `NAV_TABS` are an icon, a line break, then the name) is pinned on all screen sizes; its colours must match `[theme.light]`/`[theme.dark]` `backgroundColor`.
 - To check the phone layout: the `cerberus-demo` entry in `.claude/launch.json` runs demo mode on port 8502; view it at 375px wide in light and dark.
@@ -57,8 +59,9 @@ Backend selection (in `app.py` `make_backend`): `CERBERUS_DEMO=1` forces memory;
 - **Keep this file current, unprompted.** Before every commit, check whether the change makes anything here wrong or missing (new files, commands, rules, gotchas). If so, update CLAUDE.md in the same commit. Keep it short and accurate; don't log history here (that's what git is for).
 - Git commits use the owner's GitHub noreply email (already configured globally). Don't change git config.
 - Keep `README.md` up to date (features, roadmap, architecture) when features change; it's the project's shop window.
+- **Version every user-visible change.** Add an entry at the top of `CHANGELOG.md` in the same commit: `## <version> - <YYYY-MM-DD> - <title>` then `- ` bullets written for users. New feature bumps MINOR (0.6.0 → 0.7.0), fix bumps PATCH (0.6.0 → 0.6.1). `test_logic.py` checks the format and that versions go down the file in order.
 - When dependencies change, pin exact versions in `requirements.txt` (Streamlit Cloud installs from it).
 
 ## Roadmap
 
-`ROADMAP.md` is the source of truth for planned work (Done / Now / Next / Later / Ideas, with approach notes). Read it before starting a feature. When a feature lands, tick it there and update the README's short roadmap summary in the same commit. The big theme is three ways to identify a dog, like Merlin for birds: guided manual ID, photo ID, sound ID.
+`ROADMAP.md` is the source of truth for planned work (Done / Now / Next / Later / Ideas, with approach notes). Read it before starting a feature. When a feature lands, tick it there and update the README's short roadmap summary in the same commit. The top-level lines under **Now** and **Next** are shown to users in the app (with +1 votes keyed to each bold title), so keep them user-readable and avoid renaming titles casually. The big theme is three ways to identify a dog, like Merlin for birds: guided manual ID, photo ID, sound ID.

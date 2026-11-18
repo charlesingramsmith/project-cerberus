@@ -151,3 +151,38 @@ def test_sign_out_cancels_the_saved_token(backend):
 def test_unknown_token_is_rejected(backend):
     with pytest.raises(AuthError):
         backend.resume_session("made-up")
+
+
+# --- Feature votes and suggestions ----------------------------------------------------
+
+def test_feature_votes_count_everyone_but_track_your_own(backend):
+    backend.sign_up("a@example.com", "correct-horse", "alice")
+    backend.set_feature_vote("photo-upload", True)
+    backend.set_feature_vote("photo-upload", True)  # voting twice still counts once
+    backend.sign_out()
+    backend.sign_up("b@example.com", "correct-horse", "bobby")
+    backend.set_feature_vote("photo-upload", True)
+    backend.set_feature_vote("password-reset", True)
+
+    assert backend.feature_vote_counts() == {"photo-upload": 2, "password-reset": 1}
+    assert backend.my_feature_votes() == {"photo-upload", "password-reset"}
+
+    backend.set_feature_vote("photo-upload", False)
+    assert backend.feature_vote_counts() == {"photo-upload": 1, "password-reset": 1}
+    assert backend.my_feature_votes() == {"password-reset"}
+
+
+def test_suggestions_are_cleaned_and_validated(backend):
+    backend.sign_up("a@example.com", "correct-horse", "alice")
+    backend.suggest_feature("  Badges for streaks  ")
+    assert backend.suggestions == [{"user_id": "user-1", "suggestion": "Badges for streaks"}]
+    with pytest.raises(ValueError):
+        backend.suggest_feature("   ")
+
+
+def test_votes_and_suggestions_need_a_sign_in(backend):
+    for call in (backend.feature_vote_counts, backend.my_feature_votes,
+                 lambda: backend.set_feature_vote("x", True),
+                 lambda: backend.suggest_feature("idea")):
+        with pytest.raises(AuthError):
+            call()
