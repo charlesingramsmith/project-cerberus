@@ -111,3 +111,43 @@ def test_google_accounts_have_no_password(backend):
     backend.sign_out()
     with pytest.raises(AuthError):
         backend.sign_in(MemoryBackend.DEMO_GOOGLE_EMAIL, "anything-at-all")
+
+
+# --- Keep me signed in ----------------------------------------------------------------
+
+def test_refresh_token_only_while_signed_in(backend):
+    assert backend.refresh_token() is None
+    backend.sign_up("a@example.com", "longenough", "alice")
+    assert backend.refresh_token()
+    backend.sign_out()
+    assert backend.refresh_token() is None
+
+
+def test_resume_session_signs_back_in_and_rotates_the_token(backend):
+    user = backend.sign_up("a@example.com", "longenough", "alice")
+    saved = backend.refresh_token()
+    backend._user = None  # as if the tab closed (the demo backend keeps its accounts)
+    assert backend.resume_session(saved) == user
+    assert backend.refresh_token() not in (None, saved)
+    backend.list_sightings()  # signed in again
+
+
+def test_refresh_tokens_are_single_use(backend):
+    backend.sign_up("a@example.com", "longenough", "alice")
+    saved = backend.refresh_token()
+    backend.resume_session(saved)
+    with pytest.raises(AuthError):
+        backend.resume_session(saved)
+
+
+def test_sign_out_cancels_the_saved_token(backend):
+    backend.sign_up("a@example.com", "longenough", "alice")
+    saved = backend.refresh_token()
+    backend.sign_out()
+    with pytest.raises(AuthError):
+        backend.resume_session(saved)
+
+
+def test_unknown_token_is_rejected(backend):
+    with pytest.raises(AuthError):
+        backend.resume_session("made-up")
