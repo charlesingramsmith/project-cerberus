@@ -142,11 +142,14 @@ def test_continue_with_google_signs_in_on_return(at, monkeypatch):
     link = google_link(at)
     assert urlparse(link).path == "/"  # Supabase's "<app url>/**" allow list needs the slash
     params = {k: v[0] for k, v in parse_qs(urlparse(link).query).items()}
-    assert set(params) == {"flow", "code"}
+    assert set(params) == {"flow", "code", "remember"}
+    assert params["remember"] == "1"  # "Keep me signed in" is ticked by default
 
     back = returning_from_google(monkeypatch, **params)
     assert "Google User's life list" in headers(back)
     assert not back.query_params  # the one-time code is cleared from the address bar
+    assert back.session_state["remember"] is True
+    assert saved_cookie_scripts(back)
 
 
 def test_google_link_is_reused_across_reruns(at):
@@ -164,3 +167,45 @@ def test_unknown_google_flow_shows_a_message(monkeypatch):
 def test_cancelled_google_sign_in_shows_a_message(monkeypatch):
     back = returning_from_google(monkeypatch, error="access_denied")
     assert "cancelled" in back.info[0].value
+
+
+
+# --- Keep me signed in ----------------------------------------------------------------
+# AppTest can't send cookies, so returning visits are covered by the backend tests;
+# these check the checkbox and that the app writes (or doesn't write) the cookie.
+
+def saved_cookie_scripts(at: AppTest) -> list[str]:
+    from cerberus.remember import COOKIE_NAME
+
+    return [h.proto.body for h in at.get("html")
+            if COOKIE_NAME in h.proto.body and "Max-Age=0" not in h.proto.body]
+
+
+def test_keep_me_signed_in_is_ticked_by_default(at):
+    assert at.checkbox(key="keep_signed_in").value is True
+
+
+def test_signing_in_saves_the_sign_in_to_a_cookie(at):
+    sign_up(at)
+    assert at.session_state["remember"] is True
+    assert len(saved_cookie_scripts(at)) == 1
+
+
+def test_unticking_keep_me_signed_in_saves_nothing(at):
+    at.checkbox(key="keep_signed_in").uncheck().run()
+    sign_up(at)
+    assert "charlie's life list" in headers(at)
+    assert not saved_cookie_scripts(at)
+
+
+def test_unticking_updates_the_google_link(at):
+    from urllib.parse import parse_qs, urlparse
+
+    at.checkbox(key="keep_signed_in").uncheck().run()
+    assert parse_qs(urlparse(google_link(at)).query)["remember"] == ["0"]
+
+
+def test_signing_out_deletes_the_cookie(at):
+    sign_up(at)
+    click(at, "Sign out")
+    assert any("Max-Age=0" in h.proto.body for h in at.get("html"))

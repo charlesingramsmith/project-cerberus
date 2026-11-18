@@ -9,7 +9,7 @@ It's inspired by bird-watching life lists, but for the dogs you pass in the park
 ## Features
 
 - **Mobile first**: designed to be used one-handed on a phone while you're out walking, with a bottom tab bar (Dog ID, Life list, Profile, Social, Settings), big tap targets and phone-sized stat cards. On a desktop it shows the same layout in a centred column. Follows your device's light or dark mode.
-- **Accounts**: one tap with **Continue with Google**, or sign up with email and password. Each spotter's life list is private to them.
+- **Accounts**: one tap with **Continue with Google**, or sign up with email and password. **Keep me signed in** remembers you for 30 days. Each spotter's life list is private to them.
 - **Dog ID**: log a sighting by picking the breed (searchable, and breeds you haven't collected yet are marked ✨ new), the date, where you saw it, the dog's name and notes.
 - **Lifer celebrations**: a new breed gets balloons 🎉.
 - **Life list**: progress towards 100 breeds, the date you first saw each one and how many times, filterable by collected or still to find, and searchable.
@@ -33,7 +33,8 @@ project-cerberus/
 ├── cerberus/
 │   ├── logic.py            # Pure life-list and lifer logic (no I/O)
 │   ├── backends.py         # SupabaseBackend (real) and MemoryBackend (tests/demo)
-│   └── oauth.py            # Remembers a Google sign-in while the user is at Google
+│   ├── oauth.py            # Remembers a Google sign-in while the user is at Google
+│   └── remember.py         # "Keep me signed in" cookie
 ├── .streamlit/config.toml  # Theme (colours, light/dark) and toolbar settings
 ├── docs/                   # Setup guides (e.g. Google sign-in)
 ├── data/breeds.csv         # Top 100 breeds, AKC 2025 popularity ranking
@@ -44,6 +45,7 @@ project-cerberus/
 **Security notes**
 - The app only ever uses Supabase's *publishable* (anon) key. Postgres row-level security policies in [`supabase/schema.sql`](supabase/schema.sql) enforce that each user can only touch their own sightings, even if someone calls the API directly.
 - Each browser session gets its own Supabase client, so one visitor's sign-in is never shared with another's.
+- "Keep me signed in" stores a single-use Supabase refresh token in a 30-day `Secure`, `SameSite=Lax` cookie. Each visit swaps it for a new one, and signing out cancels it. Streamlit can only write cookies from JavaScript, so the cookie is readable by scripts on the page; the box can be unticked on shared computers. (Safari caps script-written cookies at 7 days.)
 - Passwords are handled entirely by Supabase Auth and never stored by the app. Google sign-in uses PKCE, so the one-time code Google returns is useless without a secret that never leaves the server.
 
 ## Run it locally
@@ -80,6 +82,7 @@ Run the tests with `pytest`.
 - [x] Manual sighting log and life list for the top 100 breeds
 - [x] Accounts and a hosted database (Supabase)
 - [x] Continue with Google
+- [x] Keep me signed in for 30 days
 - [ ] 🧭 "Help me identify": answer a few questions (size, coat, ears) to narrow down the breed
 - [ ] 📷 Optional photo with a sighting (Supabase Storage)
 - [ ] 📍 Optional location for a sighting (place name or current location)
@@ -87,7 +90,7 @@ Run the tests with `pytest`.
 - [ ] 🔊 Sound ID: detect a bark from a recording (experimental)
 - [ ] 👥 Social: a feed of other members' sightings, following friends and comparing life lists
 - [ ] 🆕 "What's new" in Settings: recent updates and what's coming next
-- [ ] More breeds, a sightings map, password reset and "stay signed in", installable home-screen app
+- [ ] More breeds, a sightings map, password reset, installable home-screen app
 
 Inspired by bird ID apps like Merlin, which identify birds by description, photo or sound. The full plan, with notes on each item, is in [ROADMAP.md](ROADMAP.md).
 
