@@ -29,6 +29,10 @@ def sign_up(at: AppTest, username="charlie", email="charlie@example.com", passwo
     return click(at, "Create account")
 
 
+def headers(at: AppTest) -> list[str]:
+    return [h.value for h in at.header]
+
+
 def log_breed(at: AppTest, breed_name: str) -> AppTest:
     breed = next(sb for sb in at.selectbox if sb.label == "Breed")
     breed.set_value(breed_name)
@@ -52,7 +56,7 @@ def test_mismatched_passwords_are_rejected(at):
 
 def test_full_journey(at):
     sign_up(at)
-    assert at.header[0].value == "charlie's life list"
+    assert "charlie's life list" in headers(at)
     assert at.metric[0].value == "0/100"
 
     log_breed(at, "Beagle")
@@ -71,6 +75,19 @@ def test_full_journey(at):
     at.text_input(key="sign_in_password").input("correct-horse")
     click(at, "Sign in")
     assert at.metric[1].value == "2"
+
+
+def test_signed_in_app_has_five_main_tabs(at):
+    sign_up(at)
+    labels = [t.label.split("\n")[-1] for t in at.tabs]  # drop the icon line
+    assert labels == ["Dog ID", "Life list", "Profile", "Social", "Settings"]
+    assert headers(at) == ["Dog ID", "charlie's life list", "Your profile", "Social", "Settings"]
+
+
+def test_profile_summarises_sightings(at):
+    sign_up(at)
+    log_breed(at, "Beagle")
+    assert any("1 lifer from 1 sighting" in c.value for c in at.caption)
 
 
 def test_wrong_password_shows_an_error(at):
@@ -128,7 +145,7 @@ def test_continue_with_google_signs_in_on_return(at, monkeypatch):
     assert set(params) == {"flow", "code"}
 
     back = returning_from_google(monkeypatch, **params)
-    assert back.header[0].value == "Google User's life list"
+    assert "Google User's life list" in headers(back)
     assert not back.query_params  # the one-time code is cleared from the address bar
 
 

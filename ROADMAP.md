@@ -22,6 +22,7 @@ Bird apps like Merlin let you identify a bird three ways: by answering questions
 - [x] Manual sighting log and life list for the top 100 breeds
 - [x] Accounts and a hosted database (Supabase, with row-level security)
 - [x] Continue with Google (setup steps in [docs/google-sign-in.md](docs/google-sign-in.md))
+- [x] Bottom tab bar: Dog ID, Life list, Profile, Social (placeholder), Settings
 
 ## Now
 
@@ -43,6 +44,8 @@ _Nothing in progress. Pick the next item from below._
 
 - [ ] More breeds beyond the top 100 (add rows to `data/breeds.csv`)
 - [ ] Map of where you've spotted dogs (needs a location on each sighting)
+- [ ] **Social**: follow friends, compare life lists, leaderboards. Fills the Social tab, which is a placeholder today.
+  - Needs public profiles and a follows table in `supabase/schema.sql`, with RLS that lets you read only the life-list summaries of people you follow.
 - [ ] Installable "Add to Home Screen" app (needs hosting where we control the web app manifest)
 
 ## Ideas (not yet committed to)

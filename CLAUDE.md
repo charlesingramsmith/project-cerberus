@@ -20,7 +20,7 @@ If `.venv` is missing: `python -m venv .venv`, then install the requirements. Py
 
 | File | Role |
 |---|---|
-| `app.py` | Streamlit UI only: sign-in/sign-up screens (incl. Continue with Google), then a top bar (account popover), stat cards and tabs (Log / Life list / Sightings). `MOBILE_CSS` holds the mobile styling. |
+| `app.py` | Streamlit UI only: sign-in/sign-up screens (incl. Continue with Google), then five main tabs shown as a bottom tab bar: Dog ID (log a sighting), Life list (stat cards + breeds), Profile (summary + sightings history), Social (placeholder), Settings (account, sign out). `MOBILE_CSS` holds the mobile styling. |
 | `.streamlit/config.toml` | Theme (light and dark) and minimal toolbar. Committed; no secrets. |
 | `cerberus/logic.py` | Pure functions (`load_breeds`, `life_list`, `is_lifer`, `sightings_frame`). No I/O. Put new business logic here. |
 | `cerberus/backends.py` | `Backend` protocol, with `SupabaseBackend` (real) and `MemoryBackend` (tests and demo mode). Both must behave the same. |
@@ -44,7 +44,7 @@ Backend selection (in `app.py` `make_backend`): `CERBERUS_DEMO=1` forces memory;
 - `AppTest` widgets are found by `key=` (e.g. `sign_up_email`). Give new form inputs explicit keys.
 - Dates are stored and compared as ISO strings (`YYYY-MM-DD`).
 - **Mobile first.** Design for a ~375px phone, then check desktop. Avoid `st.sidebar`, `st.columns` for side-by-side items (they stack on phones; use `st.container(horizontal=True)`) and wide `st.dataframe`s (use list rows or bordered cards). Buttons that end a form use `width="stretch"`.
-- `MOBILE_CSS` targets Streamlit internals (`data-testid`, `.st-key-<key>` classes, `role="tablist"`), which can change when Streamlit is upgraded: recheck the phone layout after bumping the version. The bottom tab bar's colours must match `[theme.light]`/`[theme.dark]` `backgroundColor`.
+- `MOBILE_CSS` targets Streamlit internals (`data-testid`, `.st-key-<key>` classes, `role="tablist"`), which can change when Streamlit is upgraded: recheck the phone layout after bumping the version. The bottom tab bar (`main_nav` container, labels in `NAV_TABS` are an icon, a line break, then the name) is pinned on all screen sizes; its colours must match `[theme.light]`/`[theme.dark]` `backgroundColor`.
 - To check the phone layout: the `cerberus-demo` entry in `.claude/launch.json` runs demo mode on port 8502; view it at 375px wide in light and dark.
 
 ## Workflow
