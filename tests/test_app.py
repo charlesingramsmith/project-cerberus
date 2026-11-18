@@ -414,6 +414,22 @@ def test_switching_sharing_off_hides_your_sightings(at):
     assert "Beagle" not in feed_html(at)
     assert "No sightings yet" in at.info[0].value
 
+def test_new_members_are_told_their_sightings_are_shared(at):
+    sign_up(at)
+    assert "Social" in " ".join(m.value for m in at.markdown)
+    assert at.button(key="notice_keep_sharing")
+    click(at, "Keep sharing")  # closes it, and it doesn't come back
+    assert not [b for b in at.button if b.key == "notice_keep_sharing"]
+    assert at.toggle(key="share_sightings").value
+
+
+def test_new_members_can_turn_sharing_off_from_the_popup(at):
+    sign_up(at)
+    click(at, "Turn sharing off")
+    assert not [b for b in at.button if b.key == "notice_stop_sharing"]
+    assert at.toggle(key="share_sightings").value is False
+
+
 # --- After a deploy -----------------------------------------------------------------------
 
 def test_changed_helper_files_are_reloaded_without_signing_anyone_out(at):

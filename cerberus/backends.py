@@ -43,6 +43,9 @@ class User:
 
 class Backend(Protocol):
     demo: bool
+    # True once my_profile() has just made this user's profile (their first visit), so the
+    # app can explain sharing. The app sets it back to False after showing that.
+    profile_is_new: bool
 
     def sign_up(self, email: str, password: str, username: str) -> User | None:
         """Create an account. Returns the signed-in user, or None if email confirmation is needed."""
@@ -145,6 +148,7 @@ def _sighting_row(breed: str, seen_on: date, location, dog_name, notes) -> dict:
 
 class SupabaseBackend:
     demo = False
+    profile_is_new = False  # a class default, so backends from before a deploy have it too
 
     def __init__(self, url: str, key: str):
         from supabase import create_client  # imported here so tests don't need network
@@ -320,6 +324,7 @@ class SupabaseBackend:
             profile = logic.new_profile(name)
             try:
                 profiles.insert({**profile, "user_id": user.id}).execute()
+                self.profile_is_new = True
                 return profile
             except Exception as err:
                 if not _is_duplicate(err):
@@ -355,6 +360,7 @@ class SupabaseBackend:
 
 class MemoryBackend:
     demo = True
+    profile_is_new = False
 
     def __init__(self):
         # email -> (password hash, or None for Google-only accounts; user)
@@ -488,6 +494,7 @@ class MemoryBackend:
             name = next(n for n in logic.username_candidates(user.username)
                         if not self._username_taken(n, user.id))
             self._profiles[user.id] = logic.new_profile(name)
+            self.profile_is_new = True
         return dict(self._profiles[user.id])
 
     def save_profile(self, profile):

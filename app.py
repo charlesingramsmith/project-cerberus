@@ -430,6 +430,44 @@ except Exception:
     profile, profiles_ready = logic.new_profile(user.username), False
 user = dataclasses.replace(user, username=profile["username"])  # the name others see
 
+
+def close_sharing_notice():
+    st.session_state.pop("sharing_notice", None)
+
+
+@st.dialog("Your sightings are shared", on_dismiss=close_sharing_notice)
+def sharing_notice():
+    """Shown once, when a new member's profile is made, so sharing is never a surprise.
+    It stays open (across reruns) until they pick a button or close it."""
+    st.write("Other members can see the dogs you log in the **Social** tab, including "
+             "where you saw them. Your email is never shown.")
+    st.write("You can change this any time in **Settings > Privacy**.")
+    with st.container(horizontal=True):
+        if st.button("Keep sharing", type="primary", key="notice_keep_sharing",
+                     width="stretch"):
+            close_sharing_notice()
+            st.rerun()
+        if st.button("Turn sharing off", key="notice_stop_sharing", width="stretch"):
+            try:
+                backend.save_profile({**profile, "share_sightings": False})
+            except AuthError as err:
+                end_session(str(err))
+            except Exception:
+                st.error("That didn't save. Please try again in Settings > Privacy.")
+            else:
+                # The Settings switch still says "on" in the browser; set it to match below,
+                # or it would save sharing straight back on.
+                st.session_state.share_switch_to = False
+                close_sharing_notice()
+                st.rerun()
+
+
+if backend.profile_is_new:  # first visit: their profile (sharing on) was just made
+    backend.profile_is_new = False
+    st.session_state.sharing_notice = profiles_ready
+if st.session_state.get("sharing_notice"):
+    sharing_notice()
+
 life = logic.life_list(breeds, sightings)
 seen = life["times_seen"] > 0
 collected, total = int(seen.sum()), len(life)
@@ -740,6 +778,8 @@ with tab_settings:
             backend.sign_out()
             end_session()
     st.subheader("Privacy")
+    if "share_switch_to" in st.session_state:  # changed from the new-member popup
+        st.session_state.share_sightings = st.session_state.pop("share_switch_to")
     share = st.toggle("Share my sightings in Social", value=profile["share_sightings"],
                       key="share_sightings", disabled=not profiles_ready)
     st.caption("When this is on, other members can see your sightings in Social, "

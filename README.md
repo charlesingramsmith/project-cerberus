@@ -14,7 +14,7 @@ It's inspired by bird-watching life lists, but for the dogs you pass in the park
 - **Lifer celebrations**: a new breed gets balloons 🎉.
 - **Life list**: progress towards 100 breeds, the date you first saw each one and how many times, filterable by collected or still to find, and searchable. Tap any breed to open its profile: a photo, a short intro, where it's from, its temperament and a fun fact.
 - **Your profile**: a unique username, a dog emoji as your picture, your favourite breed and your own dogs, plus a summary of your spotting and every dog you've logged as a card, newest first, each with its own delete button.
-- **Social**: the latest sightings from everyone in the community, with each spotter's name and picture. Sharing is on by default and can be switched off in Settings > Privacy.
+- **Social**: the latest sightings from everyone in the community, with each spotter's name and picture. Sharing is on by default: new members are told so in a popup when they join, and can switch it off there or any time in Settings > Privacy.
 - **Settings**: your account details and sign out, plus **What's new**: the app's version number and recent updates (from [`CHANGELOG.md`](CHANGELOG.md)), the features coming next (straight from [`ROADMAP.md`](ROADMAP.md)) with a **+1** button on each so you can vote for what you want most, and a box to suggest new features. An orange dot on the Settings tab tells you when there's an update you haven't seen.
 - **Demo mode**: with no database configured, the app still runs, keeping data in memory only.
 

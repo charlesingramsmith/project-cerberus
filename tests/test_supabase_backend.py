@@ -243,6 +243,7 @@ def test_existing_profile_is_returned_as_is():
     stored = {**logic.new_profile("charlie"), "avatar": "🐩"}
     backend.client.table = lambda name: FakeQuery([], [stored])
     assert backend.my_profile() == stored
+    assert not backend.profile_is_new  # it already existed
 
 
 def test_first_profile_tries_the_next_name_when_one_is_taken():
@@ -271,6 +272,7 @@ def test_first_profile_tries_the_next_name_when_one_is_taken():
     inserted = [args[0] for name, args, _ in log if name == "insert"]
     assert [r["username"] for r in inserted] == ["charlie", "charlie2"]
     assert all(r["user_id"] == "uuid-1" and r["share_sightings"] for r in inserted)
+    assert backend.profile_is_new  # so the app explains sharing
 
 
 def test_saving_a_taken_username_is_a_friendly_error():
