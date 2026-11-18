@@ -6,6 +6,9 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.9.1 - 2026-11-18 - Clearer sharing for new members
+- When you join, a popup now tells you that other members can see your sightings in Social, including where you saw each dog, and lets you turn sharing off straight away.
+
 ## 0.9.0 - 2026-11-18 - Breed profiles
 - Tap any breed on your life list to open its profile: a photo, a short intro, where it comes from, its temperament and a fun fact.
 - Works for breeds you haven't spotted yet too, so you know what to look out for.

@@ -210,6 +210,16 @@ def test_first_profile_uses_the_sign_up_username_and_shares_by_default(backend):
                                     "share_sightings": True}
 
 
+def test_profile_is_new_only_when_my_profile_makes_it(backend):
+    backend.sign_up("a@example.com", "correct-horse", "charlie")
+    assert not backend.profile_is_new
+    backend.my_profile()
+    assert backend.profile_is_new
+    backend.profile_is_new = False  # the app does this once it has told them
+    backend.my_profile()
+    assert not backend.profile_is_new
+
+
 def test_usernames_are_unique_ignoring_capitals(backend):
     backend.sign_up("a@example.com", "correct-horse", "charlie")
     backend.my_profile()
