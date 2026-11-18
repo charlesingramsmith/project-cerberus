@@ -80,6 +80,31 @@ button { min-height: 2.75rem; }
 .cerb-row .rank { font-size: .8rem; opacity: .6; }
 .cerb-row.missing .name { font-weight: 400; opacity: .75; }
 
+/* Tap a life list row to open that breed's profile (photo, intro, fun fact) below it.
+   A plain HTML details element (don't write HTML tags in this stylesheet: st.html
+   would strip the whole thing), so it opens instantly without a rerun, and the photo only
+   downloads once the row is opened. */
+.cerb-breed > summary { list-style: none; cursor: pointer; }
+.cerb-breed > summary::-webkit-details-marker { display: none; }
+.cerb-row .chev { opacity: .45; transition: transform .15s; }
+.cerb-breed[open] .chev { transform: rotate(90deg); }
+.cerb-profile {
+    padding: .75rem .25rem 1rem; border-bottom: 1px solid rgba(128, 128, 128, .2);
+}
+.cerb-profile img {
+    display: block; max-width: 100%; max-height: 18rem; margin: 0 auto;
+    border-radius: .5rem;
+}
+.cerb-profile .credit { font-size: .72rem; opacity: .6; text-align: center; margin: .3rem 0 .6rem; }
+.cerb-profile .credit a { color: inherit; }
+.cerb-profile p { margin: 0 0 .6rem; }
+.cerb-profile .facts { margin: 0 0 .6rem; font-size: .9rem; }
+.cerb-profile .facts b { font-weight: 600; }
+.cerb-profile .fun {
+    padding: .6rem .75rem; border-radius: .5rem; font-size: .9rem;
+    background: rgba(232, 131, 58, .12);  /* primaryColor, faint */
+}
+
 /* Social feed posts: avatar on the left, who/when, then the sighting */
 .cerb-post {
     display: flex; gap: .75rem; padding: .75rem .25rem;
@@ -157,6 +182,11 @@ def file_version(*paths: Path) -> tuple[float, ...]:
 @st.cache_data
 def load_breeds(version: tuple) -> pd.DataFrame:  # no "_": st.cache_data skips _args
     return logic.load_breeds()
+
+
+@st.cache_data
+def load_breed_profiles(version: tuple) -> dict[str, logic.BreedProfile]:
+    return logic.load_breed_profiles()
 
 
 def refresh_stale_backend():
@@ -503,18 +533,41 @@ with tab_id:
             st.rerun()
 
 # --- Life list ----------------------------------------------------------------------------------
-def life_row(row) -> str:
-    """One breed as a compact list row (a wide table is hard to read on a phone)."""
+def breed_profile_html(profile: logic.BreedProfile | None) -> str:
+    """A breed's photo, intro, origin, temperament and fun fact (all text escaped)."""
+    if profile is None:
+        return '<div class="cerb-profile"><p>No profile for this breed yet.</p></div>'
+    esc = html.escape
+    photo = ""
+    if profile.image_url:
+        licence = f", {esc(profile.licence)}" if profile.licence else ""
+        photo = (
+            f'<img src="{esc(profile.image_url)}" alt="A {esc(profile.breed)}" loading="lazy">'
+            f'<div class="credit">Photo: <a href="{esc(profile.source)}" target="_blank" '
+            f'rel="noopener">{esc(profile.credit)}</a>{licence}, via Wikimedia Commons</div>'
+        )
+    return (
+        f'<div class="cerb-profile">{photo}<p>{esc(profile.intro)}</p>'
+        f'<div class="facts"><b>From:</b> {esc(profile.origin)}<br>'
+        f'<b>Temperament:</b> {esc(profile.temperament)}</div>'
+        f'<div class="fun">💡 <b>Fun fact:</b> {esc(profile.fun_fact)}</div></div>'
+    )
+
+
+def life_row(row, profile: logic.BreedProfile | None) -> str:
+    """One breed as a compact list row (a wide table is hard to read on a phone).
+    Tapping the row opens the breed's profile underneath it."""
     if row.times_seen:
         css, icon = "cerb-row", "✅"
         detail = f"First seen {row.first_seen} · seen {row.times_seen}×"
     else:
         css, icon, detail = "cerb-row missing", "<span class=\"dot\"></span>", "Not spotted yet"
     return (
-        f'<div class="{css}"><span class="icon">{icon}</span>'
+        f'<details class="cerb-breed"><summary class="{css}"><span class="icon">{icon}</span>'
         f'<div class="main"><div class="name">{html.escape(row.breed)}</div>'
         f'<div class="sub">{detail}</div></div>'
-        f'<span class="rank">#{row.rank}</span></div>'
+        f'<span class="rank">#{row.rank}</span><span class="chev">›</span></summary>'
+        f'{breed_profile_html(profile)}</details>'
     )
 
 
@@ -537,8 +590,12 @@ with tab_life:
     if view.empty:
         st.info("No breeds match.")
     else:
-        st.markdown("".join(life_row(r) for r in view.itertuples()), unsafe_allow_html=True)
-    st.caption("Breeds ranked by AKC 2025 popularity.")
+        profiles = load_breed_profiles(
+            file_version(logic.BREED_INFO_CSV, logic.BREED_PHOTOS_CSV))
+        st.markdown("".join(life_row(r, profiles.get(r.breed)) for r in view.itertuples()),
+                    unsafe_allow_html=True)
+    st.caption("Tap a breed to see a photo and a short intro. "
+               "Breeds ranked by AKC 2025 popularity. Photos from Wikimedia Commons.")
 
 # --- Your profile: who you are, plus every sighting you've logged ------------------------------
 def dogs_text(dogs: list[dict]) -> str:

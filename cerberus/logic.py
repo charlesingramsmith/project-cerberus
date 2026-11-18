@@ -14,6 +14,8 @@ ROOT = Path(__file__).resolve().parent.parent
 BREEDS_CSV = ROOT / "data" / "breeds.csv"
 CHANGELOG_MD = ROOT / "CHANGELOG.md"
 ROADMAP_MD = ROOT / "ROADMAP.md"
+BREED_INFO_CSV = ROOT / "data" / "breed_info.csv"
+BREED_PHOTOS_CSV = ROOT / "data" / "breed_photos.csv"
 
 SIGHTING_COLUMNS = ["id", "breed", "seen_on", "location", "dog_name", "notes"]
 
@@ -23,6 +25,31 @@ def load_breeds(csv_path: Path = BREEDS_CSV) -> pd.DataFrame:
     breeds = pd.read_csv(csv_path)
     breeds["breed"] = breeds["breed"].str.strip()
     return breeds.sort_values(["rank", "breed"]).reset_index(drop=True)
+
+
+@dataclass(frozen=True)
+class BreedProfile:
+    """What the life list shows when you open a breed: a photo and a short intro."""
+    breed: str
+    origin: str
+    temperament: str
+    intro: str
+    fun_fact: str
+    image_url: str = ""
+    credit: str = ""     # photographer, as named on Wikimedia Commons
+    licence: str = ""    # e.g. "CC BY-SA 4.0"
+    source: str = ""     # the photo's Commons page (credit and licence details)
+
+
+def load_breed_profiles(info_csv: Path = BREED_INFO_CSV,
+                        photos_csv: Path = BREED_PHOTOS_CSV) -> dict[str, BreedProfile]:
+    """{breed: BreedProfile}. Text comes from breed_info.csv (written by hand), photos
+    from breed_photos.csv (made by scripts/fetch_breed_photos.py). A breed with no
+    photo row still gets its text."""
+    info = pd.read_csv(info_csv, dtype=str, keep_default_na=False)
+    photos = pd.read_csv(photos_csv, dtype=str, keep_default_na=False)
+    rows = info.merge(photos, on="breed", how="left").fillna("")
+    return {row["breed"]: BreedProfile(**row) for row in rows.to_dict("records")}
 
 
 def sightings_frame(rows: list[dict]) -> pd.DataFrame:

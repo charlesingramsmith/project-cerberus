@@ -11,6 +11,29 @@ def test_top_100_breeds_load_in_rank_order():
     assert list(breeds["rank"]) == list(range(1, 101))
 
 
+def test_every_breed_has_a_complete_profile_with_a_credited_photo():
+    breeds = set(logic.load_breeds()["breed"])
+    profiles = logic.load_breed_profiles()
+    assert set(profiles) == breeds  # no missing breeds, and no typos in breed names
+    for profile in profiles.values():
+        for field in ("origin", "temperament", "intro", "fun_fact", "credit", "licence"):
+            assert getattr(profile, field).strip(), f"{profile.breed} has no {field}"
+        assert profile.image_url.startswith("https://") and "wikimedia.org" in profile.image_url
+        assert profile.source.startswith("https://commons.wikimedia.org/wiki/File:")
+        assert "@" not in profile.credit  # never show anyone's email address
+
+
+def test_breed_profiles_still_load_without_a_photo(tmp_path):
+    info = tmp_path / "info.csv"
+    info.write_text("breed,origin,temperament,intro,fun_fact\n"
+                    'Pug,China,"Charming, loving",A small dog.,A fact.\n', encoding="utf-8")
+    photos = tmp_path / "photos.csv"
+    photos.write_text("breed,image_url,credit,licence,source\n", encoding="utf-8")
+    pug = logic.load_breed_profiles(info, photos)["Pug"]
+    assert pug.temperament == "Charming, loving"
+    assert pug.image_url == ""
+
+
 def test_empty_sightings_give_an_empty_life_list():
     life = logic.life_list(logic.load_breeds(), logic.sightings_frame([]))
     assert len(life) == 100
