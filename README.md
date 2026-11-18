@@ -81,10 +81,12 @@ Run the tests with `pytest`.
 - [x] Accounts and a hosted database (Supabase)
 - [x] Continue with Google
 - [ ] 🧭 "Help me identify": answer a few questions (size, coat, ears) to narrow down the breed
-- [ ] 📷 Photo upload with a sighting (Supabase Storage)
+- [ ] 📷 Optional photo with a sighting (Supabase Storage)
+- [ ] 📍 Optional location for a sighting (place name or current location)
 - [ ] 🤖 Photo ID: breed suggestions from a photo (an image classification model)
 - [ ] 🔊 Sound ID: detect a bark from a recording (experimental)
-- [ ] 👥 Social: follow friends and compare life lists
+- [ ] 👥 Social: a feed of other members' sightings, following friends and comparing life lists
+- [ ] 🆕 "What's new" in Settings: recent updates and what's coming next
 - [ ] More breeds, a sightings map, password reset and "stay signed in", installable home-screen app
 
 Inspired by bird ID apps like Merlin, which identify birds by description, photo or sound. The full plan, with notes on each item, is in [ROADMAP.md](ROADMAP.md).
