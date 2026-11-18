@@ -149,7 +149,6 @@ def test_continue_with_google_signs_in_on_return(at, monkeypatch):
     assert "Google User's life list" in headers(back)
     assert not back.query_params  # the one-time code is cleared from the address bar
     assert back.session_state["remember"] is True
-    assert saved_cookie_scripts(back)
 
 
 def test_google_link_is_reused_across_reruns(at):
@@ -171,31 +170,85 @@ def test_cancelled_google_sign_in_shows_a_message(monkeypatch):
 
 
 # --- Keep me signed in ----------------------------------------------------------------
-# AppTest can't send cookies, so returning visits are covered by the backend tests;
-# these check the checkbox and that the app writes (or doesn't write) the cookie.
+# AppTest can't run the browser-side component (cerberus/remember.py), so FakeBrowser
+# stands in for it: it holds what the browser has saved, reports it once per page load,
+# and saves whatever the app passes in `data["save"]`, just like SAVED_SIGN_IN_JS.
 
-def saved_cookie_scripts(at: AppTest) -> list[str]:
-    from cerberus.remember import COOKIE_NAME
+class FakeBrowser:
+    def __init__(self):
+        self.saved = ""
+        self.reported = None  # what this page load reported; None until it has
 
-    return [h.proto.body for h in at.get("html")
-            if COOKIE_NAME in h.proto.body and "Max-Age=0" not in h.proto.body]
+    def component(self, name, js):
+        return self.mount
+
+    def mount(self, *, key, data, on_saved_change):
+        from types import SimpleNamespace
+
+        if "save" in data:
+            self.saved = data["save"] or ""
+        return SimpleNamespace(saved=self.reported)
+
+    def open_app(self, backend=None) -> AppTest:
+        """Load the page: the first run, then the rerun from the component's report."""
+        self.reported = None
+        app = AppTest.from_file(APP, default_timeout=10)
+        if backend is not None:  # the same Supabase project, as on the real site
+            app.session_state["backend"] = backend
+        app.run()
+        self.reported = self.saved
+        app.run()
+        assert not app.exception
+        return app
+
+
+@pytest.fixture
+def browser(monkeypatch):
+    import streamlit.components.v2 as components_v2
+
+    monkeypatch.setenv("CERBERUS_DEMO", "1")
+    fake = FakeBrowser()
+    monkeypatch.setattr(components_v2, "component", fake.component)
+    return fake
 
 
 def test_keep_me_signed_in_is_ticked_by_default(at):
     assert at.checkbox(key="keep_signed_in").value is True
 
 
-def test_signing_in_saves_the_sign_in_to_a_cookie(at):
-    sign_up(at)
-    assert at.session_state["remember"] is True
-    assert len(saved_cookie_scripts(at)) == 1
+def test_coming_back_later_signs_you_straight_in(browser):
+    first_visit = browser.open_app()
+    sign_up(first_visit)
+    saved = browser.saved
+    assert saved  # the refresh token is saved in the browser
+
+    # Close the tab and come back: a brand-new session with nothing in session_state.
+    backend = first_visit.session_state["backend"]
+    later = browser.open_app(backend)
+    assert "charlie's life list" in headers(later)
+    assert browser.saved not in ("", saved)  # tokens are single use, so the new one is saved
 
 
-def test_unticking_keep_me_signed_in_saves_nothing(at):
-    at.checkbox(key="keep_signed_in").uncheck().run()
-    sign_up(at)
-    assert "charlie's life list" in headers(at)
-    assert not saved_cookie_scripts(at)
+def test_unticking_keep_me_signed_in_saves_nothing(browser):
+    app = browser.open_app()
+    app.checkbox(key="keep_signed_in").uncheck().run()
+    sign_up(app)
+    assert "charlie's life list" in headers(app)
+    assert browser.saved == ""
+
+
+def test_signing_out_forgets_the_saved_sign_in(browser):
+    app = browser.open_app()
+    sign_up(app)
+    click(app, "Sign out")
+    assert browser.saved == ""
+
+
+def test_dead_saved_sign_in_is_forgotten(browser):
+    browser.saved = "expired-or-revoked"
+    app = browser.open_app()
+    assert not app.header  # still on the sign-in screen
+    assert browser.saved == ""
 
 
 def test_unticking_updates_the_google_link(at):
@@ -203,9 +256,3 @@ def test_unticking_updates_the_google_link(at):
 
     at.checkbox(key="keep_signed_in").uncheck().run()
     assert parse_qs(urlparse(google_link(at)).query)["remember"] == ["0"]
-
-
-def test_signing_out_deletes_the_cookie(at):
-    sign_up(at)
-    click(at, "Sign out")
-    assert any("Max-Age=0" in h.proto.body for h in at.get("html"))
