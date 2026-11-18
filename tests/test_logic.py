@@ -1,3 +1,5 @@
+import pytest
+
 from cerberus import logic
 
 
@@ -64,3 +66,92 @@ def test_recent_first_orders_by_date_then_newest_logged():
         {"id": 3, "breed": "Boxer", "seen_on": "2026-11-05"},
     ])
     assert list(logic.recent_first(sightings)["id"]) == [3, 1, 2]
+
+
+# --- What's new ----------------------------------------------------------------------
+
+SAMPLE_CHANGELOG = """# Changelog
+
+Intro text that isn't a release.
+
+## 0.2.0 - 2026-11-18 - Accounts
+- Create an account.
+- Sign in.
+
+## Notes
+- Not a release, so ignored.
+
+## 0.1.0 - 2026-11-16
+- First release.
+"""
+
+
+def test_parse_changelog_reads_versions_dates_titles_and_changes():
+    releases = logic.parse_changelog(SAMPLE_CHANGELOG)
+    assert releases == [
+        logic.Release("0.2.0", "2026-11-18", "Accounts", ("Create an account.", "Sign in.")),
+        logic.Release("0.1.0", "2026-11-16", "", ("First release.",)),
+    ]
+
+
+SAMPLE_ROADMAP = """# Roadmap
+
+## Done
+
+- [x] Something finished
+
+## Now
+
+_Nothing in progress._
+
+## Next
+
+- [ ] **Photo upload** with a sighting (optional).
+  - Developer note about `supabase/schema.sql`.
+- [ ] Password reset ([docs](docs/reset.md) and `code`)
+
+## Later
+
+- [ ] **Social**: not next yet.
+"""
+
+
+def test_upcoming_features_come_from_now_and_next_only():
+    items = logic.upcoming_features(SAMPLE_ROADMAP)
+    assert [i.title for i in items] == ["Photo upload", "Password reset (docs and code)"]
+    assert items[0] == logic.RoadmapItem(
+        key="photo-upload", title="Photo upload",
+        text="**Photo upload** with a sighting (optional).")
+    assert items[1].key == "password-reset-docs-and-code"
+
+
+def test_feature_key_is_a_simple_slug():
+    assert logic.feature_key("Guided manual ID") == "guided-manual-id"
+    assert logic.feature_key('  "Keep me" signed-in! ') == "keep-me-signed-in"
+
+
+def test_the_real_changelog_is_newest_first_with_valid_dates():
+    from datetime import date
+
+    releases = logic.parse_changelog(logic.CHANGELOG_MD.read_text(encoding="utf-8"))
+    assert releases, "CHANGELOG.md has no releases the app can read"
+    versions = [tuple(int(n) for n in r.version.split(".")) for r in releases]
+    assert versions == sorted(versions, reverse=True)
+    assert len(set(versions)) == len(versions)
+    for r in releases:
+        date.fromisoformat(r.date)
+        assert r.title and r.changes
+
+
+def test_the_real_roadmap_has_upcoming_features_with_unique_keys():
+    items = logic.upcoming_features(logic.ROADMAP_MD.read_text(encoding="utf-8"))
+    assert items
+    assert len({i.key for i in items}) == len(items)
+
+
+def test_clean_suggestion():
+    assert logic.clean_suggestion("  Badges please  ") == "Badges please"
+    with pytest.raises(ValueError):
+        logic.clean_suggestion("   ")
+    with pytest.raises(ValueError):
+        logic.clean_suggestion("x" * (logic.MAX_SUGGESTION_LENGTH + 1))

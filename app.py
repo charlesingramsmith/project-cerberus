@@ -446,6 +446,26 @@ with tab_social:
     st.info("Coming soon: follow friends, compare life lists and see who spots the most breeds.")
 
 # --- Settings ------------------------------------------------------------------------------
+@st.cache_data
+def load_whats_new() -> tuple[list[logic.Release], list[logic.RoadmapItem]]:
+    """Releases from CHANGELOG.md and upcoming features from ROADMAP.md (read once per deploy)."""
+    changelog = logic.CHANGELOG_MD.read_text(encoding="utf-8")
+    roadmap = logic.ROADMAP_MD.read_text(encoding="utf-8")
+    return logic.parse_changelog(changelog), logic.upcoming_features(roadmap)
+
+
+releases, upcoming = load_whats_new()
+APP_VERSION = releases[0].version if releases else "dev"
+
+
+def release_card(release: logic.Release, border: bool = True):
+    seen = dt.date.fromisoformat(release.date)
+    with st.container(border=border):
+        st.markdown(f"**Version {release.version}: {release.title}**")
+        st.caption(f"{seen.day} {seen:%B %Y}")
+        st.markdown("\n".join(f"- {change}" for change in release.changes))
+
+
 with tab_settings:
     st.header("Settings")
     st.subheader("Account")
@@ -457,8 +477,63 @@ with tab_settings:
             end_session()
     st.subheader("Appearance")
     st.caption("Light or dark mode follows your phone or computer setting.")
+
+    # What's new: the latest release, with older ones folded away.
+    st.subheader("What's new")
+    if releases:
+        release_card(releases[0])
+        if len(releases) > 1:
+            with st.expander("Earlier updates"):
+                for release in releases[1:]:
+                    release_card(release, border=False)
+
+    # Coming next, with a +1 button per feature (one vote each, tap again to take it back).
+    st.subheader("Coming next")
+    st.caption("Tap +1 on the features you'd most like to see.")
+    try:
+        vote_counts, my_votes = backend.feature_vote_counts(), backend.my_feature_votes()
+        voting = True
+    except AuthError as err:
+        end_session(str(err))
+    except Exception:  # e.g. the vote tables haven't been created in Supabase yet
+        vote_counts, my_votes, voting = {}, set(), False
+        st.caption("Voting isn't available right now.")
+    for item in upcoming:
+        with st.container(border=True):
+            # wrap=False keeps the +1 on the right, even when the text is long on a phone.
+            with st.container(horizontal=True, wrap=False, vertical_alignment="center",
+                              horizontal_alignment="distribute"):
+                st.markdown(item.text)
+                if voting:
+                    voted = item.key in my_votes
+                    if st.button(f"+1 · {vote_counts.get(item.key, 0)}", key=f"vote_{item.key}",
+                                 type="primary" if voted else "secondary",
+                                 help="Take back your +1" if voted else "I want this next"):
+                        try:
+                            backend.set_feature_vote(item.key, not voted)
+                        except AuthError as err:
+                            end_session(str(err))
+                        st.rerun()
+
+    st.subheader("Suggest a feature")
+    with st.form("suggest_feature", clear_on_submit=True):
+        idea = st.text_area("Your idea", key="feature_suggestion",
+                            max_chars=logic.MAX_SUGGESTION_LENGTH,
+                            placeholder="I'd love to be able to…")
+        if st.form_submit_button("Send idea", type="primary", width="stretch"):
+            try:
+                backend.suggest_feature(idea)
+                st.success("Thanks! Your idea has been sent.")
+            except ValueError as err:
+                st.error(str(err))
+            except AuthError as err:
+                end_session(str(err))
+            except Exception:
+                st.error("Your idea couldn't be sent right now. Please try again later.")
+
     st.subheader("About")
     st.caption("Project Cerberus: spot dogs, collect breeds. Breeds are the AKC 2025 top 100.")
+    st.caption(f"Version {APP_VERSION}")
 
 # Last, so it saves any refresh token that changed during this run.
 sync_cookie()
