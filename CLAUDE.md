@@ -20,7 +20,7 @@ If `.venv` is missing: `python -m venv .venv`, then install the requirements. Py
 
 | File | Role |
 |---|---|
-| `app.py` | Streamlit UI only: sign-in/sign-up screens (incl. Continue with Google), then a top bar (account popover), stat cards and tabs (Log / Life list / Sightings). `MOBILE_CSS` holds the mobile styling. |
+| `app.py` | Streamlit UI only: sign-in/sign-up screens (incl. Continue with Google), then five main tabs shown as a bottom tab bar: Dog ID (log a sighting), Life list (stat cards + breeds), Profile (summary + sightings history), Social (placeholder), Settings (account, sign out). `MOBILE_CSS` holds the mobile styling. |
 | `.streamlit/config.toml` | Theme (light and dark) and minimal toolbar. Committed; no secrets. |
 | `cerberus/logic.py` | Pure functions (`load_breeds`, `life_list`, `is_lifer`, `sightings_frame`). No I/O. Put new business logic here. |
 | `cerberus/backends.py` | `Backend` protocol, with `SupabaseBackend` (real) and `MemoryBackend` (tests and demo mode). Both must behave the same. |
@@ -44,14 +44,14 @@ Backend selection (in `app.py` `make_backend`): `CERBERUS_DEMO=1` forces memory;
 - `AppTest` widgets are found by `key=` (e.g. `sign_up_email`). Give new form inputs explicit keys.
 - Dates are stored and compared as ISO strings (`YYYY-MM-DD`).
 - **Mobile first.** Design for a ~375px phone, then check desktop. Avoid `st.sidebar`, `st.columns` for side-by-side items (they stack on phones; use `st.container(horizontal=True)`) and wide `st.dataframe`s (use list rows or bordered cards). Buttons that end a form use `width="stretch"`.
-- `MOBILE_CSS` targets Streamlit internals (`data-testid`, `.st-key-<key>` classes, `role="tablist"`), which can change when Streamlit is upgraded: recheck the phone layout after bumping the version. The bottom tab bar's colours must match `[theme.light]`/`[theme.dark]` `backgroundColor`.
+- `MOBILE_CSS` targets Streamlit internals (`data-testid`, `.st-key-<key>` classes, `role="tablist"`), which can change when Streamlit is upgraded: recheck the phone layout after bumping the version. The bottom tab bar (`main_nav` container, labels in `NAV_TABS` are an icon, a line break, then the name) is pinned on all screen sizes; its colours must match `[theme.light]`/`[theme.dark]` `backgroundColor`.
 - To check the phone layout: the `cerberus-demo` entry in `.claude/launch.json` runs demo mode on port 8502; view it at 375px wide in light and dark.
 
 ## Workflow
 
 - **Pushing to `main` deploys to production** (Streamlit Community Cloud redeploys automatically). Run the tests before every push. Merge a branch into `main` only once it's tested.
 - **One session, one branch.** At the start of every session, before editing anything, check `git status` and create a new branch for the task, named after it (e.g. `photo-upload`), from an up-to-date `main`: `git fetch` then `git switch -c <name> origin/main`. If the folder has uncommitted work from another branch, don't switch or stash it (another session may own it): make a separate folder with `git worktree add ../project-cerberus-<name> -b <name> origin/main` and work there. Tell the owner which branch you made and why. Only skip this if the owner says to continue on the current branch.
-- Commit messages: imperative summary line, e.g. "Add photo upload to sightings".
+- Commit messages: an imperative summary line, e.g. "Add photo upload to sightings", then a blank line and **always** a short plain-English explanation of what changed and why (a few lines a non-coder can follow). No summary-only commits, even for small changes.
 - **Keep this file current, unprompted.** Before every commit, check whether the change makes anything here wrong or missing (new files, commands, rules, gotchas). If so, update CLAUDE.md in the same commit. Keep it short and accurate; don't log history here (that's what git is for).
 - Git commits use the owner's GitHub noreply email (already configured globally). Don't change git config.
 - Keep `README.md` up to date (features, roadmap, architecture) when features change; it's the project's shop window.

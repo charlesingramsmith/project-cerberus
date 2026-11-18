@@ -8,12 +8,13 @@ It's inspired by bird-watching life lists, but for the dogs you pass in the park
 
 ## Features
 
-- **Mobile first**: designed to be used one-handed on a phone while you're out walking, with a bottom tab bar, big tap targets and phone-sized stat cards. On a desktop it shows the same layout in a centred column. Follows your device's light or dark mode.
+- **Mobile first**: designed to be used one-handed on a phone while you're out walking, with a bottom tab bar (Dog ID, Life list, Profile, Social, Settings), big tap targets and phone-sized stat cards. On a desktop it shows the same layout in a centred column. Follows your device's light or dark mode.
 - **Accounts**: one tap with **Continue with Google**, or sign up with email and password. Each spotter's life list is private to them.
-- **Log a sighting**: pick the breed (searchable, and breeds you haven't collected yet are marked ✨ new), the date, where you saw it, the dog's name and notes.
+- **Dog ID**: log a sighting by picking the breed (searchable, and breeds you haven't collected yet are marked ✨ new), the date, where you saw it, the dog's name and notes.
 - **Lifer celebrations**: a new breed gets balloons 🎉.
 - **Life list**: progress towards 100 breeds, the date you first saw each one and how many times, filterable by collected or still to find, and searchable.
-- **Sightings history**: every dog you've logged as a card, newest first, each with its own delete button.
+- **Your profile**: a summary of your spotting, plus every dog you've logged as a card, newest first, each with its own delete button.
+- **Settings**: your account details and sign out. (The **Social** tab is a placeholder for now.)
 - **Demo mode**: with no database configured, the app still runs, keeping data in memory only.
 
 ## Architecture
@@ -83,6 +84,7 @@ Run the tests with `pytest`.
 - [ ] 📷 Photo upload with a sighting (Supabase Storage)
 - [ ] 🤖 Photo ID: breed suggestions from a photo (an image classification model)
 - [ ] 🔊 Sound ID: detect a bark from a recording (experimental)
+- [ ] 👥 Social: follow friends and compare life lists
 - [ ] More breeds, a sightings map, password reset and "stay signed in", installable home-screen app
 
 Inspired by bird ID apps like Merlin, which identify birds by description, photo or sound. The full plan, with notes on each item, is in [ROADMAP.md](ROADMAP.md).

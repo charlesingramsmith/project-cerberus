@@ -49,20 +49,27 @@ button { min-height: 2.75rem; }
 .cerb-row .rank { font-size: .8rem; opacity: .6; }
 .cerb-row.missing .name { font-weight: 400; opacity: .75; }
 
-/* Main tabs: equal widths, and pinned to the bottom of the screen on phones */
-.st-key-main_nav [role="tablist"] { gap: 0; }
-.st-key-main_nav [data-testid="stTab"] { flex: 1; justify-content: center; }
-@media (max-width: 640px) {
-    .st-key-main_nav [role="tablist"] {
-        position: fixed; left: 0; right: 0; bottom: 0; z-index: 100;
-        padding-bottom: env(safe-area-inset-bottom);
-        background: #FFFFFF;  /* matches [theme.light] in .streamlit/config.toml */
-        border-top: 1px solid rgba(128, 128, 128, .25);
-    }
-    .st-key-main_nav [data-testid="stTab"] { height: 3.5rem; }
+/* Bottom tab bar: the main tabs, pinned to the bottom of the screen like a phone
+   app. Five equal slots, each an icon above a short label. On wider screens the
+   side padding lines the tabs up with the 560px content column. */
+.st-key-main_nav [role="tablist"] {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 100;
+    gap: 0;
+    padding: 0 max(0px, calc((100vw - 560px) / 2)) env(safe-area-inset-bottom);
+    background: #FFFFFF;  /* matches [theme.light] in .streamlit/config.toml */
+    border-top: 1px solid rgba(128, 128, 128, .25);
 }
-@media (max-width: 640px) and (prefers-color-scheme: dark) {
-    .st-key-main_nav [role="tablist"] { background: #171614; }
+.st-key-main_nav [data-testid="stTab"] {
+    flex: 1; min-width: 0; height: 3.75rem; padding: 0 .1rem;
+    justify-content: center;
+}
+.st-key-main_nav [data-testid="stTab"] p {
+    white-space: pre-line;  /* the line break in each label puts the icon on its own line */
+    text-align: center; font-size: .72rem; line-height: 1.25;
+}
+.st-key-main_nav [data-testid="stTab"] p::first-line { font-size: 1.3rem; }
+@media (prefers-color-scheme: dark) {
+    .st-key-main_nav [role="tablist"] { background: #171614; }  /* [theme.dark] */
 }
 </style>
 """
@@ -223,15 +230,6 @@ if "user" not in st.session_state:
 
 user = st.session_state.user
 
-# --- Top bar: title plus an account menu (a sidebar is easy to miss on a phone) ---------------
-with st.container(horizontal=True, vertical_alignment="center", horizontal_alignment="distribute"):
-    st.header(f"{user.username}'s life list")
-    with st.popover("👤", help="Account"):
-        st.write(f"Signed in as **{user.username}**")
-        st.caption(user.email)
-        if st.button("Sign out", width="stretch"):
-            backend.sign_out()
-            end_session()
 if backend.demo:
     st.caption("⚠️ Demo mode: accounts and sightings vanish when you close this tab.")
 
@@ -246,13 +244,6 @@ life = logic.life_list(breeds, sightings)
 seen = life["times_seen"] > 0
 collected, total = int(seen.sum()), len(life)
 
-# Three small stat cards side by side, even on a narrow phone (st.columns would stack them).
-with st.container(horizontal=True, wrap=False, gap="small"):
-    st.metric("Lifers", f"{collected}/{total}", border=True)
-    st.metric("Sightings", len(sightings), border=True)
-    st.metric("To find", total - collected, border=True)
-st.progress(collected / total if total else 0.0)
-
 flash = st.session_state.pop("flash", None)
 if flash:
     kind, breed_name = flash
@@ -262,12 +253,15 @@ if flash:
     else:
         st.info(f"Logged another **{breed_name}**.")
 
-# The "main_nav" key lets the stylesheet turn these tabs into a bottom tab bar on phones.
+# The five main tabs. The "main_nav" key lets MOBILE_CSS pin them to the bottom of the
+# screen as a tab bar; the "\n" puts each icon above its label.
+NAV_TABS = ["🔍\nDog ID", "📋\nLife list", "👤\nProfile", "👥\nSocial", "⚙️\nSettings"]
 with st.container(key="main_nav"):
-    tab_log, tab_life, tab_history = st.tabs(["🐾 Log", "📋 Life list", "🕘 Sightings"])
+    tab_id, tab_life, tab_profile, tab_social, tab_settings = st.tabs(NAV_TABS)
 
-# --- Log a sighting -------------------------------------------------------------------------
-with tab_log:
+# --- Dog ID: identify a dog and log the sighting ---------------------------------------------
+with tab_id:
+    st.header("Dog ID")
     seen_breeds = set(life.loc[seen, "breed"])
 
     def breed_label(name: str) -> str:
@@ -287,7 +281,8 @@ with tab_log:
         notes = st.text_area("Notes", placeholder="Good boy. Very fluffy.", height=80)
         submitted = st.form_submit_button("Log sighting", type="primary", width="stretch")
 
-    st.caption("📷 Photo identification is on the roadmap. For now, pick the breed yourself.")
+    st.caption("📷 Photo ID and a guided \"help me identify\" are on the roadmap. "
+               "For now, pick the breed yourself.")
 
     if submitted:
         if breed is None:
@@ -318,6 +313,14 @@ def life_row(row) -> str:
 
 
 with tab_life:
+    st.header(f"{user.username}'s life list")
+    # Three small stat cards side by side, even on a narrow phone (st.columns would stack them).
+    with st.container(horizontal=True, wrap=False, gap="small"):
+        st.metric("Lifers", f"{collected}/{total}", border=True)
+        st.metric("Sightings", len(sightings), border=True)
+        st.metric("To find", total - collected, border=True)
+    st.progress(collected / total if total else 0.0)
+
     show = st.segmented_control(
         "Show", logic.LIFE_LIST_FILTERS, default="All", required=True,
         key="life_filter", label_visibility="collapsed", width="stretch",
@@ -331,8 +334,19 @@ with tab_life:
         st.markdown("".join(life_row(r) for r in view.itertuples()), unsafe_allow_html=True)
     st.caption("Breeds ranked by AKC 2025 popularity.")
 
-# --- Sightings history ----------------------------------------------------------------------
-with tab_history:
+# --- Your profile: who you are, plus every sighting you've logged ------------------------------
+with tab_profile:
+    st.header("Your profile")
+    with st.container(border=True):
+        st.markdown(f"### 👤 {user.username}")
+        if sightings.empty:
+            st.caption("No sightings yet.")
+        else:
+            st.caption(f"Spotting since {sightings['seen_on'].min()} · "
+                       f"{collected} lifer{'' if collected == 1 else 's'} from "
+                       f"{len(sightings)} sighting{'' if len(sightings) == 1 else 's'}")
+
+    st.subheader("Your sightings")
     if sightings.empty:
         st.info("No sightings yet. Go find a dog!")
     for s in logic.recent_first(sightings).itertuples():
@@ -353,3 +367,23 @@ with tab_history:
                 st.caption(f"🐶 {s.dog_name}")
             if s.notes:
                 st.caption(s.notes)
+
+# --- Social (placeholder until friends and shared life lists are built) ----------------------
+with tab_social:
+    st.header("Social")
+    st.info("Coming soon: follow friends, compare life lists and see who spots the most breeds.")
+
+# --- Settings ------------------------------------------------------------------------------
+with tab_settings:
+    st.header("Settings")
+    st.subheader("Account")
+    with st.container(border=True):
+        st.write(f"Signed in as **{user.username}**")
+        st.caption(user.email)
+        if st.button("Sign out", width="stretch"):
+            backend.sign_out()
+            end_session()
+    st.subheader("Appearance")
+    st.caption("Light or dark mode follows your phone or computer setting.")
+    st.subheader("About")
+    st.caption("Project Cerberus: spot dogs, collect breeds. Breeds are the AKC 2025 top 100.")
