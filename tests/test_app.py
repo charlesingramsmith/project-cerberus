@@ -307,3 +307,35 @@ def test_empty_suggestion_is_rejected(at):
     sign_up(at)
     click(at, "Send idea")
     assert "Write your idea first" in at.error[0].value
+
+
+# --- New-update dot on Settings --------------------------------------------------------
+
+def latest_version() -> str:
+    from cerberus import logic
+
+    return logic.parse_changelog(logic.CHANGELOG_MD.read_text(encoding="utf-8"))[0].version
+
+
+def dot_shown(at: AppTest) -> bool:
+    return any("new-update-dot" in h.proto.body for h in at.get("html"))
+
+
+def open_tab(at: AppTest, label: str) -> AppTest:
+    at.session_state["main_tab"] = next(t for t in at.tabs if t.label.endswith(label)).label
+    at.run()
+    assert not at.exception
+    return at
+
+
+def test_settings_dot_shows_until_settings_is_opened(at):
+    sign_up(at)
+    assert dot_shown(at)
+
+    open_tab(at, "Settings")
+    assert not dot_shown(at)
+    assert any(":orange-badge[New]" in m.value for m in at.markdown)  # the update is marked
+
+    open_tab(at, "Dog ID")
+    assert not dot_shown(at)  # stays gone once seen
+    assert at.session_state["backend"].seen_version() == latest_version()

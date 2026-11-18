@@ -14,7 +14,7 @@ It's inspired by bird-watching life lists, but for the dogs you pass in the park
 - **Lifer celebrations**: a new breed gets balloons 🎉.
 - **Life list**: progress towards 100 breeds, the date you first saw each one and how many times, filterable by collected or still to find, and searchable.
 - **Your profile**: a summary of your spotting, plus every dog you've logged as a card, newest first, each with its own delete button.
-- **Settings**: your account details and sign out, plus **What's new**: the app's version number and recent updates (from [`CHANGELOG.md`](CHANGELOG.md)), the features coming next (straight from [`ROADMAP.md`](ROADMAP.md)) with a **+1** button on each so you can vote for what you want most, and a box to suggest new features. (The **Social** tab is a placeholder for now.)
+- **Settings**: your account details and sign out, plus **What's new**: the app's version number and recent updates (from [`CHANGELOG.md`](CHANGELOG.md)), the features coming next (straight from [`ROADMAP.md`](ROADMAP.md)) with a **+1** button on each so you can vote for what you want most, and a box to suggest new features. An orange dot on the Settings tab tells you when there's an update you haven't seen. (The **Social** tab is a placeholder for now.)
 - **Demo mode**: with no database configured, the app still runs, keeping data in memory only.
 
 ## Architecture
