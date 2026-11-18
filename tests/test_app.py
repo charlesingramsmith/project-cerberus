@@ -209,3 +209,54 @@ def test_signing_out_deletes_the_cookie(at):
     sign_up(at)
     click(at, "Sign out")
     assert any("Max-Age=0" in h.proto.body for h in at.get("html"))
+
+
+# --- Settings: What's new, Coming next, +1 votes and suggestions -----------------------
+
+def vote_buttons(at: AppTest):
+    return [b for b in at.button if b.key and b.key.startswith("vote_")]
+
+
+def test_settings_shows_the_version_and_latest_update(at):
+    from cerberus import logic
+
+    sign_up(at)
+    latest = logic.parse_changelog(logic.CHANGELOG_MD.read_text(encoding="utf-8"))[0]
+    assert f"Version {latest.version}" in [c.value for c in at.caption]
+    assert any(f"Version {latest.version}: {latest.title}" in m.value for m in at.markdown)
+    assert "Earlier updates" in [e.label for e in at.expander]
+
+
+def test_coming_next_lists_roadmap_features_with_a_plus_one_each(at):
+    from cerberus import logic
+
+    sign_up(at)
+    upcoming = logic.upcoming_features(logic.ROADMAP_MD.read_text(encoding="utf-8"))
+    assert [b.key for b in vote_buttons(at)] == [f"vote_{i.key}" for i in upcoming]
+    assert all(b.label == "+1 · 0" for b in vote_buttons(at))
+
+
+def test_plus_one_toggles_on_and_off(at):
+    sign_up(at)
+    key = vote_buttons(at)[0].key
+    at.button(key=key).click().run()
+    assert not at.exception
+    assert at.button(key=key).label == "+1 · 1"
+    assert at.button(key=key).proto.type == "primary"  # highlighted: you've voted
+
+    at.button(key=key).click().run()
+    assert at.button(key=key).label == "+1 · 0"
+
+
+def test_suggesting_a_feature(at):
+    sign_up(at)
+    at.text_area(key="feature_suggestion").input("Badges for streaks")
+    click(at, "Send idea")
+    assert "Thanks" in at.success[-1].value
+    assert at.session_state["backend"].suggestions[0]["suggestion"] == "Badges for streaks"
+
+
+def test_empty_suggestion_is_rejected(at):
+    sign_up(at)
+    click(at, "Send idea")
+    assert "Write your idea first" in at.error[0].value

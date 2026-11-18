@@ -14,10 +14,12 @@ import hashlib
 import itertools
 import re
 import secrets
+from collections import Counter
 from dataclasses import dataclass
 from datetime import date
 from typing import Protocol
 
+from cerberus.logic import clean_suggestion
 from cerberus.oauth import with_query
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -70,6 +72,18 @@ class Backend(Protocol):
                      dog_name: str | None = None, notes: str | None = None) -> None: ...
 
     def delete_sighting(self, sighting_id: int) -> None: ...
+
+    def feature_vote_counts(self) -> dict[str, int]:
+        """Total +1 votes per upcoming feature, from all users (no names)."""
+
+    def my_feature_votes(self) -> set[str]:
+        """The features the signed-in user has given a +1."""
+
+    def set_feature_vote(self, feature: str, voted: bool) -> None:
+        """Add (voted=True) or remove the signed-in user's +1 for a feature."""
+
+    def suggest_feature(self, suggestion: str) -> None:
+        """Send a feature idea. Raises ValueError if it's empty or too long."""
 
 
 def validate_sign_up(email: str, password: str, username: str) -> tuple[str, str]:
@@ -218,6 +232,33 @@ class SupabaseBackend:
         self._require_user()
         self.client.table("sightings").delete().eq("id", sighting_id).execute()
 
+    def feature_vote_counts(self):
+        self._require_user()
+        res = self.client.rpc("feature_vote_counts").execute()  # see supabase/schema.sql
+        return {row["feature"]: int(row["votes"]) for row in res.data}
+
+    def my_feature_votes(self):
+        user = self._require_user()
+        res = (self.client.table("feature_votes").select("feature")
+               .eq("user_id", user.id).execute())
+        return {row["feature"] for row in res.data}
+
+    def set_feature_vote(self, feature, voted):
+        user = self._require_user()
+        votes = self.client.table("feature_votes")
+        if voted:
+            # Voting twice is harmless: the (user_id, feature) key already exists, so skip it.
+            votes.upsert({"user_id": user.id, "feature": feature},
+                         on_conflict="user_id,feature", ignore_duplicates=True).execute()
+        else:
+            votes.delete().eq("user_id", user.id).eq("feature", feature).execute()
+
+    def suggest_feature(self, suggestion):
+        user = self._require_user()
+        text = clean_suggestion(suggestion)
+        self.client.table("feature_suggestions").insert(
+            {"suggestion": text, "user_id": user.id}).execute()
+
 
 # --- In-memory (tests and demo mode) ---------------------------------------------
 
@@ -233,6 +274,8 @@ class MemoryBackend:
         # Single-use refresh tokens, like Supabase's: token -> email.
         self._tokens: dict[str, str] = {}
         self._token: str | None = None
+        self._votes: set[tuple[str, str]] = set()  # (user id, feature)
+        self.suggestions: list[dict] = []
 
     @staticmethod
     def _hash(password: str) -> str:
@@ -316,3 +359,22 @@ class MemoryBackend:
         user = self._require_user()
         self._sightings = [s for s in self._sightings
                            if not (s["id"] == sighting_id and s["user_id"] == user.id)]
+
+    def feature_vote_counts(self):
+        self._require_user()
+        return dict(Counter(feature for _, feature in self._votes))
+
+    def my_feature_votes(self):
+        user = self._require_user()
+        return {feature for user_id, feature in self._votes if user_id == user.id}
+
+    def set_feature_vote(self, feature, voted):
+        user = self._require_user()
+        if voted:
+            self._votes.add((user.id, feature))
+        else:
+            self._votes.discard((user.id, feature))
+
+    def suggest_feature(self, suggestion):
+        user = self._require_user()
+        self.suggestions.append({"user_id": user.id, "suggestion": clean_suggestion(suggestion)})

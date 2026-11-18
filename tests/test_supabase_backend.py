@@ -8,8 +8,9 @@ from cerberus.backends import AuthError, SupabaseBackend
 
 
 class FakeQuery:
-    def __init__(self, log):
+    def __init__(self, log, data=None):
         self.log = log
+        self.data = data or []
 
     def __getattr__(self, name):
         def call(*args, **kwargs):
@@ -18,7 +19,7 @@ class FakeQuery:
         return call
 
     def execute(self):
-        return SimpleNamespace(data=[])
+        return SimpleNamespace(data=self.data)
 
 
 class FakeAuth:
@@ -72,10 +73,16 @@ class FakeAuth:
         self.session = None
 
 
-def make_backend(**auth_kwargs) -> tuple[SupabaseBackend, list]:
+def make_backend(rpc_data=None, **auth_kwargs) -> tuple[SupabaseBackend, list]:
     log: list = []
+
+    def rpc(name, *args):
+        log.append(("rpc", (name, *args), {}))
+        return FakeQuery(log, rpc_data)
+
     backend = SupabaseBackend.__new__(SupabaseBackend)
-    backend.client = SimpleNamespace(auth=FakeAuth(**auth_kwargs), table=lambda name: FakeQuery(log))
+    backend.client = SimpleNamespace(auth=FakeAuth(**auth_kwargs),
+                                     table=lambda name: FakeQuery(log), rpc=rpc)
     backend._user = None
     return backend, log
 
@@ -164,3 +171,31 @@ def test_sign_out_only_ends_this_devices_session():
     backend.sign_out()
     assert backend.client.auth.sign_out_options == {"scope": "local"}
     assert backend.refresh_token() is None
+
+
+def test_vote_counts_come_from_the_counting_function():
+    backend, log = make_backend(rpc_data=[{"feature": "photo-upload", "votes": 3}])
+    backend.sign_in("charlie@example.com", "correct-horse")
+    assert backend.feature_vote_counts() == {"photo-upload": 3}
+    assert ("rpc", ("feature_vote_counts",), {}) in log
+
+
+def test_voting_upserts_and_unvoting_deletes_only_your_row():
+    backend, log = make_backend()
+    backend.sign_in("charlie@example.com", "correct-horse")
+    backend.set_feature_vote("photo-upload", True)
+    assert ("upsert", ({"user_id": "uuid-1", "feature": "photo-upload"},),
+            {"on_conflict": "user_id,feature", "ignore_duplicates": True}) in log
+
+    log.clear()
+    backend.set_feature_vote("photo-upload", False)
+    assert [entry[0] for entry in log] == ["delete", "eq", "eq"]
+    assert ("eq", ("user_id", "uuid-1"), {}) in log
+
+
+def test_suggestion_is_cleaned_and_sent_with_user_id():
+    backend, log = make_backend()
+    backend.sign_in("charlie@example.com", "correct-horse")
+    backend.suggest_feature("  Badges  ")
+    insert = next(args[0] for name, args, _ in log if name == "insert")
+    assert insert == {"suggestion": "Badges", "user_id": "uuid-1"}
