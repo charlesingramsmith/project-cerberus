@@ -153,6 +153,23 @@ def upcoming_features(roadmap: str, sections: tuple[str, ...] = ("Now", "Next"))
     return items
 
 
+def has_unseen_update(latest: str | None, seen: str | None) -> bool:
+    """True if `latest` (e.g. "0.7.0") is newer than the version the user last saw.
+
+    Someone who has never opened Settings (seen is None) hasn't seen any update yet.
+    """
+    if not latest:
+        return False
+    try:
+        return seen is None or _version(seen) < _version(latest)
+    except ValueError:  # a garbled saved version: treat it as unseen
+        return True
+
+
+def _version(text: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in text.split("."))
+
+
 MAX_SUGGESTION_LENGTH = 500
 
 

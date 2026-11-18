@@ -155,3 +155,15 @@ def test_clean_suggestion():
         logic.clean_suggestion("   ")
     with pytest.raises(ValueError):
         logic.clean_suggestion("x" * (logic.MAX_SUGGESTION_LENGTH + 1))
+
+@pytest.mark.parametrize("latest, seen, expected", [
+    ("0.7.0", None, True),       # never opened Settings
+    ("0.7.0", "0.6.0", True),
+    ("0.10.0", "0.9.0", True),   # compared as numbers, not text
+    ("0.7.0", "0.7.0", False),
+    ("0.7.0", "0.8.0", False),
+    (None, None, False),         # no releases at all
+    ("0.7.0", "garbled", True),
+])
+def test_has_unseen_update(latest, seen, expected):
+    assert logic.has_unseen_update(latest, seen) is expected

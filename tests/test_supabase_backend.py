@@ -72,6 +72,9 @@ class FakeAuth:
         self.sign_out_options = options
         self.session = None
 
+    def update_user(self, attributes):
+        self.updated = attributes
+
 
 def make_backend(rpc_data=None, **auth_kwargs) -> tuple[SupabaseBackend, list]:
     log: list = []
@@ -84,6 +87,7 @@ def make_backend(rpc_data=None, **auth_kwargs) -> tuple[SupabaseBackend, list]:
     backend.client = SimpleNamespace(auth=FakeAuth(**auth_kwargs),
                                      table=lambda name: FakeQuery(log), rpc=rpc)
     backend._user = None
+    backend._meta = {}
     return backend, log
 
 
@@ -199,3 +203,22 @@ def test_suggestion_is_cleaned_and_sent_with_user_id():
     backend.suggest_feature("  Badges  ")
     insert = next(args[0] for name, args, _ in log if name == "insert")
     assert insert == {"suggestion": "Badges", "user_id": "uuid-1"}
+
+def test_seen_version_comes_from_user_metadata_and_is_saved_there():
+    backend, _ = make_backend()
+    backend.sign_in("charlie@example.com", "correct-horse")
+    assert backend.seen_version() is None
+    backend.mark_version_seen("0.7.0")
+    assert backend.client.auth.updated == {"data": {"seen_version": "0.7.0"}}
+    assert backend.seen_version() == "0.7.0"
+
+
+def test_seen_version_is_read_back_after_signing_in_again():
+    backend, _ = make_backend()
+    backend.client.auth.sign_in_with_password = lambda creds: SimpleNamespace(
+        user=SimpleNamespace(id="uuid-1", email="charlie@example.com",
+                             user_metadata={"username": "charlie", "seen_version": "0.6.0"}),
+        session=SimpleNamespace(refresh_token="rt-1"))
+    backend.client.auth.session = SimpleNamespace(refresh_token="rt-1")
+    backend.sign_in("charlie@example.com", "correct-horse")
+    assert backend.seen_version() == "0.6.0"

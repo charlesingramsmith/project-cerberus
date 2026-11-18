@@ -26,7 +26,7 @@ Bird apps like Merlin let you identify a bird three ways: by answering questions
 - [x] Bottom tab bar: Dog ID, Life list, Profile, Social (placeholder), Settings
 - [x] "Keep me signed in" for 30 days (refresh token in browser storage, renewed on each visit)
 - [x] **What's new** in Settings: version number and history from `CHANGELOG.md`, "Coming next" from this file's Now and Next sections, a +1 vote on each upcoming feature, and a box to suggest features.
-  - Not done yet: a "new" dot on Settings when there's an update the user hasn't seen.
+- [x] A "new update" dot on the Settings tab, cleared by opening Settings (the version seen is saved to the user's account)
 
 ## Now
 

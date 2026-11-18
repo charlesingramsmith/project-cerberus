@@ -186,3 +186,16 @@ def test_votes_and_suggestions_need_a_sign_in(backend):
                  lambda: backend.suggest_feature("idea")):
         with pytest.raises(AuthError):
             call()
+
+def test_seen_version_is_remembered_per_user(backend):
+    backend.sign_up("a@example.com", "correct-horse", "alice")
+    assert backend.seen_version() is None
+    backend.mark_version_seen("0.7.0")
+    backend.sign_out()
+    backend.sign_up("b@example.com", "correct-horse", "bobby")
+    assert backend.seen_version() is None  # Bobby hasn't seen it
+    backend.sign_out()
+    backend.sign_in("a@example.com", "correct-horse")
+    assert backend.seen_version() == "0.7.0"
+    with pytest.raises(AuthError):
+        MemoryBackend().seen_version()
