@@ -6,6 +6,11 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.8.0 - 2026-11-18 - Profiles and a Social feed
+- Make your profile your own: pick a username, a dog emoji as your picture, your favourite breed, and add your own dogs.
+- The Social tab now shows the latest sightings from everyone in the community.
+- Your sightings are shared by default. You can switch sharing off any time in Settings > Privacy.
+
 ## 0.7.1 - 2026-11-18 - Tabs easier to tap on phones
 - On phones, the tab bar now sits above the Streamlit badge in the bottom corner, so Social and Settings are no longer covered.
 

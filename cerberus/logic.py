@@ -181,3 +181,68 @@ def clean_suggestion(text: str) -> str:
     if len(text) > MAX_SUGGESTION_LENGTH:
         raise ValueError(f"Please keep it under {MAX_SUGGESTION_LENGTH} characters.")
     return text
+
+
+# --- Profiles and the Social feed ------------------------------------------------------
+
+MIN_USERNAME_LENGTH, MAX_USERNAME_LENGTH = 3, 30
+AVATARS = ["🐶", "🐕", "🐩", "🦮", "🐕‍🦺", "🐾", "🦴", "🎾", "🐺", "🦊"]
+MIXED_BREED = "Mixed breed / other"
+MAX_DOGS = 5
+MAX_DOG_NAME_LENGTH = 40
+USERNAME_TAKEN = "That username is taken. Please choose another."
+
+
+def new_profile(username: str) -> dict:
+    """A brand-new member's profile: sharing is on by default."""
+    return {"username": username, "avatar": AVATARS[0], "favourite_breed": None,
+            "dogs": [], "share_sightings": True}
+
+
+def clean_profile(profile: dict) -> dict:
+    """Check and tidy a profile before saving it. Raises ValueError with a friendly message."""
+    username = (profile.get("username") or "").strip()
+    if not MIN_USERNAME_LENGTH <= len(username) <= MAX_USERNAME_LENGTH:
+        raise ValueError(f"Username must be {MIN_USERNAME_LENGTH} to {MAX_USERNAME_LENGTH} characters.")
+    avatar = profile.get("avatar")
+    if avatar not in AVATARS:
+        raise ValueError("Pick a profile picture from the list.")
+    dogs = []
+    for dog in profile.get("dogs") or []:
+        name = (dog.get("name") or "").strip()
+        breed = dog.get("breed") or None
+        if not name and not breed:
+            continue  # an empty row: ignore it
+        if not name:
+            raise ValueError("Give each of your dogs a name.")
+        if len(name) > MAX_DOG_NAME_LENGTH:
+            raise ValueError(f"Dog names can be up to {MAX_DOG_NAME_LENGTH} characters.")
+        dogs.append({"name": name, "breed": breed})
+    if len(dogs) > MAX_DOGS:
+        raise ValueError(f"You can list up to {MAX_DOGS} dogs.")
+    return {"username": username, "avatar": avatar,
+            "favourite_breed": profile.get("favourite_breed") or None,
+            "dogs": dogs, "share_sightings": bool(profile.get("share_sightings", True))}
+
+
+def username_candidates(base: str, tries: int = 50):
+    """Names to try for a new profile when usernames must be unique: "pat", "pat2", "pat3", ..."""
+    base = (base or "").strip()[:MAX_USERNAME_LENGTH - 2]
+    base = base.ljust(MIN_USERNAME_LENGTH, "_")  # very short names get padded: "al" -> "al_"
+    yield base
+    for n in range(2, tries + 1):
+        yield f"{base}{n}"
+
+
+def social_feed(sightings: list[dict], profiles: dict[str, dict]) -> list[dict]:
+    """Sightings for the Social tab, each with its spotter's username and avatar.
+
+    `profiles` maps user id -> profile. Sightings from members without a profile, or who
+    have switched sharing off, are left out. Order is kept (newest first from the backend).
+    """
+    feed = []
+    for s in sightings:
+        who = profiles.get(s["user_id"])
+        if who and who.get("share_sightings", True):
+            feed.append({**s, "username": who["username"], "avatar": who["avatar"]})
+    return feed

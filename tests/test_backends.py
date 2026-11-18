@@ -3,6 +3,7 @@ from datetime import date
 
 import pytest
 
+from cerberus import logic
 from cerberus.backends import AuthError, MemoryBackend, validate_sign_up
 
 
@@ -199,3 +200,56 @@ def test_seen_version_is_remembered_per_user(backend):
     assert backend.seen_version() == "0.7.0"
     with pytest.raises(AuthError):
         MemoryBackend().seen_version()
+
+# --- Profiles and the Social feed -----------------------------------------------------
+
+def test_first_profile_uses_the_sign_up_username_and_shares_by_default(backend):
+    backend.sign_up("a@example.com", "correct-horse", "charlie")
+    assert backend.my_profile() == {"username": "charlie", "avatar": "🐶",
+                                    "favourite_breed": None, "dogs": [],
+                                    "share_sightings": True}
+
+
+def test_usernames_are_unique_ignoring_capitals(backend):
+    backend.sign_up("a@example.com", "correct-horse", "charlie")
+    backend.my_profile()
+    backend.sign_out()
+    backend.sign_up("b@example.com", "correct-horse", "Charlie")
+    assert backend.my_profile()["username"] == "Charlie2"  # first name was taken
+    with pytest.raises(ValueError, match="taken"):
+        backend.save_profile({**backend.my_profile(), "username": "CHARLIE"})
+
+
+def test_save_profile_stores_the_cleaned_profile(backend):
+    backend.sign_up("a@example.com", "correct-horse", "charlie")
+    saved = backend.save_profile({**backend.my_profile(), "favourite_breed": "Beagle",
+                                  "dogs": [{"name": " Biscuit ", "breed": None}]})
+    assert saved["dogs"] == [{"name": "Biscuit", "breed": None}]
+    assert backend.my_profile() == saved
+
+
+def test_social_feed_shows_sharers_but_life_lists_stay_private(backend):
+    backend.sign_up("a@example.com", "correct-horse", "alice")
+    backend.my_profile()
+    backend.add_sighting("Pug", date(2026, 11, 1), location="Hyde Park")
+    backend.sign_out()
+    backend.sign_up("b@example.com", "correct-horse", "bobby")
+    backend.my_profile()
+    backend.add_sighting("Beagle", date(2026, 11, 2))
+
+    feed = backend.social_feed()
+    assert [(p["breed"], p["username"]) for p in feed] == [("Beagle", "bobby"), ("Pug", "alice")]
+    assert feed[1]["location"] == "Hyde Park"
+    assert [s["breed"] for s in backend.list_sightings()] == ["Beagle"]  # only your own
+
+    backend.sign_out()
+    backend.sign_in("a@example.com", "correct-horse")
+    backend.save_profile({**backend.my_profile(), "share_sightings": False})
+    assert [p["username"] for p in backend.social_feed()] == ["bobby"]  # alice hidden, even to herself
+
+
+def test_profiles_and_feed_need_a_sign_in(backend):
+    for call in (backend.my_profile, backend.social_feed,
+                 lambda: backend.save_profile(logic.new_profile("charlie"))):
+        with pytest.raises(AuthError):
+            call()

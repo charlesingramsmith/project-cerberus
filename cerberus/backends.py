@@ -19,12 +19,13 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Protocol
 
-from cerberus.logic import clean_suggestion
+from cerberus import logic
+from cerberus.logic import MAX_USERNAME_LENGTH, USERNAME_TAKEN, clean_suggestion
 from cerberus.oauth import with_query
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 MIN_PASSWORD_LENGTH = 8
-MAX_USERNAME_LENGTH = 30
+FEED_LIMIT = 50  # sightings shown in the Social tab
 GOOGLE_FAILED = "Google sign-in didn't work. Please try again."
 RESUME_FAILED = "You've been signed out. Please sign in again."
 
@@ -90,6 +91,27 @@ class Backend(Protocol):
 
     def mark_version_seen(self, version: str) -> None:
         """Remember that the signed-in user has seen this update (clears the Settings dot)."""
+
+    def my_profile(self) -> dict:
+        """The signed-in user's profile, created on first use from their sign-up username.
+
+        If that username is taken, a number is added ("charlie2").
+        """
+
+    def save_profile(self, profile: dict) -> dict:
+        """Check and save the signed-in user's profile; returns what was saved.
+
+        Raises ValueError for bad input or a username someone else has.
+        """
+
+    def social_feed(self, limit: int = FEED_LIMIT) -> list[dict]:
+        """Recent sightings from everyone who shares (including you), newest first,
+        each with the spotter's username and avatar."""
+
+
+def _is_duplicate(err: Exception) -> bool:
+    """True if Postgres refused a row because a unique value (a username) is taken."""
+    return getattr(err, "code", None) == "23505"
 
 
 def validate_sign_up(email: str, password: str, username: str) -> tuple[str, str]:
@@ -225,10 +247,13 @@ class SupabaseBackend:
             self._user = None
 
     def list_sightings(self):
-        self._require_user()
+        user = self._require_user()
         res = (
             self.client.table("sightings")
             .select("id, breed, seen_on, location, dog_name, notes")
+            # RLS also lets members read other people's shared sightings (for Social),
+            # so ask for this user's own rows explicitly.
+            .eq("user_id", user.id)
             .order("seen_on", desc=True)
             .order("id", desc=True)
             .execute()
@@ -283,6 +308,48 @@ class SupabaseBackend:
         self.client.auth.update_user({"data": {"seen_version": version}})
         self._meta = {**self._meta, "seen_version": version}
 
+    PROFILE_COLUMNS = "username, avatar, favourite_breed, dogs, share_sightings"
+
+    def my_profile(self):
+        user = self._require_user()
+        profiles = self.client.table("profiles")
+        rows = profiles.select(self.PROFILE_COLUMNS).eq("user_id", user.id).execute().data
+        if rows:
+            return rows[0]
+        for name in logic.username_candidates(user.username):  # first visit: make one
+            profile = logic.new_profile(name)
+            try:
+                profiles.insert({**profile, "user_id": user.id}).execute()
+                return profile
+            except Exception as err:
+                if not _is_duplicate(err):
+                    raise
+        raise ValueError(USERNAME_TAKEN)
+
+    def save_profile(self, profile):
+        user = self._require_user()
+        clean = logic.clean_profile(profile)
+        try:
+            self.client.table("profiles").update(clean).eq("user_id", user.id).execute()
+        except Exception as err:
+            if _is_duplicate(err):
+                raise ValueError(USERNAME_TAKEN) from err
+            raise
+        return clean
+
+    def social_feed(self, limit=FEED_LIMIT):
+        self._require_user()
+        # RLS returns your own sightings plus those of members who share.
+        rows = (self.client.table("sightings")
+                .select("id, user_id, breed, seen_on, location, dog_name, notes")
+                .order("seen_on", desc=True).order("id", desc=True).limit(limit)
+                .execute().data)
+        ids = sorted({r["user_id"] for r in rows})
+        profiles = (self.client.table("profiles")
+                    .select("user_id, username, avatar, share_sightings")
+                    .in_("user_id", ids).execute().data) if ids else []
+        return logic.social_feed(rows, {p["user_id"]: p for p in profiles})
+
 
 # --- In-memory (tests and demo mode) ---------------------------------------------
 
@@ -301,6 +368,7 @@ class MemoryBackend:
         self._votes: set[tuple[str, str]] = set()  # (user id, feature)
         self.suggestions: list[dict] = []
         self._seen: dict[str, str] = {}  # user id -> newest update they've seen
+        self._profiles: dict[str, dict] = {}  # user id -> profile
 
     @staticmethod
     def _hash(password: str) -> str:
@@ -409,3 +477,31 @@ class MemoryBackend:
 
     def mark_version_seen(self, version):
         self._seen[self._require_user().id] = version
+
+    def _username_taken(self, username: str, by_someone_but: str) -> bool:
+        return any(p["username"].lower() == username.lower()
+                   for uid, p in self._profiles.items() if uid != by_someone_but)
+
+    def my_profile(self):
+        user = self._require_user()
+        if user.id not in self._profiles:
+            name = next(n for n in logic.username_candidates(user.username)
+                        if not self._username_taken(n, user.id))
+            self._profiles[user.id] = logic.new_profile(name)
+        return dict(self._profiles[user.id])
+
+    def save_profile(self, profile):
+        user = self._require_user()
+        clean = logic.clean_profile(profile)
+        if self._username_taken(clean["username"], user.id):
+            raise ValueError(USERNAME_TAKEN)
+        self._profiles[user.id] = clean
+        return dict(clean)
+
+    def social_feed(self, limit=FEED_LIMIT):
+        user = self._require_user()
+        visible = [s for s in self._sightings  # like RLS: your own, plus anyone who shares
+                   if s["user_id"] == user.id
+                   or self._profiles.get(s["user_id"], {}).get("share_sightings")]
+        newest = sorted(visible, key=lambda s: (s["seen_on"], s["id"]), reverse=True)[:limit]
+        return logic.social_feed(newest, self._profiles)

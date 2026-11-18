@@ -2,6 +2,7 @@
 
 Run with:  streamlit run app.py
 """
+import dataclasses
 import datetime as dt
 import html
 import os
@@ -50,6 +51,17 @@ button { min-height: 2.75rem; }
 .cerb-row .sub { font-size: .85rem; opacity: .7; }
 .cerb-row .rank { font-size: .8rem; opacity: .6; }
 .cerb-row.missing .name { font-weight: 400; opacity: .75; }
+
+/* Social feed posts: avatar on the left, who/when, then the sighting */
+.cerb-post {
+    display: flex; gap: .75rem; padding: .75rem .25rem;
+    border-bottom: 1px solid rgba(128, 128, 128, .2);
+}
+.cerb-post .avatar { font-size: 1.6rem; line-height: 1.2; width: 2rem; text-align: center; }
+.cerb-post .main { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.cerb-post .who { font-size: .85rem; opacity: .75; }
+.cerb-post .breed { font-weight: 600; }
+.cerb-post .sub { font-size: .85rem; opacity: .75; }
 
 /* Bottom tab bar: the main tabs, pinned to the bottom of the screen like a phone
    app. Five equal slots, each an icon above a short label. On wider screens the
@@ -328,6 +340,16 @@ try:
 except AuthError as err:
     end_session(str(err))
 
+# Your profile (made on first sign-in). If the profiles table isn't set up yet, carry on
+# with a stand-in so the rest of the app still works; Profile editing and Social wait.
+try:
+    profile, profiles_ready = backend.my_profile(), True
+except AuthError as err:
+    end_session(str(err))
+except Exception:
+    profile, profiles_ready = logic.new_profile(user.username), False
+user = dataclasses.replace(user, username=profile["username"])  # the name others see
+
 life = logic.life_list(breeds, sightings)
 seen = life["times_seen"] > 0
 collected, total = int(seen.sum()), len(life)
@@ -408,7 +430,10 @@ with tab_id:
         )
         seen_on = st.date_input("Date seen", value=dt.date.today(), max_value=dt.date.today())
         dog_name = st.text_input("Dog's name (if you found out)")
-        location = st.text_input("Where")
+        location = st.text_input(
+            "Where", placeholder="e.g. Hyde Park",
+            help="Other members can see this in Social if you share your sightings "
+                 "(Settings > Privacy).")
         notes = st.text_area("Notes", placeholder="Good boy. Very fluffy.", height=80)
         submitted = st.form_submit_button("Log sighting", type="primary", width="stretch")
 
@@ -466,16 +491,69 @@ with tab_life:
     st.caption("Breeds ranked by AKC 2025 popularity.")
 
 # --- Your profile: who you are, plus every sighting you've logged ------------------------------
+def dogs_text(dogs: list[dict]) -> str:
+    return ", ".join(f"{d['name']} ({d['breed']})" if d.get("breed") else d["name"] for d in dogs)
+
+
+def profile_editor():
+    """Username, picture, favourite breed and your own dogs. Saved with one button."""
+    breed_names = breeds["breed"].tolist()
+    name = st.text_input("Username", value=profile["username"], key="profile_username",
+                         max_chars=logic.MAX_USERNAME_LENGTH)
+    avatar = st.pills("Profile picture", logic.AVATARS, default=profile["avatar"],
+                      key="profile_avatar")
+    favourite = st.selectbox(
+        "Favourite breed", breed_names, key="profile_favourite", placeholder="Pick a breed",
+        index=breed_names.index(profile["favourite_breed"])
+        if profile["favourite_breed"] in breed_names else None)
+    dogs = []
+    if st.toggle("I have a dog", value=bool(profile["dogs"]), key="profile_has_dogs"):
+        count = st.number_input("How many dogs?", min_value=1, max_value=logic.MAX_DOGS,
+                                value=max(1, len(profile["dogs"])), key="profile_dog_count")
+        own_breeds = breed_names + [logic.MIXED_BREED]
+        for i in range(int(count)):
+            old = profile["dogs"][i] if i < len(profile["dogs"]) else {}
+            with st.container(border=True):
+                dog_name = st.text_input(f"Dog {i + 1}: name", value=old.get("name", ""),
+                                         key=f"profile_dog_name_{i}")
+                dog_breed = st.selectbox(
+                    f"Dog {i + 1}: breed", own_breeds, key=f"profile_dog_breed_{i}",
+                    placeholder="Pick a breed (optional)",
+                    index=own_breeds.index(old["breed"]) if old.get("breed") in own_breeds else None)
+                dogs.append({"name": dog_name, "breed": dog_breed})
+    if st.button("Save profile", type="primary", width="stretch", key="save_profile"):
+        try:
+            backend.save_profile({**profile, "username": name, "favourite_breed": favourite,
+                                  "avatar": avatar or profile["avatar"], "dogs": dogs})
+        except ValueError as err:
+            st.error(str(err))
+        except AuthError as err:
+            end_session(str(err))
+        else:
+            st.session_state.profile_saved = True
+            st.rerun()
+
+
 with tab_profile:
     st.header("Your profile")
+    if st.session_state.pop("profile_saved", False):
+        st.success("Profile saved.")
     with st.container(border=True):
-        st.markdown(f"### 👤 {user.username}")
+        st.markdown(f"### {profile['avatar']} {user.username}")
+        if profile["favourite_breed"]:
+            st.markdown(f"❤️ Favourite breed: **{profile['favourite_breed']}**")
+        if profile["dogs"]:
+            st.markdown(f"🐕 {'My dog' if len(profile['dogs']) == 1 else 'My dogs'}: "
+                        f"{dogs_text(profile['dogs'])}")
         if sightings.empty:
             st.caption("No sightings yet.")
         else:
             st.caption(f"Spotting since {sightings['seen_on'].min()} · "
                        f"{collected} lifer{'' if collected == 1 else 's'} from "
                        f"{len(sightings)} sighting{'' if len(sightings) == 1 else 's'}")
+    if profiles_ready:
+        with st.expander("✏️ Edit profile"):
+            profile_editor()
 
     st.subheader("Your sightings")
     if sightings.empty:
@@ -499,10 +577,40 @@ with tab_profile:
             if s.notes:
                 st.caption(s.notes)
 
-# --- Social (placeholder until friends and shared life lists are built) ----------------------
+# --- Social: recent sightings from everyone who shares -------------------------------------
+def feed_post(post: dict) -> str:
+    """One sighting in the feed as HTML. Everything members typed is escaped."""
+    seen_on = dt.date.fromisoformat(str(post["seen_on"]))
+    who = f"<b>{html.escape(post['username'])}</b>" + (" (you)" if post["user_id"] == user.id else "")
+    details = [f"📍 {html.escape(post['location'])}" if post.get("location") else "",
+               f"🐶 {html.escape(post['dog_name'])}" if post.get("dog_name") else ""]
+    lines = [" · ".join(d for d in details if d), html.escape(post.get("notes") or "")]
+    return (
+        f'<div class="cerb-post"><span class="avatar">{html.escape(post["avatar"])}</span>'
+        f'<div class="main"><div class="who">{who} · {seen_on.day} {seen_on:%b %Y}</div>'
+        f'<div class="breed">{html.escape(post["breed"])}</div>'
+        + "".join(f'<div class="sub">{line}</div>' for line in lines if line)
+        + "</div></div>"
+    )
+
+
 with tab_social:
     st.header("Social")
-    st.info("Coming soon: follow friends, compare life lists and see who spots the most breeds.")
+    st.caption("The latest sightings from everyone who shares them. "
+               "You can stop sharing yours in Settings > Privacy.")
+    if tab_social.open:  # only fetch the feed when someone is looking at it
+        try:
+            feed = backend.social_feed() if profiles_ready else None
+        except AuthError as err:
+            end_session(str(err))
+        except Exception:
+            feed = None
+        if feed is None:
+            st.info("Social isn't available right now. Please try again later.")
+        elif not feed:
+            st.info("No sightings yet. Log a dog and you'll be the first!")
+        else:
+            st.markdown("".join(feed_post(p) for p in feed), unsafe_allow_html=True)
 
 # --- Settings ------------------------------------------------------------------------------
 def release_card(release: logic.Release, border: bool = True):
@@ -524,6 +632,21 @@ with tab_settings:
         if st.button("Sign out", width="stretch"):
             backend.sign_out()
             end_session()
+    st.subheader("Privacy")
+    share = st.toggle("Share my sightings in Social", value=profile["share_sightings"],
+                      key="share_sightings", disabled=not profiles_ready)
+    st.caption("When this is on, other members can see your sightings in Social, "
+               "including where you saw each dog. Your email is never shown.")
+    if profiles_ready and share != profile["share_sightings"]:
+        try:
+            backend.save_profile({**profile, "share_sightings": share})
+        except AuthError as err:
+            end_session(str(err))
+        except Exception:
+            st.error("That didn't save. Please try again.")
+        else:
+            st.rerun()
+
     st.subheader("Appearance")
     st.caption("Light or dark mode follows your phone or computer setting.")
 

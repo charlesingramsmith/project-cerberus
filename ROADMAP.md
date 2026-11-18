@@ -27,6 +27,8 @@ Bird apps like Merlin let you identify a bird three ways: by answering questions
 - [x] "Keep me signed in" for 30 days (refresh token in browser storage, renewed on each visit)
 - [x] **What's new** in Settings: version number and history from `CHANGELOG.md`, "Coming next" from this file's Now and Next sections, a +1 vote on each upcoming feature, and a box to suggest features.
 - [x] A "new update" dot on the Settings tab, cleared by opening Settings (the version seen is saved to the user's account)
+- [x] **Profiles**: unique username, a dog emoji picture, favourite breed and your own dogs (up to 5), in a `profiles` table created on first sign-in.
+- [x] **Social feed**: the latest 50 sightings from everyone who shares, with their name and picture. Sharing is on by default, with an off switch in Settings > Privacy; the "where" field is shown as typed (the log form says so).
 
 ## Now
 
@@ -50,12 +52,10 @@ _Nothing in progress. Pick the next item from below._
 - [ ] **Location on a sighting** (optional): where the dog was seen.
   - Simplest start: a free-text place name (e.g. "Hyde Park"). Then add "Use my current location" on phones; Streamlit has no built-in GPS, so this needs a small component that asks the browser for location (with the user's permission). Could also pick a spot on a map.
   - New nullable column(s) on sightings in `supabase/schema.sql` (place name, and optionally latitude/longitude).
-  - Private by default: exact spots never appear in the Social feed (see Social below).
+  - The free-text "where" already exists and is shown in the Social feed as typed. Exact GPS spots should stay private (never shown in Social).
 - [ ] Map of where you've spotted dogs (builds on location on a sighting)
-- [ ] **Social**: an activity feed of other members' sightings (new lifers, recent sightings, their photos), plus following friends, comparing life lists and leaderboards. Fills the Social tab, which is a placeholder today.
-  - Today RLS only lets users read their own rows, so sharing must be deliberate: a `profiles` table with a display name (never show emails) and a per-user "share my sightings" setting, off by default. New RLS policies in `supabase/schema.sql` allow reading shared sightings and photos only; nobody can edit anyone else's.
-  - Add a follows table so the feed can show everyone who shares or only people you follow.
-  - Keep locations coarse or hidden in the feed so it can't reveal where someone walks their dog every day.
+- [ ] **More social**: follow friends, compare life lists, leaderboards, "new lifer" highlights and photos in the feed, and tapping a name to see that member's profile.
+  - Builds on `profiles` and the "Members can read shared sightings" RLS policy. A follows table lets the feed show everyone or only people you follow.
   - Later: likes/comments, and reporting or hiding posts.
 - [ ] **Launch a real app**: Cerberus on your phone's home screen, and later in the app stores.
   - First step: an installable "Add to Home Screen" web app. Needs hosting where we control the web app manifest and icons, so it means moving off Streamlit Community Cloud.
