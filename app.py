@@ -73,6 +73,17 @@ button { min-height: 2.75rem; }
 @media (prefers-color-scheme: dark) {
     .st-key-main_nav [role="tablist"] { background: #171614; }  /* [theme.dark] */
 }
+/* Streamlit Community Cloud pins its own badge (46px tall, ~140px wide) to the
+   bottom-right corner, on top of the app, where the app can't move it. On narrow
+   screens it would cover the last tabs, so lift the tabs above it: the bar's
+   background still reaches the bottom edge and the badge sits in that strip. On
+   wider screens the centred tabs stop short of the corner. */
+@media (max-width: 840px) {
+    [data-testid="stMainBlockContainer"] { padding-bottom: 9rem; }
+    .st-key-main_nav [role="tablist"] {
+        padding-bottom: calc(3rem + env(safe-area-inset-bottom));
+    }
+}
 </style>
 """
 st.html(MOBILE_CSS)
