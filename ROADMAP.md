@@ -57,7 +57,10 @@ _Nothing in progress. Pick the next item from below._
   - Add a follows table so the feed can show everyone who shares or only people you follow.
   - Keep locations coarse or hidden in the feed so it can't reveal where someone walks their dog every day.
   - Later: likes/comments, and reporting or hiding posts.
-- [ ] Installable "Add to Home Screen" app (needs hosting where we control the web app manifest)
+- [ ] **Launch a real app**: Cerberus on your phone's home screen, and later in the app stores.
+  - First step: an installable "Add to Home Screen" web app. Needs hosting where we control the web app manifest and icons, so it means moving off Streamlit Community Cloud.
+  - Then: a store app (iOS and Android). Options to compare: wrapping the web app (e.g. Capacitor) vs. rebuilding the UI natively; Supabase and the RLS rules can stay as they are.
+  - **Fix the tab bar height when we move.** Today `MOBILE_CSS` in `app.py` lifts the bottom tab bar by 3rem on screens up to 840px wide so Streamlit Community Cloud's "Hosted with Streamlit" badge doesn't cover the last tabs. Off Community Cloud that badge is gone, so remove the lift (the `@media (max-width: 840px)` block) and the bar sits flush with the bottom again, keeping `env(safe-area-inset-bottom)` for phones with a home bar. Check it at 375px in light and dark.
 
 ## Ideas (not yet committed to)
 

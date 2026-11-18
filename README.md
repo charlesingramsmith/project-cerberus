@@ -92,7 +92,8 @@ Run the tests with `pytest`.
 - [ ] 🤖 Photo ID: breed suggestions from a photo (an image classification model)
 - [ ] 🔊 Sound ID: detect a bark from a recording (experimental)
 - [ ] 👥 Social: a feed of other members' sightings, following friends and comparing life lists
-- [ ] More breeds, a sightings map, password reset, installable home-screen app
+- [ ] More breeds, a sightings map, password reset
+- [ ] 📱 Launch a real app: home-screen install first, then the app stores
 
 Inspired by bird ID apps like Merlin, which identify birds by description, photo or sound. The full plan, with notes on each item, is in [ROADMAP.md](ROADMAP.md).
 
