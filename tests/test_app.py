@@ -120,6 +120,25 @@ def test_life_list_search(at):
     assert "Beagle" not in rows
 
 
+def test_life_list_rows_open_a_breed_profile(at):
+    sign_up(at)
+    at.text_input(key="life_search").input("pug").run()
+    rows = "".join(m.value for m in at.markdown)
+    assert '<details class="cerb-breed">' in rows  # tapping the row opens the profile
+    assert "Fun fact:" in rows and "Temperament:" in rows
+    assert "via Wikimedia Commons" in rows  # every photo is credited
+    assert 'loading="lazy"' in rows  # photos only download when a breed is opened
+
+
+def test_page_styles_contain_no_html_tags():
+    """st.html silently drops a whole <style> block if it contains another HTML tag
+    (even inside a CSS comment), which would undo all of the mobile styling."""
+    import re
+    source = Path(APP).read_text(encoding="utf-8")
+    for css in re.findall(r"<style>(.*?)</style>", source, flags=re.S):
+        assert "<" not in css
+
+
 def google_link(at: AppTest) -> str:
     button = next(b for b in at.get("link_button") if b.proto.label == "Continue with Google")
     return button.proto.url

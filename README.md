@@ -12,7 +12,7 @@ It's inspired by bird-watching life lists, but for the dogs you pass in the park
 - **Accounts**: one tap with **Continue with Google**, or sign up with email and password. **Keep me signed in** remembers you for 30 days. Your email is never shown to other members.
 - **Dog ID**: log a sighting by picking the breed (searchable, and breeds you haven't collected yet are marked ✨ new), the date, where you saw it, the dog's name and notes.
 - **Lifer celebrations**: a new breed gets balloons 🎉.
-- **Life list**: progress towards 100 breeds, the date you first saw each one and how many times, filterable by collected or still to find, and searchable.
+- **Life list**: progress towards 100 breeds, the date you first saw each one and how many times, filterable by collected or still to find, and searchable. Tap any breed to open its profile: a photo, a short intro, where it's from, its temperament and a fun fact.
 - **Your profile**: a unique username, a dog emoji as your picture, your favourite breed and your own dogs, plus a summary of your spotting and every dog you've logged as a card, newest first, each with its own delete button.
 - **Social**: the latest sightings from everyone in the community, with each spotter's name and picture. Sharing is on by default and can be switched off in Settings > Privacy.
 - **Settings**: your account details and sign out, plus **What's new**: the app's version number and recent updates (from [`CHANGELOG.md`](CHANGELOG.md)), the features coming next (straight from [`ROADMAP.md`](ROADMAP.md)) with a **+1** button on each so you can vote for what you want most, and a box to suggest new features. An orange dot on the Settings tab tells you when there's an update you haven't seen.
@@ -39,6 +39,9 @@ project-cerberus/
 ├── .streamlit/config.toml  # Theme (colours, light/dark) and toolbar settings
 ├── docs/                   # Setup guides (e.g. Google sign-in)
 ├── data/breeds.csv         # Top 100 breeds, AKC 2025 popularity ranking
+├── data/breed_info.csv     # Each breed's intro, origin, temperament and fun fact
+├── data/breed_photos.csv   # A credited, free-licensed photo per breed
+├── scripts/                # One-off helpers (e.g. fetching the breed photos)
 ├── supabase/schema.sql     # Tables plus row-level security policies
 ├── CHANGELOG.md            # Version history, shown in Settings > What's new
 ├── ROADMAP.md              # The plan; its Now and Next items appear in the app
@@ -88,6 +91,7 @@ Run the tests with `pytest`.
 - [x] Keep me signed in for 30 days
 - [x] 🆕 "What's new" in Settings: version history, what's coming next, +1 votes and feature suggestions
 - [x] 👤 Profiles (username, emoji picture, favourite breed, your dogs) and a 👥 Social feed of everyone's shared sightings
+- [x] 🐶 Breed profiles: tap a breed for a photo, intro, origin, temperament and a fun fact
 - [ ] 🧭 "Help me identify": answer a few questions (size, coat, ears) to narrow down the breed
 - [ ] 📷 Optional photo with a sighting (Supabase Storage)
 - [ ] 📍 Optional location for a sighting (place name or current location)
@@ -102,3 +106,7 @@ Inspired by bird ID apps like Merlin, which identify birds by description, photo
 ## Data source
 
 Breed popularity ranking: [American Kennel Club, Most Popular Dog Breeds of 2025](https://www.akc.org/expert-advice/news/most-popular-dog-breeds-2025/).
+
+Breed photos: [Wikimedia Commons](https://commons.wikimedia.org/), each under a free licence (Creative Commons or public domain). The app credits the photographer and licence under every photo and links to the original. `scripts/fetch_breed_photos.py` picks each breed's main Wikipedia photo and saves the details to `data/breed_photos.csv`.
+
+Breed intros, temperaments and fun facts are written for this project (`data/breed_info.csv`).
