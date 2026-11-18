@@ -23,6 +23,7 @@ Bird apps like Merlin let you identify a bird three ways: by answering questions
 - [x] Accounts and a hosted database (Supabase, with row-level security)
 - [x] Continue with Google (setup steps in [docs/google-sign-in.md](docs/google-sign-in.md))
 - [x] Bottom tab bar: Dog ID, Life list, Profile, Social (placeholder), Settings
+- [x] "Keep me signed in" for 30 days (a refresh-token cookie, renewed on each visit)
 
 ## Now
 
@@ -38,7 +39,7 @@ _Nothing in progress. Pick the next item from below._
 - [ ] **Photo ID**: suggest the top 3 breeds from a photo; the user confirms or picks another.
   - Builds on photo upload. Options to compare: a hosted image-classification API vs. a small pretrained model (e.g. trained on the Stanford Dogs dataset). Watch Streamlit Cloud's memory limits if running a model in-app.
   - Always let the user confirm: the model suggests, the human decides what goes on the life list.
-- [ ] Password reset and "stay signed in"
+- [ ] Password reset
 
 ## Later
 

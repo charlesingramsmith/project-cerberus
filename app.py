@@ -12,6 +12,7 @@ import streamlit as st
 from cerberus import logic
 from cerberus.backends import AuthError, MemoryBackend, SupabaseBackend
 from cerberus.oauth import PENDING, with_query, with_trailing_slash
+from cerberus.remember import COOKIE_NAME, MAX_AGE_DAYS, cookie_script
 
 st.set_page_config(
     page_title="Project Cerberus",
@@ -108,6 +109,7 @@ backend = st.session_state.backend
 
 def end_session(message: str | None = None):
     st.session_state.pop("user", None)
+    st.session_state.pop("remember", None)
     if message:
         st.session_state.auth_notice = message
     st.rerun()
@@ -157,14 +159,16 @@ if (!window.cerberusSameTabSignIn) {
 """
 
 
-def google_sign_in_url() -> str:
-    """One sign-in link per visit, remade only once its flow has expired."""
-    url, flow_id = st.session_state.get("google_link", (None, None))
-    if url is None or flow_id not in PENDING:
+def google_sign_in_url(remember: bool) -> str:
+    """One sign-in link per visit, remade only once its flow has expired or the
+    "Keep me signed in" box changes (the choice rides along in the return address)."""
+    url, flow_id, linked_remember = st.session_state.get("google_link", (None, None, None))
+    if url is None or flow_id not in PENDING or linked_remember != remember:
         flow_id = PENDING.new_flow_id()
-        url, verifier = backend.start_google_sign_in(with_query(app_url(), flow=flow_id))
+        return_to = with_query(app_url(), flow=flow_id, remember="1" if remember else "0")
+        url, verifier = backend.start_google_sign_in(return_to)
         PENDING.add(flow_id, verifier)
-        st.session_state.google_link = (url, flow_id)
+        st.session_state.google_link = (url, flow_id, remember)
     return url
 
 
@@ -174,6 +178,7 @@ def finish_google_sign_in():
     code, flow_id, error = params.get("code"), params.get("flow"), params.get("error")
     if not (code or error):
         return
+    remember = params.get("remember") == "1"  # read before clearing the address bar
     st.query_params.clear()  # so a refresh doesn't try to reuse the one-time code
     if error:
         st.session_state.auth_notice = ("Google sign-in was cancelled or failed: "
@@ -187,6 +192,36 @@ def finish_google_sign_in():
         st.session_state.user = backend.finish_google_sign_in(code, verifier)
     except AuthError as err:
         st.session_state.auth_notice = str(err)
+    else:
+        st.session_state.remember = remember
+
+
+# --- Keep me signed in ----------------------------------------------------------------
+# See cerberus/remember.py. The cookie holds a single-use refresh token, so whenever the
+# token changes (sign-in, a returning visit, an hourly refresh) the new one is written back.
+def resume_remembered_sign_in():
+    """Once per visit: if the browser has a saved sign-in, use it."""
+    if st.session_state.get("resume_tried"):
+        return
+    st.session_state.resume_tried = True
+    # What the browser had when this visit started; sync_cookie() tracks it from here.
+    token = st.context.cookies.get(COOKIE_NAME)
+    st.session_state.cookie_token = token
+    if not token:
+        return
+    try:
+        st.session_state.user = backend.resume_session(token)
+    except AuthError:
+        return  # expired or signed out elsewhere: sync_cookie() deletes the stale cookie
+    st.session_state.remember = True
+
+
+def sync_cookie():
+    """Make the browser's cookie match this visit: the current token, or nothing."""
+    wanted = backend.refresh_token() if st.session_state.get("remember") else None
+    if wanted != st.session_state.get("cookie_token"):
+        st.html(cookie_script(wanted), unsafe_allow_javascript=True)
+        st.session_state.cookie_token = wanted
 
 
 # --- Sign in / create account ---------------------------------------------------------
@@ -199,7 +234,10 @@ def auth_screen():
     if notice:
         st.info(notice)
 
-    st.link_button("Continue with Google", google_sign_in_url(), type="primary",
+    remember = st.checkbox(f"Keep me signed in for {MAX_AGE_DAYS} days", value=True,
+                           key="keep_signed_in",
+                           help="Untick this on a shared or public computer.")
+    st.link_button("Continue with Google", google_sign_in_url(remember), type="primary",
                    width="stretch", key="google_sign_in")
     st.html(SAME_TAB_SIGN_IN_JS, unsafe_allow_javascript=True)
     st.caption("New here? This creates your account too.")
@@ -220,6 +258,7 @@ def auth_screen():
                 except AuthError as err:
                     st.error(str(err))
                 else:
+                    st.session_state.remember = remember
                     st.rerun()
 
     with sign_up_tab:
@@ -248,12 +287,16 @@ def auth_screen():
                                        "link, then come back and sign in.")
                         else:
                             st.session_state.user = user
+                            st.session_state.remember = remember
                             st.rerun()
 
 
 if "user" not in st.session_state:
     finish_google_sign_in()
 if "user" not in st.session_state:
+    resume_remembered_sign_in()
+if "user" not in st.session_state:
+    sync_cookie()  # clears a saved sign-in that has expired or was signed out
     auth_screen()
     st.stop()
 
@@ -416,3 +459,6 @@ with tab_settings:
     st.caption("Light or dark mode follows your phone or computer setting.")
     st.subheader("About")
     st.caption("Project Cerberus: spot dogs, collect breeds. Breeds are the AKC 2025 top 100.")
+
+# Last, so it saves any refresh token that changed during this run.
+sync_cookie()

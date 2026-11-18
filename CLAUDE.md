@@ -25,10 +25,11 @@ If `.venv` is missing: `python -m venv .venv`, then install the requirements. Py
 | `cerberus/logic.py` | Pure functions (`load_breeds`, `life_list`, `is_lifer`, `sightings_frame`). No I/O. Put new business logic here. |
 | `cerberus/backends.py` | `Backend` protocol, with `SupabaseBackend` (real) and `MemoryBackend` (tests and demo mode). Both must behave the same. |
 | `cerberus/oauth.py` | `PENDING` store for Google sign-in PKCE verifiers, keyed by a random `?flow=` id. |
+| `cerberus/remember.py` | "Keep me signed in": builds the script that sets/deletes the 30-day refresh-token cookie. |
 | `docs/google-sign-in.md` | Owner's one-time setup for Google Cloud + Supabase. |
 | `data/breeds.csv` | `rank,breed`: AKC 2025 top 100. Adding breeds means adding rows. |
 | `supabase/schema.sql` | Source of truth for the DB: tables plus row-level security (RLS) policies. Idempotent. |
-| `tests/` | `test_logic.py`, `test_backends.py` (MemoryBackend), `test_supabase_backend.py` (fake client), `test_app.py` (Streamlit `AppTest`, demo mode). |
+| `tests/` | `test_logic.py`, `test_backends.py` (MemoryBackend), `test_supabase_backend.py` (fake client), `test_app.py` (Streamlit `AppTest`, demo mode), `test_remember.py`, `test_oauth.py`. |
 
 Backend selection (in `app.py` `make_backend`): `CERBERUS_DEMO=1` forces memory; otherwise Supabase if `st.secrets["supabase"]` has a real url/key, else demo mode.
 
@@ -36,6 +37,7 @@ Backend selection (in `app.py` `make_backend`): `CERBERUS_DEMO=1` forces memory;
 
 - **Never put the Supabase backend in `st.cache_resource` or any shared/global cache.** Each browser session gets its own backend in `st.session_state`; sharing would leak one user's login to another.
 - **Google sign-in:** returning from Google starts a new Streamlit session (empty `session_state`), so the PKCE verifier waits in `cerberus.oauth.PENDING` (server memory, single-use, 10-minute expiry). It must only ever hold verifiers, never sessions or backends. Google refuses to load inside Streamlit Cloud's iframe, and that iframe's sandbox blocks links from navigating the whole tab, so `SAME_TAB_SIGN_IN_JS` makes a click on the `google_sign_in` button navigate the outer (same-origin) page instead; if that fails, the link opens a new tab. Recheck it in a real browser on the live site if Streamlit Cloud changes its wrapper. Supabase **Redirect URLs** must allow `<app url>/**`. `MemoryBackend` fakes the round trip for demo mode and tests.
+- **Keep me signed in:** the cookie holds a single-use Supabase refresh token. Every run ends with `sync_cookie()`, which writes the current token back whenever it changes (sign-in, return visit, hourly refresh); a stale token fails to resume and the user must sign in again. Streamlit can read cookies (`st.context.cookies`) but not write them, so `st.html(..., unsafe_allow_javascript=True)` does it. `AppTest` can't send cookies, so resuming is tested in the backend tests. The Google choice travels in the return URL as `?remember=1`. Sign-out uses scope `local` (this device only).
 - **Only the publishable/anon key is ever used.** Never add the secret/service_role key to the app. Per-user data isolation relies on RLS, not app code.
 - **Schema changes:** edit `supabase/schema.sql` (keep it idempotent), add RLS policies for any new table, and tell the owner to run it in the Supabase SQL Editor. Nothing applies migrations automatically.
 - **Adding a backend method:** add it to the `Backend` protocol and to **both** `SupabaseBackend` and `MemoryBackend`, with tests for each.

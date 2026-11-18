@@ -24,6 +24,7 @@ EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 MIN_PASSWORD_LENGTH = 8
 MAX_USERNAME_LENGTH = 30
 GOOGLE_FAILED = "Google sign-in didn't work. Please try again."
+RESUME_FAILED = "You've been signed out. Please sign in again."
 
 
 class AuthError(Exception):
@@ -54,7 +55,15 @@ class Backend(Protocol):
     def finish_google_sign_in(self, code: str, verifier: str) -> User:
         """Swap the code Google sent back (plus the verifier) for a signed-in user."""
 
-    def sign_out(self) -> None: ...
+    def refresh_token(self) -> str | None:
+        """The signed-in user's current refresh token (for "Keep me signed in"), or None."""
+
+    def resume_session(self, refresh_token: str) -> User:
+        """Sign back in with a saved refresh token. Raises AuthError if it's no longer valid."""
+
+    def sign_out(self) -> None:
+        """Sign out on this device only; other devices stay signed in."""
+
     def list_sightings(self) -> list[dict]: ...
 
     def add_sighting(self, breed: str, seen_on: date, location: str | None = None,
@@ -164,9 +173,28 @@ class SupabaseBackend:
         self._user = self._to_user(res.user)
         return self._user
 
+    def refresh_token(self):
+        if self._user is None:
+            return None
+        try:
+            session = self.client.auth.get_session()
+        except Exception:
+            return None
+        return session.refresh_token if session else None
+
+    def resume_session(self, refresh_token):
+        try:
+            res = self.client.auth.refresh_session(refresh_token)
+        except Exception as err:  # used, revoked or unknown token
+            raise AuthError(RESUME_FAILED) from err
+        self._user = self._to_user(res.user)
+        return self._user
+
     def sign_out(self):
         try:
-            self.client.auth.sign_out()
+            # "local" ends just this device's session (and cancels its refresh token),
+            # so signing out on a phone doesn't also sign you out on your laptop.
+            self.client.auth.sign_out({"scope": "local"})
         finally:
             self._user = None
 
@@ -202,10 +230,21 @@ class MemoryBackend:
         self._sightings: list[dict] = []
         self._ids = itertools.count(1)
         self._user: User | None = None
+        # Single-use refresh tokens, like Supabase's: token -> email.
+        self._tokens: dict[str, str] = {}
+        self._token: str | None = None
 
     @staticmethod
     def _hash(password: str) -> str:
         return hashlib.sha256(password.encode()).hexdigest()
+
+    def _signed_in(self, user: User) -> User:
+        """Mark `user` as signed in and give them a fresh refresh token."""
+        self._tokens.pop(self._token, None)
+        self._token = secrets.token_urlsafe(16)
+        self._tokens[self._token] = user.email
+        self._user = user
+        return user
 
     def _require_user(self) -> User:
         if self._user is None:
@@ -218,15 +257,13 @@ class MemoryBackend:
             raise AuthError("An account with that email already exists.")
         user = User(id=f"user-{len(self._accounts) + 1}", email=email, username=username)
         self._accounts[email] = (self._hash(password), user)
-        self._user = user
-        return user
+        return self._signed_in(user)
 
     def sign_in(self, email, password):
         account = self._accounts.get(email.strip().lower())
         if account is None or account[0] != self._hash(password):
             raise AuthError("Invalid login credentials")
-        self._user = account[1]
-        return self._user
+        return self._signed_in(account[1])
 
     # Demo mode can't reach Google, so it pretends: the "Google" URL sends the user straight
     # back with a code derived from the verifier, which is checked just like the real thing.
@@ -247,10 +284,21 @@ class MemoryBackend:
         if email not in self._accounts:  # first time: Google sign-in creates the account
             user = User(id=f"user-{len(self._accounts) + 1}", email=email, username="Google User")
             self._accounts[email] = (None, user)  # no password, so password sign-in can't match
-        self._user = self._accounts[email][1]
-        return self._user
+        return self._signed_in(self._accounts[email][1])
+
+    def refresh_token(self):
+        return self._token if self._user else None
+
+    def resume_session(self, refresh_token):
+        email = self._tokens.pop(refresh_token, None)  # single use, like Supabase's
+        if email is None or email not in self._accounts:
+            raise AuthError(RESUME_FAILED)
+        self._token = None
+        return self._signed_in(self._accounts[email][1])
 
     def sign_out(self):
+        self._tokens.pop(self._token, None)
+        self._token = None
         self._user = None
 
     def list_sightings(self):

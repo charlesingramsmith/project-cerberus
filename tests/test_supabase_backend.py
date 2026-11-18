@@ -28,7 +28,7 @@ class FakeAuth:
 
     def _response(self, email, metadata):
         user = SimpleNamespace(id="uuid-1", email=email, user_metadata=metadata)
-        self.session = None if self.needs_confirmation else object()
+        self.session = None if self.needs_confirmation else SimpleNamespace(refresh_token="rt-1")
         return SimpleNamespace(user=user, session=self.session)
 
     def sign_up(self, creds):
@@ -53,13 +53,22 @@ class FakeAuth:
             raise RuntimeError("invalid flow state")
         user = SimpleNamespace(id="uuid-2", email="pat@gmail.com",
                                user_metadata={"full_name": "Pat Smith"})
-        self.session = object()
+        self.session = SimpleNamespace(refresh_token="rt-1")
+        return SimpleNamespace(user=user, session=self.session)
+
+    def refresh_session(self, refresh_token):
+        if refresh_token != "rt-1":
+            raise RuntimeError("Invalid Refresh Token: Already Used")
+        user = SimpleNamespace(id="uuid-1", email="charlie@example.com",
+                               user_metadata={"username": "charlie"})
+        self.session = SimpleNamespace(refresh_token="rt-2")  # single use: a new one each time
         return SimpleNamespace(user=user, session=self.session)
 
     def get_session(self):
         return self.session
 
-    def sign_out(self):
+    def sign_out(self, options=None):
+        self.sign_out_options = options
         self.session = None
 
 
@@ -127,3 +136,31 @@ def test_failed_google_exchange_becomes_a_friendly_auth_error():
     backend, _ = make_backend()
     with pytest.raises(AuthError, match="Google sign-in didn't work"):
         backend.finish_google_sign_in("stale-code", "verifier-123")
+
+
+def test_refresh_token_comes_from_the_current_session():
+    backend, _ = make_backend()
+    assert backend.refresh_token() is None
+    backend.sign_in("charlie@example.com", "correct-horse")
+    assert backend.refresh_token() == "rt-1"
+
+
+def test_resume_session_signs_back_in_with_a_saved_token():
+    backend, _ = make_backend()
+    user = backend.resume_session("rt-1")
+    assert user.username == "charlie"
+    assert backend.refresh_token() == "rt-2"
+
+
+def test_used_or_revoked_token_becomes_a_friendly_auth_error():
+    backend, _ = make_backend()
+    with pytest.raises(AuthError, match="sign in again"):
+        backend.resume_session("rt-old")
+
+
+def test_sign_out_only_ends_this_devices_session():
+    backend, _ = make_backend()
+    backend.sign_in("charlie@example.com", "correct-horse")
+    backend.sign_out()
+    assert backend.client.auth.sign_out_options == {"scope": "local"}
+    assert backend.refresh_token() is None
