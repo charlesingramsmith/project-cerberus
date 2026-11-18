@@ -34,7 +34,7 @@ project-cerberus/
 │   ├── logic.py            # Pure life-list, lifer and What's new logic
 │   ├── backends.py         # SupabaseBackend (real) and MemoryBackend (tests/demo)
 │   ├── oauth.py            # Remembers a Google sign-in while the user is at Google
-│   └── remember.py         # "Keep me signed in" cookie
+│   └── remember.py         # "Keep me signed in" (browser storage)
 ├── .streamlit/config.toml  # Theme (colours, light/dark) and toolbar settings
 ├── docs/                   # Setup guides (e.g. Google sign-in)
 ├── data/breeds.csv         # Top 100 breeds, AKC 2025 popularity ranking
@@ -47,7 +47,7 @@ project-cerberus/
 **Security notes**
 - The app only ever uses Supabase's *publishable* (anon) key. Postgres row-level security policies in [`supabase/schema.sql`](supabase/schema.sql) enforce that each user can only touch their own sightings, votes and suggestions, even if someone calls the API directly. Vote totals come from a database function that returns only counts, never who voted.
 - Each browser session gets its own Supabase client, so one visitor's sign-in is never shared with another's.
-- "Keep me signed in" stores a single-use Supabase refresh token in a 30-day `Secure`, `SameSite=Lax` cookie. Each visit swaps it for a new one, and signing out cancels it. Streamlit can only write cookies from JavaScript, so the cookie is readable by scripts on the page; the box can be unticked on shared computers. (Safari caps script-written cookies at 7 days.)
+- "Keep me signed in" stores a single-use Supabase refresh token in the browser's local storage for 30 days, via a tiny invisible component. Each visit swaps it for a new one, and signing out cancels it. It's never sent with web requests, but scripts on the page can read it, so the box can be unticked on shared computers. (Safari clears script-written storage after 7 days without a visit.)
 - Passwords are handled entirely by Supabase Auth and never stored by the app. Google sign-in uses PKCE, so the one-time code Google returns is useless without a secret that never leaves the server.
 
 ## Run it locally

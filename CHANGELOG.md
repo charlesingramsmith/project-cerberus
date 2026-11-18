@@ -6,6 +6,9 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.6.1 - 2026-11-18 - Keep me signed in, fixed
+- "Keep me signed in" now works on the live app: close the tab, come back within 30 days, and you're still signed in.
+
 ## 0.6.0 - 2026-11-18 - What's new and what's next
 - See recent updates and the app's version number in Settings.
 - See which features are coming next, and give a +1 to the ones you want most.

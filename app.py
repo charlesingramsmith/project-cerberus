@@ -12,7 +12,7 @@ import streamlit as st
 from cerberus import logic
 from cerberus.backends import AuthError, MemoryBackend, SupabaseBackend
 from cerberus.oauth import PENDING, with_query, with_trailing_slash
-from cerberus.remember import COOKIE_NAME, MAX_AGE_DAYS, cookie_script
+from cerberus.remember import MAX_AGE_DAYS, SAVED_SIGN_IN_JS
 
 st.set_page_config(
     page_title="Project Cerberus",
@@ -32,6 +32,7 @@ MOBILE_CSS = """
     padding: 1rem 1rem 6rem;
 }
 input, textarea { font-size: 16px !important; }
+.st-key-saved_sign_in { display: none; }  /* invisible "Keep me signed in" helper */
 button { min-height: 2.75rem; }
 
 /* Life list and sightings rows */
@@ -197,31 +198,37 @@ def finish_google_sign_in():
 
 
 # --- Keep me signed in ----------------------------------------------------------------
-# See cerberus/remember.py. The cookie holds a single-use refresh token, so whenever the
-# token changes (sign-in, a returning visit, an hourly refresh) the new one is written back.
-def resume_remembered_sign_in():
-    """Once per visit: if the browser has a saved sign-in, use it."""
-    if st.session_state.get("resume_tried"):
-        return
-    st.session_state.resume_tried = True
-    # What the browser had when this visit started; sync_cookie() tracks it from here.
-    token = st.context.cookies.get(COOKIE_NAME)
-    st.session_state.cookie_token = token
-    if not token:
-        return
-    try:
-        st.session_state.user = backend.resume_session(token)
-    except AuthError:
-        return  # expired or signed out elsewhere: sync_cookie() deletes the stale cookie
-    st.session_state.remember = True
+# See cerberus/remember.py. An invisible component keeps the browser's saved sign-in (a
+# single-use refresh token) in step with this visit, and reports what was saved.
+saved_sign_in_store = st.components.v2.component("cerberus_saved_sign_in",
+                                                 js=SAVED_SIGN_IN_JS)
 
 
-def sync_cookie():
-    """Make the browser's cookie match this visit: the current token, or nothing."""
-    wanted = backend.refresh_token() if st.session_state.get("remember") else None
-    if wanted != st.session_state.get("cookie_token"):
-        st.html(cookie_script(wanted), unsafe_allow_javascript=True)
-        st.session_state.cookie_token = wanted
+def sync_saved_sign_in() -> str | None:
+    """Mount the component. Returns what the browser had saved: a token, "" for nothing,
+    or None until it has reported. Once it has, it's told to save the current token
+    (or nothing), so a new token from a sign-in, return visit or hourly refresh is kept."""
+    data = {}
+    if st.session_state.get("saved_read"):
+        data["save"] = backend.refresh_token() if st.session_state.get("remember") else None
+    result = saved_sign_in_store(key="saved_sign_in", data=data,
+                                 on_saved_change=lambda: None)
+    return result.saved
+
+
+def resume_saved_sign_in(saved: str | None):
+    """The first time the browser reports, sign back in with its saved token if we can."""
+    if saved is None or st.session_state.get("saved_read"):
+        return
+    st.session_state.saved_read = True
+    if saved and "user" not in st.session_state:
+        try:
+            st.session_state.user = backend.resume_session(saved)
+        except AuthError:
+            pass  # expired or signed out elsewhere: the rerun below deletes it
+        else:
+            st.session_state.remember = True
+    st.rerun()  # so the browser saves the new token (or forgets the dead one) straight away
 
 
 # --- Sign in / create account ---------------------------------------------------------
@@ -293,10 +300,8 @@ def auth_screen():
 
 if "user" not in st.session_state:
     finish_google_sign_in()
+resume_saved_sign_in(sync_saved_sign_in())
 if "user" not in st.session_state:
-    resume_remembered_sign_in()
-if "user" not in st.session_state:
-    sync_cookie()  # clears a saved sign-in that has expired or was signed out
     auth_screen()
     st.stop()
 
@@ -534,6 +539,3 @@ with tab_settings:
     st.subheader("About")
     st.caption("Project Cerberus: spot dogs, collect breeds. Breeds are the AKC 2025 top 100.")
     st.caption(f"Version {APP_VERSION}")
-
-# Last, so it saves any refresh token that changed during this run.
-sync_cookie()
