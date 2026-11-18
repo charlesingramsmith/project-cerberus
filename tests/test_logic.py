@@ -167,3 +167,41 @@ def test_clean_suggestion():
 ])
 def test_has_unseen_update(latest, seen, expected):
     assert logic.has_unseen_update(latest, seen) is expected
+
+# --- Profiles and the Social feed ----------------------------------------------------
+
+def test_clean_profile_tidies_and_drops_empty_dog_rows():
+    profile = logic.clean_profile({
+        "username": "  charlie ", "avatar": "🐩", "favourite_breed": "",
+        "dogs": [{"name": " Biscuit ", "breed": "Beagle"}, {"name": "", "breed": None}],
+    })
+    assert profile == {"username": "charlie", "avatar": "🐩", "favourite_breed": None,
+                       "dogs": [{"name": "Biscuit", "breed": "Beagle"}],
+                       "share_sightings": True}
+
+
+@pytest.mark.parametrize("changes, message", [
+    ({"username": "ab"}, "3 to 30"),
+    ({"avatar": "🐈"}, "picture"),
+    ({"dogs": [{"name": "", "breed": "Pug"}]}, "name"),
+    ({"dogs": [{"name": "Rex", "breed": None}] * 6}, "up to 5"),
+])
+def test_clean_profile_rejects_bad_input(changes, message):
+    with pytest.raises(ValueError, match=message):
+        logic.clean_profile({**logic.new_profile("charlie"), **changes})
+
+
+def test_username_candidates_add_numbers_and_pad_short_names():
+    names = logic.username_candidates("pat")
+    assert [next(names) for _ in range(3)] == ["pat", "pat2", "pat3"]
+    assert next(logic.username_candidates("al")) == "al_"
+
+
+def test_social_feed_adds_names_and_skips_people_who_dont_share():
+    sightings = [{"id": 1, "user_id": "a", "breed": "Pug"},
+                 {"id": 2, "user_id": "b", "breed": "Beagle"},
+                 {"id": 3, "user_id": "c", "breed": "Boxer"}]  # c has no profile
+    profiles = {"a": {"username": "alice", "avatar": "🐶", "share_sightings": True},
+                "b": {"username": "bobby", "avatar": "🐩", "share_sightings": False}}
+    feed = logic.social_feed(sightings, profiles)
+    assert [(p["breed"], p["username"], p["avatar"]) for p in feed] == [("Pug", "alice", "🐶")]

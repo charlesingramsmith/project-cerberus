@@ -339,3 +339,58 @@ def test_settings_dot_shows_until_settings_is_opened(at):
     open_tab(at, "Dog ID")
     assert not dot_shown(at)  # stays gone once seen
     assert at.session_state["backend"].seen_version() == latest_version()
+
+
+# --- Profiles and the Social tab -------------------------------------------------------
+
+def test_editing_your_profile(at):
+    sign_up(at)
+    at.text_input(key="profile_username").input("charlie_spotter")
+    at.selectbox(key="profile_favourite").set_value("Beagle")
+    at.toggle(key="profile_has_dogs").set_value(True).run()
+    at.text_input(key="profile_dog_name_0").input("Biscuit")
+    at.button(key="save_profile").click().run()
+    assert not at.exception
+    assert "Profile saved" in at.success[0].value
+    assert "charlie_spotter's life list" in headers(at)
+    assert any("Biscuit" in m.value for m in at.markdown)
+
+
+def test_a_taken_username_is_refused(at):
+    sign_up(at, username="alice", email="alice@example.com")
+    click(at, "Sign out")
+    sign_up(at, username="bobby", email="bobby@example.com")
+    at.text_input(key="profile_username").input("ALICE")
+    at.button(key="save_profile").click().run()
+    assert "taken" in at.error[0].value
+
+
+def feed_html(at: AppTest) -> str:
+    return "".join(m.value for m in at.markdown if "cerb-post" in m.value)
+
+
+def test_social_shows_everyones_shared_sightings(at):
+    sign_up(at, username="alice", email="alice@example.com")
+    breed = next(sb for sb in at.selectbox if sb.label == "Breed")
+    breed.set_value("Pug")
+    next(t for t in at.text_input if t.label == "Where").input("Hyde <Park>")
+    click(at, "Log sighting")
+    click(at, "Sign out")
+    sign_up(at, username="bobby", email="bobby@example.com")
+    log_breed(at, "Beagle")
+
+    open_tab(at, "Social")
+    feed = feed_html(at)
+    assert "alice" in feed and "Pug" in feed
+    assert "Hyde &lt;Park&gt;" in feed  # shown as typed, but safely escaped
+    assert "bobby</b> (you)" in feed
+
+
+def test_switching_sharing_off_hides_your_sightings(at):
+    sign_up(at)
+    log_breed(at, "Beagle")
+    at.toggle(key="share_sightings").set_value(False).run()
+    assert not at.exception
+    open_tab(at, "Social")
+    assert "Beagle" not in feed_html(at)
+    assert "No sightings yet" in at.info[0].value

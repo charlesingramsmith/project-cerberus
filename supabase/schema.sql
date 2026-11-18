@@ -44,6 +44,58 @@ create policy "Users can delete their own sightings"
     using ((select auth.uid()) = user_id);
 
 
+-- Profiles: the public face of each member (Profile tab, and names in the Social feed).
+-- The app creates a member's profile the first time they sign in. Never holds emails.
+create table if not exists public.profiles (
+    user_id          uuid primary key default auth.uid() references auth.users (id) on delete cascade,
+    username         text not null check (char_length(username) between 3 and 30),
+    avatar           text not null default '🐶' check (char_length(avatar) between 1 and 16),
+    favourite_breed  text check (char_length(favourite_breed) <= 100),
+    -- The member's own dogs: a list of {"name": ..., "breed": ...}, at most 5.
+    dogs             jsonb not null default '[]'::jsonb check (
+                         case when jsonb_typeof(dogs) = 'array'
+                              then jsonb_array_length(dogs) <= 5 else false end),
+    -- On by default: sightings appear in everyone's Social feed unless switched off.
+    share_sightings  boolean not null default true,
+    created_at       timestamptz not null default now()
+);
+
+-- Usernames are unique, ignoring capitals: "Charlie" and "charlie" can't both exist.
+create unique index if not exists profiles_username_unique on public.profiles (lower(username));
+
+alter table public.profiles enable row level security;
+
+drop policy if exists "Members can read profiles" on public.profiles;
+create policy "Members can read profiles"
+    on public.profiles for select
+    to authenticated
+    using (true);
+
+drop policy if exists "Users can create their own profile" on public.profiles;
+create policy "Users can create their own profile"
+    on public.profiles for insert
+    to authenticated
+    with check ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can update their own profile" on public.profiles;
+create policy "Users can update their own profile"
+    on public.profiles for update
+    to authenticated
+    using ((select auth.uid()) = user_id)
+    with check ((select auth.uid()) = user_id);
+
+-- The Social feed: members can also read the sightings of anyone who shares them.
+-- (Together with "read their own" above; nobody can change anyone else's sightings.)
+drop policy if exists "Members can read shared sightings" on public.sightings;
+create policy "Members can read shared sightings"
+    on public.sightings for select
+    to authenticated
+    using (exists (
+        select 1 from public.profiles p
+        where p.user_id = sightings.user_id and p.share_sightings
+    ));
+
+
 -- +1 votes on upcoming features (Settings > What's new). `feature` is the id the app
 -- makes from a roadmap item's title, e.g. "photo-upload". One vote per user per feature.
 create table if not exists public.feature_votes (

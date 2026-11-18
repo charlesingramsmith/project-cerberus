@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from cerberus import logic
 from cerberus.backends import AuthError, SupabaseBackend
 
 
@@ -222,3 +223,80 @@ def test_seen_version_is_read_back_after_signing_in_again():
     backend.client.auth.session = SimpleNamespace(refresh_token="rt-1")
     backend.sign_in("charlie@example.com", "correct-horse")
     assert backend.seen_version() == "0.6.0"
+
+# --- Profiles and the Social feed -----------------------------------------------------
+
+class Duplicate(Exception):
+    code = "23505"  # Postgres "unique value already exists"
+
+
+def test_list_sightings_asks_for_your_own_rows_only():
+    backend, log = make_backend()
+    backend.sign_in("charlie@example.com", "correct-horse")
+    backend.list_sightings()
+    assert ("eq", ("user_id", "uuid-1"), {}) in log
+
+
+def test_existing_profile_is_returned_as_is():
+    backend, _ = make_backend()
+    backend.sign_in("charlie@example.com", "correct-horse")
+    stored = {**logic.new_profile("charlie"), "avatar": "🐩"}
+    backend.client.table = lambda name: FakeQuery([], [stored])
+    assert backend.my_profile() == stored
+
+
+def test_first_profile_tries_the_next_name_when_one_is_taken():
+    backend, log = make_backend()
+    backend.sign_in("charlie@example.com", "correct-horse")
+
+    class TakenOnce(FakeQuery):
+        attempts = 0
+        row = None  # the row waiting to be inserted
+
+        def insert(self, row):
+            self.row = row
+            return self
+
+        def execute(self):
+            row, self.row = self.row, None
+            if row is not None:
+                self.log.append(("insert", (row,), {}))
+                TakenOnce.attempts += 1
+                if TakenOnce.attempts == 1:
+                    raise Duplicate()
+            return SimpleNamespace(data=[])
+
+    backend.client.table = lambda name: TakenOnce(log)
+    assert backend.my_profile()["username"] == "charlie2"
+    inserted = [args[0] for name, args, _ in log if name == "insert"]
+    assert [r["username"] for r in inserted] == ["charlie", "charlie2"]
+    assert all(r["user_id"] == "uuid-1" and r["share_sightings"] for r in inserted)
+
+
+def test_saving_a_taken_username_is_a_friendly_error():
+    backend, _ = make_backend()
+    backend.sign_in("charlie@example.com", "correct-horse")
+
+    class Taken(FakeQuery):
+        def execute(self):
+            raise Duplicate()
+
+    backend.client.table = lambda name: Taken([])
+    with pytest.raises(ValueError, match="taken"):
+        backend.save_profile(logic.new_profile("someone"))
+
+
+def test_social_feed_joins_sightings_with_profiles():
+    backend, log = make_backend()
+    backend.sign_in("charlie@example.com", "correct-horse")
+    data = {
+        "sightings": [{"id": 2, "user_id": "uuid-9", "breed": "Pug", "seen_on": "2026-11-02"},
+                      {"id": 1, "user_id": "uuid-1", "breed": "Beagle", "seen_on": "2026-11-01"}],
+        "profiles": [{"user_id": "uuid-9", "username": "pat", "avatar": "🐩", "share_sightings": True},
+                     {"user_id": "uuid-1", "username": "charlie", "avatar": "🐶", "share_sightings": False}],
+    }
+    backend.client.table = lambda name: FakeQuery(log, data[name])
+    feed = backend.social_feed()
+    assert [(p["breed"], p["username"]) for p in feed] == [("Pug", "pat")]  # charlie stopped sharing
+    assert ("in_", ("user_id", ["uuid-1", "uuid-9"]), {}) in log
+    assert ("limit", (50,), {}) in log
