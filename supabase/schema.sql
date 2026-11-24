@@ -1,6 +1,8 @@
 -- Project Cerberus database schema.
--- Run once in Supabase: Dashboard > SQL Editor > New query > paste this > Run.
--- Safe to re-run.
+-- Apply with the Supabase CLI (see docs/supabase-cli.md):
+--   supabase db query --linked -f supabase/schema.sql
+-- or paste it into Supabase: Dashboard > SQL Editor > New query > Run.
+-- Safe to re-run: keep every statement idempotent.
 
 create table if not exists public.sightings (
     id          bigint generated always as identity primary key,

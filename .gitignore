@@ -13,6 +13,11 @@ data/*.db-journal
 .env
 .streamlit/secrets.toml
 
+# Supabase CLI local state (written by `supabase link`; see docs/supabase-cli.md)
+supabase/.temp/
+supabase/.branches/
+supabase/.env
+
 # Personal Claude Code settings (shared ones live in .claude/settings.json)
 .claude/settings.local.json
 

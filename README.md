@@ -37,7 +37,7 @@ project-cerberus/
 │   ├── oauth.py            # Remembers a Google sign-in while the user is at Google
 │   └── remember.py         # "Keep me signed in" (browser storage)
 ├── .streamlit/config.toml  # Theme (colours, light/dark) and toolbar settings
-├── docs/                   # Setup guides (e.g. Google sign-in)
+├── docs/                   # Setup guides (Google sign-in, Supabase CLI)
 ├── data/breeds.csv         # Top 100 breeds, AKC 2025 popularity ranking
 ├── data/breed_info.csv     # Each breed's intro, origin, temperament and fun fact
 ├── data/breed_photos.csv   # A credited, free-licensed photo per breed
@@ -70,7 +70,7 @@ streamlit run app.py
 Without Supabase keys the app starts in **demo mode**. To connect a real database:
 
 1. Create a free project at [supabase.com](https://supabase.com).
-2. In **SQL Editor**, run [`supabase/schema.sql`](supabase/schema.sql).
+2. In **SQL Editor**, run [`supabase/schema.sql`](supabase/schema.sql) (or apply it with the Supabase CLI: see [docs/supabase-cli.md](docs/supabase-cli.md)).
 3. In **Authentication > URL Configuration**, set **Site URL** to where the app runs (e.g. `http://localhost:8501`). Email confirmation links go there.
 4. Copy `.streamlit/secrets.example.toml` to `.streamlit/secrets.toml`, then fill in your project URL and **publishable** key (Project Settings > API Keys).
 5. Optional: turn on **Continue with Google** by following [docs/google-sign-in.md](docs/google-sign-in.md).
