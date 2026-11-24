@@ -41,6 +41,28 @@ class BreedProfile:
     source: str = ""     # the photo's Commons page (credit and licence details)
 
 
+THUMB_WIDTH = 120  # px: sharp at ~48px on a phone screen, and only ~5 KB each
+
+
+def thumbnail_url(image_url: str, width: int = THUMB_WIDTH) -> str:
+    """A small version of a Wikimedia Commons photo, for thumbnails.
+
+    Commons serves resized copies at .../thumb/<path>/<width>px-<file name>, so
+    "/960px-" addresses just change their width, and full-size originals get the thumb
+    form. Any other address is returned unchanged.
+    """
+    sized = re.sub(r"/\d+px-([^/]+)$", rf"/{width}px-\1", image_url)
+    if sized != image_url:
+        return sized
+    original = re.match(r"(https://upload\.wikimedia\.org/wikipedia/commons)/(\w/\w\w)/([^/]+)$",
+                        image_url)
+    if not original:
+        return image_url
+    base, folder, name = original.groups()
+    thumb_name = f"{name}.png" if name.lower().endswith(".svg") else name  # SVGs come as PNG
+    return f"{base}/thumb/{folder}/{name}/{width}px-{thumb_name}"
+
+
 def load_breed_profiles(info_csv: Path = BREED_INFO_CSV,
                         photos_csv: Path = BREED_PHOTOS_CSV) -> dict[str, BreedProfile]:
     """{breed: BreedProfile}. Text comes from breed_info.csv (written by hand), photos
@@ -213,6 +235,9 @@ def clean_suggestion(text: str) -> str:
 # --- Profiles and the Social feed ------------------------------------------------------
 
 MIN_USERNAME_LENGTH, MAX_USERNAME_LENGTH = 3, 30
+# A profile picture ("avatar") is a breed name, shown as that breed's photo. New members
+# start with the 🐶 emoji, and the older emoji choices below still work for anyone who
+# picked one before breed photos were offered.
 AVATARS = ["🐶", "🐕", "🐩", "🦮", "🐕‍🦺", "🐾", "🦴", "🎾", "🐺", "🦊"]
 MIXED_BREED = "Mixed breed / other"
 MAX_DOGS = 5
@@ -226,13 +251,19 @@ def new_profile(username: str) -> dict:
             "dogs": [], "share_sightings": True}
 
 
-def clean_profile(profile: dict) -> dict:
-    """Check and tidy a profile before saving it. Raises ValueError with a friendly message."""
+def clean_profile(profile: dict, breed_names: set[str] | None = None) -> dict:
+    """Check and tidy a profile before saving it. Raises ValueError with a friendly message.
+
+    `breed_names` are the breeds whose photo can be a profile picture (read from
+    breeds.csv if not given).
+    """
     username = (profile.get("username") or "").strip()
     if not MIN_USERNAME_LENGTH <= len(username) <= MAX_USERNAME_LENGTH:
         raise ValueError(f"Username must be {MIN_USERNAME_LENGTH} to {MAX_USERNAME_LENGTH} characters.")
     avatar = profile.get("avatar")
-    if avatar not in AVATARS:
+    if breed_names is None:
+        breed_names = set(load_breeds()["breed"])
+    if avatar not in AVATARS and avatar not in breed_names:
         raise ValueError("Pick a profile picture from the list.")
     dogs = []
     for dog in profile.get("dogs") or []:

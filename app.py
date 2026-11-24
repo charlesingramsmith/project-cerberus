@@ -69,10 +69,18 @@ button { min-height: 2.75rem; }
     display: flex; align-items: center; gap: .75rem;
     padding: .6rem .25rem; border-bottom: 1px solid rgba(128, 128, 128, .2);
 }
-.cerb-row .icon { font-size: 1.25rem; width: 1.5rem; text-align: center; }
-.cerb-row .dot {
-    display: inline-block; width: 1rem; height: 1rem;
-    border: 2px solid rgba(128, 128, 128, .5); border-radius: 50%;
+/* A small square photo of the breed, cropped to the middle-top where the head usually
+   is. Breeds you've seen are in colour with a tick; ones still to find are faded grey. */
+.cerb-row .thumb {
+    position: relative; flex: none; width: 3rem; height: 3rem;
+    border-radius: .5rem; overflow: hidden; background: rgba(128, 128, 128, .15);
+}
+.cerb-row .thumb img {
+    display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%;
+}
+.cerb-row.missing .thumb img { filter: grayscale(1); opacity: .5; }
+.cerb-row .thumb .tick {
+    position: absolute; right: .1rem; bottom: .1rem; font-size: .75rem; line-height: 1;
 }
 .cerb-row .main { flex: 1; min-width: 0; }
 .cerb-row .name { font-weight: 600; }
@@ -110,7 +118,20 @@ button { min-height: 2.75rem; }
     display: flex; gap: .75rem; padding: .75rem .25rem;
     border-bottom: 1px solid rgba(128, 128, 128, .2);
 }
-.cerb-post .avatar { font-size: 1.6rem; line-height: 1.2; width: 2rem; text-align: center; }
+.cerb-post .avatar { font-size: 1.6rem; line-height: 1.2; width: 2.25rem; text-align: center; flex: none; }
+
+/* Member pictures: a breed photo in a circle (".pic"), or an older emoji pick */
+.avatar.pic, .me-avatar.pic {
+    display: block; border-radius: 50%; overflow: hidden; background: rgba(128, 128, 128, .15);
+}
+.avatar.pic { width: 2.25rem; height: 2.25rem; }
+.avatar.pic img, .me-avatar.pic img {
+    display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%;
+}
+.me-avatar { display: block; font-size: 2.6rem; line-height: 1; }
+.me-avatar.pic { width: 3.5rem; height: 3.5rem; }
+/* The picker + preview row: don't scroll inside itself (that clipped the label) */
+.st-key-avatar_row { overflow: visible; }
 .cerb-post .main { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .cerb-post .who { font-size: .85rem; opacity: .75; }
 .cerb-post .breed { font-weight: 600; }
@@ -415,6 +436,18 @@ if backend.demo:
 
 # --- Load this spotter's data ---------------------------------------------------------------
 breeds = load_breeds(file_version(logic.BREEDS_CSV))
+breed_profiles = load_breed_profiles(file_version(logic.BREED_INFO_CSV, logic.BREED_PHOTOS_CSV))
+
+
+def avatar_html(avatar: str, css: str) -> str:
+    """A member's picture: their chosen breed's photo in a circle, or an older emoji pick."""
+    photo = breed_profiles.get(avatar)
+    if photo and photo.image_url:
+        src = html.escape(logic.thumbnail_url(photo.image_url))
+        return f'<span class="{css} pic"><img src="{src}" alt="{html.escape(avatar)}"></span>'
+    return f'<span class="{css}">{html.escape(avatar)}</span>'
+
+
 try:
     sightings = logic.sightings_frame(backend.list_sightings())
 except AuthError as err:
@@ -555,7 +588,7 @@ with tab_id:
         notes = st.text_area("Notes", placeholder="Good boy. Very fluffy.", height=80)
         submitted = st.form_submit_button("Log sighting", type="primary", width="stretch")
 
-    st.caption("📷 Photo ID and a guided \"help me identify\" are on the roadmap. "
+    st.caption("📷 Photo ID (identify a dog from a photo) is on the roadmap. "
                "For now, pick the breed yourself.")
 
     if submitted:
@@ -592,16 +625,25 @@ def breed_profile_html(profile: logic.BreedProfile | None) -> str:
     )
 
 
+def breed_thumb(profile: logic.BreedProfile | None, tick: bool = False) -> str:
+    """A breed's small square photo (an empty grey square if it has none)."""
+    img = ""
+    if profile and profile.image_url:
+        # alt="" so a photo that fails to load leaves a plain square, not a broken icon
+        img = f'<img src="{html.escape(logic.thumbnail_url(profile.image_url))}" alt="" loading="lazy">'
+    return f'<span class="thumb">{img}{"<span class=tick>✅</span>" if tick else ""}</span>'
+
+
 def life_row(row, profile: logic.BreedProfile | None) -> str:
     """One breed as a compact list row (a wide table is hard to read on a phone).
     Tapping the row opens the breed's profile underneath it."""
     if row.times_seen:
-        css, icon = "cerb-row", "✅"
+        css, seen = "cerb-row", True
         detail = f"First seen {row.first_seen} · seen {row.times_seen}×"
     else:
-        css, icon, detail = "cerb-row missing", "<span class=\"dot\"></span>", "Not spotted yet"
+        css, seen, detail = "cerb-row missing", False, "Not spotted yet"
     return (
-        f'<details class="cerb-breed"><summary class="{css}"><span class="icon">{icon}</span>'
+        f'<details class="cerb-breed"><summary class="{css}">{breed_thumb(profile, tick=seen)}'
         f'<div class="main"><div class="name">{html.escape(row.breed)}</div>'
         f'<div class="sub">{detail}</div></div>'
         f'<span class="rank">#{row.rank}</span><span class="chev">›</span></summary>'
@@ -628,9 +670,7 @@ with tab_life:
     if view.empty:
         st.info("No breeds match.")
     else:
-        profiles = load_breed_profiles(
-            file_version(logic.BREED_INFO_CSV, logic.BREED_PHOTOS_CSV))
-        st.markdown("".join(life_row(r, profiles.get(r.breed)) for r in view.itertuples()),
+        st.markdown("".join(life_row(r, breed_profiles.get(r.breed)) for r in view.itertuples()),
                     unsafe_allow_html=True)
     st.caption("Tap a breed to see a photo and a short intro. "
                "Breeds ranked by AKC 2025 popularity. Photos from Wikimedia Commons.")
@@ -645,8 +685,14 @@ def profile_editor():
     breed_names = breeds["breed"].tolist()
     name = st.text_input("Username", value=profile["username"], key="profile_username",
                          max_chars=logic.MAX_USERNAME_LENGTH)
-    avatar = st.pills("Profile picture", logic.AVATARS, default=profile["avatar"],
-                      key="profile_avatar")
+    with st.container(horizontal=True, wrap=False, vertical_alignment="bottom",
+                      key="avatar_row"):
+        avatar = st.selectbox(
+            "Profile picture", breed_names, key="profile_avatar",
+            placeholder="Pick a breed",
+            index=breed_names.index(profile["avatar"]) if profile["avatar"] in breed_names else None)
+        st.markdown(avatar_html(avatar or profile["avatar"], "me-avatar"),  # live preview
+                    unsafe_allow_html=True, width="content")
     favourite = st.selectbox(
         "Favourite breed", breed_names, key="profile_favourite", placeholder="Pick a breed",
         index=breed_names.index(profile["favourite_breed"])
@@ -674,6 +720,8 @@ def profile_editor():
             st.error(str(err))
         except AuthError as err:
             end_session(str(err))
+        except Exception:
+            st.error("Your profile didn't save. Please try again.")
         else:
             st.session_state.profile_saved = True
             st.rerun()
@@ -684,7 +732,10 @@ with tab_profile:
     if st.session_state.pop("profile_saved", False):
         st.success("Profile saved.")
     with st.container(border=True):
-        st.markdown(f"### {profile['avatar']} {user.username}")
+        with st.container(horizontal=True, vertical_alignment="center", gap="small"):
+            st.markdown(avatar_html(profile["avatar"], "me-avatar"), unsafe_allow_html=True,
+                        width="content")
+            st.markdown(f"### {user.username}")
         if profile["favourite_breed"]:
             st.markdown(f"❤️ Favourite breed: **{profile['favourite_breed']}**")
         if profile["dogs"]:
@@ -731,7 +782,7 @@ def feed_post(post: dict) -> str:
                f"🐶 {html.escape(post['dog_name'])}" if post.get("dog_name") else ""]
     lines = [" · ".join(d for d in details if d), html.escape(post.get("notes") or "")]
     return (
-        f'<div class="cerb-post"><span class="avatar">{html.escape(post["avatar"])}</span>'
+        f'<div class="cerb-post">{avatar_html(post["avatar"], "avatar")}'
         f'<div class="main"><div class="who">{who} · {seen_on.day} {seen_on:%b %Y}</div>'
         f'<div class="breed">{html.escape(post["breed"])}</div>'
         + "".join(f'<div class="sub">{line}</div>' for line in lines if line)

@@ -51,7 +51,8 @@ create policy "Users can delete their own sightings"
 create table if not exists public.profiles (
     user_id          uuid primary key default auth.uid() references auth.users (id) on delete cascade,
     username         text not null check (char_length(username) between 3 and 30),
-    avatar           text not null default '🐶' check (char_length(avatar) between 1 and 16),
+    -- A breed name (shown as that breed's photo), or an emoji from before photos.
+    avatar           text not null default '🐶',
     favourite_breed  text check (char_length(favourite_breed) <= 100),
     -- The member's own dogs: a list of {"name": ..., "breed": ...}, at most 5.
     dogs             jsonb not null default '[]'::jsonb check (
@@ -61,6 +62,12 @@ create table if not exists public.profiles (
     share_sightings  boolean not null default true,
     created_at       timestamptz not null default now()
 );
+
+-- Picture names can be breed names, up to 100 characters. (Done as a separate step so it
+-- also updates tables created when the limit was 16, for emojis only.)
+alter table public.profiles drop constraint if exists profiles_avatar_check;
+alter table public.profiles
+    add constraint profiles_avatar_check check (char_length(avatar) between 1 and 100);
 
 -- Usernames are unique, ignoring capitals: "Charlie" and "charlie" can't both exist.
 create unique index if not exists profiles_username_unique on public.profiles (lower(username));

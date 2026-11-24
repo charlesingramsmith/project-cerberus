@@ -263,3 +263,8 @@ def test_profiles_and_feed_need_a_sign_in(backend):
                  lambda: backend.save_profile(logic.new_profile("charlie"))):
         with pytest.raises(AuthError):
             call()
+
+def test_a_breed_photo_can_be_saved_as_your_picture(backend):
+    backend.sign_up("a@example.com", "correct-horse", "charlie")
+    backend.save_profile({**backend.my_profile(), "avatar": "Beagle"})
+    assert backend.my_profile()["avatar"] == "Beagle"

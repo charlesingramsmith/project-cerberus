@@ -12,8 +12,8 @@ It's inspired by bird-watching life lists, but for the dogs you pass in the park
 - **Accounts**: one tap with **Continue with Google**, or sign up with email and password. **Keep me signed in** remembers you for 30 days. Your email is never shown to other members.
 - **Dog ID**: log a sighting by picking the breed (searchable, and breeds you haven't collected yet are marked ✨ new), the date, where you saw it, the dog's name and notes.
 - **Lifer celebrations**: a new breed gets balloons 🎉.
-- **Life list**: progress towards 100 breeds, the date you first saw each one and how many times, filterable by collected or still to find, and searchable. Tap any breed to open its profile: a photo, a short intro, where it's from, its temperament and a fun fact.
-- **Your profile**: a unique username, a dog emoji as your picture, your favourite breed and your own dogs, plus a summary of your spotting and every dog you've logged as a card, newest first, each with its own delete button.
+- **Life list**: progress towards 100 breeds, the date you first saw each one and how many times, with a small photo of each breed (in colour once you've spotted it), filterable by collected or still to find, and searchable. Tap any breed to open its profile: a photo, a short intro, where it's from, its temperament and a fun fact.
+- **Your profile**: a unique username, any breed's photo as your profile picture, your favourite breed and your own dogs, plus a summary of your spotting and every dog you've logged as a card, newest first, each with its own delete button.
 - **Social**: the latest sightings from everyone in the community, with each spotter's name and picture. Sharing is on by default: new members are told so in a popup when they join, and can switch it off there or any time in Settings > Privacy.
 - **Settings**: your account details and sign out, plus **What's new**: the app's version number and recent updates (from [`CHANGELOG.md`](CHANGELOG.md)), the features coming next (straight from [`ROADMAP.md`](ROADMAP.md)) with a **+1** button on each so you can vote for what you want most, and a box to suggest new features. An orange dot on the Settings tab tells you when there's an update you haven't seen.
 - **Demo mode**: with no database configured, the app still runs, keeping data in memory only.
@@ -92,16 +92,19 @@ Run the tests with `pytest`.
 - [x] 🆕 "What's new" in Settings: version history, what's coming next, +1 votes and feature suggestions
 - [x] 👤 Profiles (username, emoji picture, favourite breed, your dogs) and a 👥 Social feed of everyone's shared sightings
 - [x] 🐶 Breed profiles: tap a breed for a photo, intro, origin, temperament and a fun fact
-- [ ] 🧭 "Help me identify": answer a few questions (size, coat, ears) to narrow down the breed
-- [ ] 📷 Optional photo with a sighting (Supabase Storage)
+- [x] 🖼️ Breed photos on the life list, and a breed photo as your profile picture
+- [ ] 📷 Photo ID: snap a photo and an ML model suggests the breed (you confirm, or just pick it yourself)
+- [ ] 🧠 Opt-in: share your confirmed photos to help train the model
+- [ ] 🔊 Sound ID: get a hint from a recorded bark (experimental)
+- [ ] 🏅 Badges for milestones, shown on your profile
+- [ ] 🎨 Visual redesign: branding, logo and colours
 - [ ] 📍 Optional location for a sighting (place name or current location)
-- [ ] 🤖 Photo ID: breed suggestions from a photo (an image classification model)
-- [ ] 🔊 Sound ID: detect a bark from a recording (experimental)
 - [ ] 👥 More social: following friends, comparing life lists, leaderboards
+- [ ] 🐕 Dog profiles: your dogs get their own profiles and can be tagged in posts
 - [ ] More breeds, a sightings map, password reset
 - [ ] 📱 Launch a real app: home-screen install first, then the app stores
 
-Inspired by bird ID apps like Merlin, which identify birds by description, photo or sound. The full plan, with notes on each item, is in [ROADMAP.md](ROADMAP.md).
+Inspired by bird ID apps like Merlin, which identify birds from a photo or their song. The full plan, with notes on each item, is in [ROADMAP.md](ROADMAP.md).
 
 ## Data source
 
