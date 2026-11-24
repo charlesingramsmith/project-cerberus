@@ -69,8 +69,10 @@ button { min-height: 2.75rem; }
     display: flex; align-items: center; gap: .75rem;
     padding: .6rem .25rem; border-bottom: 1px solid rgba(128, 128, 128, .2);
 }
-/* A small square photo of the breed, cropped to the middle-top where the head usually
-   is. Breeds you've seen are in colour with a tick; ones still to find are faded grey. */
+/* A small square photo of the breed, zoomed in on its face (".face", from
+   data/breed_faces.csv; a plain "img" crops the middle-top where the head usually is).
+   Breeds you've seen are in colour with a tick; ones still to find are faded grey. */
+.face { display: block; width: 100%; height: 100%; background-repeat: no-repeat; }
 .cerb-row .thumb {
     position: relative; flex: none; width: 3rem; height: 3rem;
     border-radius: .5rem; overflow: hidden; background: rgba(128, 128, 128, .15);
@@ -78,7 +80,7 @@ button { min-height: 2.75rem; }
 .cerb-row .thumb img {
     display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%;
 }
-.cerb-row.missing .thumb img { filter: grayscale(1); opacity: .5; }
+.cerb-row.missing .thumb img, .cerb-row.missing .thumb .face { filter: grayscale(1); opacity: .5; }
 .cerb-row .thumb .tick {
     position: absolute; right: .1rem; bottom: .1rem; font-size: .75rem; line-height: 1;
 }
@@ -436,15 +438,29 @@ if backend.demo:
 
 # --- Load this spotter's data ---------------------------------------------------------------
 breeds = load_breeds(file_version(logic.BREEDS_CSV))
-breed_profiles = load_breed_profiles(file_version(logic.BREED_INFO_CSV, logic.BREED_PHOTOS_CSV))
+breed_profiles = load_breed_profiles(
+    file_version(logic.BREED_INFO_CSV, logic.BREED_PHOTOS_CSV, logic.BREED_FACES_CSV))
+
+
+def breed_photo_html(profile: logic.BreedProfile, label: str = "") -> str:
+    """A breed's photo filling a small square or circle, zoomed in on the dog's face
+    (breed_faces.csv), or a plain thumbnail if it has no crop. label = text for screen
+    readers; empty means decorative, so a photo that fails to load leaves a plain shape."""
+    face = logic.face_photo(profile)
+    if face:
+        url, css = face
+        name = f' role="img" aria-label="{html.escape(label)}"' if label else ""
+        return (f'<span class="face"{name} style="background-image:url(&quot;{html.escape(url)}'
+                f'&quot;);{css}"></span>')
+    return (f'<img src="{html.escape(logic.thumbnail_url(profile.image_url))}" '
+            f'alt="{html.escape(label)}" loading="lazy">')
 
 
 def avatar_html(avatar: str, css: str) -> str:
     """A member's picture: their chosen breed's photo in a circle, or an older emoji pick."""
     photo = breed_profiles.get(avatar)
     if photo and photo.image_url:
-        src = html.escape(logic.thumbnail_url(photo.image_url))
-        return f'<span class="{css} pic"><img src="{src}" alt="{html.escape(avatar)}"></span>'
+        return f'<span class="{css} pic">{breed_photo_html(photo, avatar)}</span>'
     return f'<span class="{css}">{html.escape(avatar)}</span>'
 
 
@@ -627,10 +643,7 @@ def breed_profile_html(profile: logic.BreedProfile | None) -> str:
 
 def breed_thumb(profile: logic.BreedProfile | None, tick: bool = False) -> str:
     """A breed's small square photo (an empty grey square if it has none)."""
-    img = ""
-    if profile and profile.image_url:
-        # alt="" so a photo that fails to load leaves a plain square, not a broken icon
-        img = f'<img src="{html.escape(logic.thumbnail_url(profile.image_url))}" alt="" loading="lazy">'
+    img = breed_photo_html(profile) if profile and profile.image_url else ""
     return f'<span class="thumb">{img}{"<span class=tick>✅</span>" if tick else ""}</span>'
 
 

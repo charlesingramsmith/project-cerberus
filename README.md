@@ -12,7 +12,7 @@ It's inspired by bird-watching life lists, but for the dogs you pass in the park
 - **Accounts**: one tap with **Continue with Google**, or sign up with email and password. **Keep me signed in** remembers you for 30 days. Your email is never shown to other members.
 - **Dog ID**: log a sighting by picking the breed (searchable, and breeds you haven't collected yet are marked ✨ new), the date, where you saw it, the dog's name and notes.
 - **Lifer celebrations**: a new breed gets balloons 🎉.
-- **Life list**: progress towards 100 breeds, the date you first saw each one and how many times, with a small photo of each breed (in colour once you've spotted it), filterable by collected or still to find, and searchable. Tap any breed to open its profile: a photo, a short intro, where it's from, its temperament and a fun fact.
+- **Life list**: progress towards 100 breeds, the date you first saw each one and how many times, with a small photo of each breed zoomed in on its face (in colour once you've spotted it), filterable by collected or still to find, and searchable. Tap any breed to open its profile: a photo, a short intro, where it's from, its temperament and a fun fact.
 - **Your profile**: a unique username, any breed's photo as your profile picture, your favourite breed and your own dogs, plus a summary of your spotting and every dog you've logged as a card, newest first, each with its own delete button.
 - **Social**: the latest sightings from everyone in the community, with each spotter's name and picture. Sharing is on by default: new members are told so in a popup when they join, and can switch it off there or any time in Settings > Privacy.
 - **Settings**: your account details and sign out, plus **What's new**: the app's version number and recent updates (from [`CHANGELOG.md`](CHANGELOG.md)), the features coming next (straight from [`ROADMAP.md`](ROADMAP.md)) with a **+1** button on each so you can vote for what you want most, and a box to suggest new features. An orange dot on the Settings tab tells you when there's an update you haven't seen.
@@ -41,7 +41,8 @@ project-cerberus/
 ├── data/breeds.csv         # Top 100 breeds, AKC 2025 popularity ranking
 ├── data/breed_info.csv     # Each breed's intro, origin, temperament and fun fact
 ├── data/breed_photos.csv   # A credited, free-licensed photo per breed
-├── scripts/                # One-off helpers (e.g. fetching the breed photos)
+├── data/breed_faces.csv    # Where each photo's face is, for small pictures
+├── scripts/                # One-off helpers (fetching breed photos, cropping them to faces)
 ├── supabase/schema.sql     # Tables plus row-level security policies
 ├── CHANGELOG.md            # Version history, shown in Settings > What's new
 ├── ROADMAP.md              # The plan; its Now and Next items appear in the app
@@ -110,6 +111,6 @@ Inspired by bird ID apps like Merlin, which identify birds from a photo or their
 
 Breed popularity ranking: [American Kennel Club, Most Popular Dog Breeds of 2025](https://www.akc.org/expert-advice/news/most-popular-dog-breeds-2025/).
 
-Breed photos: [Wikimedia Commons](https://commons.wikimedia.org/), each under a free licence (Creative Commons or public domain). The app credits the photographer and licence under every photo and links to the original. `scripts/fetch_breed_photos.py` picks each breed's main Wikipedia photo and saves the details to `data/breed_photos.csv`.
+Breed photos: [Wikimedia Commons](https://commons.wikimedia.org/), each under a free licence (Creative Commons or public domain). The app credits the photographer and licence under every photo and links to the original. `scripts/fetch_breed_photos.py` picks each breed's main Wikipedia photo and saves the details to `data/breed_photos.csv`. `scripts/face_cropper.py` is a small local tool for framing each photo on the dog's face, saved to `data/breed_faces.csv`.
 
 Breed intros, temperaments and fun facts are written for this project (`data/breed_info.csv`).

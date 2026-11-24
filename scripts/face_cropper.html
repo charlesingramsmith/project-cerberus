@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Face Cropper</title>
+<style>
+:root { --bg:#fafaf7; --card:#fff; --ink:#222; --mute:#777; --line:#e2e0da; --accent:#e8743b; --done:#2e7d32; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg:#16171a; --card:#202226; --ink:#eee; --mute:#9a9a9a; --line:#34373d; }
+}
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.4 system-ui, sans-serif; padding:16px; }
+h1 { font-size:20px; margin:0; }
+.top { display:flex; justify-content:space-between; align-items:baseline; gap:12px; flex-wrap:wrap; margin-bottom:12px; }
+.status { color:var(--mute); font-size:13px; }
+.main { display:flex; gap:20px; flex-wrap:wrap; align-items:flex-start; }
+.editor { position:relative; width:min(360px, calc(100vw - 32px)); aspect-ratio:1; overflow:hidden;
+  border-radius:12px; background-repeat:no-repeat; background-color:#000; cursor:grab; touch-action:none; user-select:none; }
+.editor:active { cursor:grabbing; }
+.editor::after { content:""; position:absolute; inset:0; border-radius:50%; pointer-events:none;
+  box-shadow:0 0 0 999px rgba(0,0,0,.55); outline:2px solid rgba(255,255,255,.8); outline-offset:-2px; }
+.side { flex:1; min-width:240px; display:flex; flex-direction:column; gap:12px; }
+.breed { font-size:22px; font-weight:600; }
+.previews { display:flex; align-items:center; gap:14px; }
+.av { border-radius:50%; background-repeat:no-repeat; background-color:var(--line); border:1px solid var(--line); flex:none; }
+.av.big { width:96px; height:96px; } .av.small { width:40px; height:40px; }
+label { font-size:13px; color:var(--mute); display:block; }
+input[type=range] { width:100%; }
+.btns { display:flex; gap:8px; flex-wrap:wrap; }
+button { padding:10px 14px; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--ink); font:inherit; cursor:pointer; }
+button.primary { background:var(--accent); border-color:var(--accent); color:#fff; flex:1; }
+.hint { font-size:12px; color:var(--mute); }
+.err { color:#c62828; font-size:13px; }
+.grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(72px, 1fr)); gap:10px; margin-top:24px; }
+.tile { display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer; font-size:11px; text-align:center; color:var(--mute); }
+.tile .av { width:56px; height:56px; opacity:.45; border:2px dashed var(--mute); }
+.tile.done .av { opacity:1; border:2px solid var(--done); }
+.tile.current .av { outline:3px solid var(--accent); outline-offset:2px; }
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Breed face cropper</h1>
+  <span class="status" id="status">Loading…</span>
+</div>
+<div class="main">
+  <div class="editor" id="editor"></div>
+  <div class="side">
+    <div class="breed" id="breed"></div>
+    <div class="previews">
+      <div class="av big" id="pBig"></div>
+      <div class="av small" id="pSmall"></div>
+      <span class="hint">How it looks as a profile picture</span>
+    </div>
+    <div>
+      <label for="zoom">Zoom</label>
+      <input type="range" id="zoom" step="1">
+    </div>
+    <div class="btns">
+      <button id="prev">← Back</button>
+      <button class="primary" id="next">Looks good, next →</button>
+    </div>
+    <div class="btns"><button id="nextTodo">Skip to next not done</button><button id="reset">Reset</button></div>
+    <div class="hint">Drag the photo to move it, scroll or use the slider to zoom. Arrow keys nudge, Enter = looks good.
+      Changes save to <code>data/breed_faces.csv</code> automatically.</div>
+    <div class="err" id="err"></div>
+  </div>
+</div>
+<div class="grid" id="grid"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const editor = $("editor"), zoomInput = $("zoom");
+let breeds = [], crops = {}, sizes = {}, idx = 0, crop = null;
+
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+const minZoom = b => { const s = sizes[b]; return s ? Math.max(100, 100 * s.w / s.h) : 100; };
+const paint = (el, b, c) => {
+  const item = breeds.find(x => x.breed === b);
+  el.style.backgroundImage = `url("${item.image}")`;
+  el.style.backgroundSize = `${c.zoom}%`;
+  el.style.backgroundPosition = `${c.face_x}% ${c.face_y}%`;
+};
+
+function loadSize(b) {
+  return new Promise(resolve => {
+    if (sizes[b]) return resolve(true);
+    const img = new Image();
+    img.onload = () => { sizes[b] = { w: img.naturalWidth, h: img.naturalHeight }; resolve(true); };
+    img.onerror = () => resolve(false);
+    img.src = breeds.find(x => x.breed === b).image;
+  });
+}
+
+async function show(i) {
+  idx = (i + breeds.length) % breeds.length;
+  const b = breeds[idx].breed;
+  $("breed").textContent = `${idx + 1}. ${b}`;
+  $("err").textContent = "";
+  const ok = await loadSize(b);
+  if (!ok) $("err").textContent = "This photo didn't load (Wikimedia may be limiting downloads). Try again in a minute.";
+  const mz = minZoom(b);
+  crop = { ...(crops[b] || { face_x: 50, face_y: 40, zoom: mz }) };
+  crop.zoom = Math.max(crop.zoom, mz);
+  zoomInput.min = Math.round(mz); zoomInput.max = Math.round(mz * 6); zoomInput.value = crop.zoom;
+  draw();
+  document.querySelectorAll(".tile").forEach((t, j) => t.classList.toggle("current", j === idx));
+  document.querySelectorAll(".tile")[idx].scrollIntoView({ block: "nearest" });
+}
+
+function draw() {
+  const b = breeds[idx].breed;
+  [editor, $("pBig"), $("pSmall")].forEach(el => paint(el, b, crop));
+}
+
+let saveTimer;
+function commit() {  // remember the current crop and save the file shortly after
+  const b = breeds[idx].breed;
+  crops[b] = { ...crop };
+  const tile = document.querySelectorAll(".tile")[idx];
+  tile.classList.add("done");
+  paint(tile.querySelector(".av"), b, crop);
+  updateStatus("Saving…");
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    try {
+      const r = await fetch("/save", { method: "POST", body: JSON.stringify(crops) });
+      updateStatus(r.ok ? "Saved" : "Save failed");
+    } catch (e) { updateStatus("Save failed: is the cropper script still running?"); }
+  }, 400);
+}
+
+function updateStatus(msg) {
+  const done = Object.keys(crops).length;
+  $("status").textContent = `${done} of ${breeds.length} done · ${msg}`;
+}
+
+function setZoom(z) {
+  const b = breeds[idx].breed;
+  crop.zoom = clamp(z, minZoom(b), minZoom(b) * 6);
+  zoomInput.value = crop.zoom;
+  draw(); commit();
+}
+
+function moveBy(dx, dy) {  // dx, dy in screen pixels
+  const b = breeds[idx].breed, s = sizes[b];
+  if (!s) return;
+  const S = editor.clientWidth, w = S * crop.zoom / 100, h = w * s.h / s.w;
+  if (w > S) crop.face_x = clamp(((S - w) * crop.face_x / 100 + dx) / (S - w) * 100, 0, 100);
+  if (h > S) crop.face_y = clamp(((S - h) * crop.face_y / 100 + dy) / (S - h) * 100, 0, 100);
+  draw(); commit();
+}
+
+let last = null;
+editor.addEventListener("pointerdown", e => { last = [e.clientX, e.clientY]; editor.setPointerCapture(e.pointerId); });
+editor.addEventListener("pointermove", e => {
+  if (!last) return;
+  moveBy(e.clientX - last[0], e.clientY - last[1]);
+  last = [e.clientX, e.clientY];
+});
+editor.addEventListener("pointerup", () => { last = null; });
+editor.addEventListener("wheel", e => { e.preventDefault(); setZoom(crop.zoom * Math.pow(1.1, -e.deltaY / 100)); }, { passive: false });
+zoomInput.addEventListener("input", () => setZoom(+zoomInput.value));
+
+$("prev").onclick = () => show(idx - 1);
+$("next").onclick = () => { commit(); show(idx + 1); };
+$("reset").onclick = () => { const mz = minZoom(breeds[idx].breed); crop = { face_x: 50, face_y: 40, zoom: mz }; zoomInput.value = mz; draw(); commit(); };
+$("nextTodo").onclick = () => {
+  for (let k = 1; k <= breeds.length; k++) {
+    const j = (idx + k) % breeds.length;
+    if (!crops[breeds[j].breed]) return show(j);
+  }
+};
+document.addEventListener("keydown", e => {
+  if (e.target === zoomInput && (e.key === "ArrowLeft" || e.key === "ArrowRight")) return;
+  const nudge = { ArrowLeft: [-2, 0], ArrowRight: [2, 0], ArrowUp: [0, -2], ArrowDown: [0, 2] }[e.key];
+  if (nudge) { e.preventDefault(); moveBy(...nudge); }
+  if (e.key === "Enter") { e.preventDefault(); $("next").click(); }
+});
+
+(async () => {
+  breeds = (await (await fetch("/breeds")).json()).filter(b => b.image);
+  breeds.forEach(b => { if (b.crop) crops[b.breed] = b.crop; });
+  const grid = $("grid");
+  // Grid pictures load only as they scroll into view, to go easy on Wikimedia.
+  const seen = new IntersectionObserver(entries => entries.forEach(en => {
+    if (!en.isIntersecting) return;
+    const tile = en.target, b = tile.dataset.breed;
+    const c = crops[b] || { face_x: 50, face_y: 50, zoom: 100 };
+    paint(tile.querySelector(".av"), b, c);
+    seen.unobserve(tile);
+  }));
+  breeds.forEach((b, j) => {
+    const tile = document.createElement("div");
+    tile.className = "tile" + (crops[b.breed] ? " done" : "");
+    tile.dataset.breed = b.breed;
+    tile.innerHTML = `<div class="av"></div><span></span>`;
+    tile.querySelector("span").textContent = b.breed;
+    tile.onclick = () => show(j);
+    grid.appendChild(tile);
+    seen.observe(tile);
+  });
+  updateStatus("Ready");
+  show(0);
+})();
+</script>
+</body>
+</html>
