@@ -93,16 +93,18 @@ Run the tests with `pytest`.
 - [x] 👤 Profiles (username, emoji picture, favourite breed, your dogs) and a 👥 Social feed of everyone's shared sightings
 - [x] 🐶 Breed profiles: tap a breed for a photo, intro, origin, temperament and a fun fact
 - [x] 🖼️ Breed photos on the life list, and a breed photo as your profile picture
-- [ ] 🧭 "Help me identify": answer a few questions (size, coat, ears) to narrow down the breed
-- [ ] 📷 Optional photo with a sighting (Supabase Storage)
+- [ ] 📷 Photo ID: snap a photo and an ML model suggests the breed (you confirm, or just pick it yourself)
+- [ ] 🧠 Opt-in: share your confirmed photos to help train the model
+- [ ] 🔊 Sound ID: get a hint from a recorded bark (experimental)
+- [ ] 🏅 Badges for milestones, shown on your profile
+- [ ] 🎨 Visual redesign: branding, logo and colours
 - [ ] 📍 Optional location for a sighting (place name or current location)
-- [ ] 🤖 Photo ID: breed suggestions from a photo (an image classification model)
-- [ ] 🔊 Sound ID: detect a bark from a recording (experimental)
 - [ ] 👥 More social: following friends, comparing life lists, leaderboards
+- [ ] 🐕 Dog profiles: your dogs get their own profiles and can be tagged in posts
 - [ ] More breeds, a sightings map, password reset
 - [ ] 📱 Launch a real app: home-screen install first, then the app stores
 
-Inspired by bird ID apps like Merlin, which identify birds by description, photo or sound. The full plan, with notes on each item, is in [ROADMAP.md](ROADMAP.md).
+Inspired by bird ID apps like Merlin, which identify birds from a photo or their song. The full plan, with notes on each item, is in [ROADMAP.md](ROADMAP.md).
 
 ## Data source
 

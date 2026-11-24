@@ -8,15 +8,17 @@ Where Project Cerberus is heading, and why. This is the single source of truth f
 - Each bigger item has a short note on the approach so anyone (or any agent) picking it up knows where to start. Keep notes brief: decisions, not history.
 - Users see the top-level lines under **Now** and **Next** in the app (Settings > What's new) and can +1 them, so write those lines for users. The indented notes stay developer-only. Votes are tied to the **bold** title (or the whole line if there's no bold part), so renaming an item resets its votes.
 
-## Inspiration: three ways to identify a dog
+## Inspiration: identify a dog from a photo or a bark
 
-Bird apps like Merlin let you identify a bird three ways: by answering questions about what you saw, from a photo, or from its song. Cerberus aims for the dog equivalent, so a sighting can be logged even when you don't know the breed.
+Bird apps like Merlin identify a bird from a photo or its song. Cerberus aims for the dog equivalent: snap a photo or record a bark and a machine-learning (ML) model suggests the breed. **The model only suggests:** the user always confirms, and can skip it entirely and just pick the breed they saw from the list.
 
 | Mode | What the user does | Status |
 |---|---|---|
-| **Manual ID** | Picks the breed from a list (today), or answers a few questions (size, coat, colour, ears) to narrow it down | Breed list done; guided questions planned |
-| **Photo ID** | Takes or uploads a photo; the app suggests likely breeds | Planned |
-| **Sound ID** | Records a bark; the app detects it's a dog and maybe suggests size/type | Experimental idea |
+| **Pick from the list** | Chooses the breed themselves | Done (always available, as the fallback) |
+| **Photo ID** | Takes or uploads a photo; the app suggests likely breeds | Next |
+| **Sound ID** | Records a bark; the app suggests what it can | Later (experimental) |
+
+A guided question flow ("help me identify": size, coat, ears) was considered and dropped in favour of ML.
 
 ## Done
 
@@ -38,18 +40,25 @@ _Nothing in progress. Pick the next item from below._
 
 ## Next
 
-- [ ] **Guided manual ID** ("Help me identify"): a short question flow (size, coat length, colour, ear shape, tail) that filters the breed list down to a few candidates.
-  - Needs breed traits: add columns to `data/breeds.csv` (or a new `data/breed_traits.csv`). The filtering is pure logic, so it lives in `cerberus/logic.py` with tests.
-- [ ] **Photo upload** with a sighting (optional: a sighting can still be logged without one).
-  - Supabase Storage bucket with RLS so users only see their own photos. Schema change goes in `supabase/schema.sql`.
-  - Phone camera via `st.camera_input` / `st.file_uploader`.
-- [ ] **Photo ID**: suggest the top 3 breeds from a photo; the user confirms or picks another.
-  - Builds on photo upload. Options to compare: a hosted image-classification API vs. a small pretrained model (e.g. trained on the Stanford Dogs dataset). Watch Streamlit Cloud's memory limits if running a model in-app.
+- [ ] **Photo ID**: snap or upload a photo of the dog and get the top 3 likely breeds. Tap one to log it, or skip and pick the breed yourself.
+  - Photo is optional: a sighting can always be logged without one, and the breed picker stays on the Dog ID tab.
+  - Phone camera via `st.camera_input` / `st.file_uploader`. Store the photo with the sighting in a Supabase Storage bucket with RLS (users only see their own photos, unless shared). Schema change goes in `supabase/schema.sql`.
+  - Model options to compare: a hosted image-classification API vs. a small pretrained model fine-tuned on dog breeds (e.g. the Stanford Dogs dataset). Watch Streamlit Cloud's memory limits if running a model in-app.
   - Always let the user confirm: the model suggests, the human decides what goes on the life list.
 - [ ] Password reset
 
 ## Later
 
+- [ ] **Help train the model with your photos** (opt-in): let members share their confirmed sighting photos to improve Photo ID.
+  - Builds on Photo ID. A confirmed sighting (photo + the breed the user chose) is a labelled training example.
+  - Must be opt-in and separate from the Social sharing switch, with clear wording about how photos are used. Members can withdraw. Check consent and licence wording before collecting anything.
+  - Needs a review step: user-chosen breeds can be wrong, so keep only confident or double-checked labels. Retraining happens offline, not in the app.
+- [ ] **Sound ID**: record a short bark and get a hint about the dog.
+  - Telling *breeds* apart by bark isn't reliable with current public data, so a realistic first version is "dog detected" plus a rough size guess, used alongside Photo ID or the breed picker. A pretrained audio classifier (e.g. YAMNet, which recognises "dog bark") with `st.audio_input`.
+- [ ] **Badges**: earn badges for milestones (first lifer, 10/25/50/100 breeds, sighting streaks) and show them on your profile.
+  - Badge rules are pure functions of a member's sightings in `cerberus/logic.py` (easy to test), so no new table is needed at first. Shown on your profile card, and to others once member profiles are viewable.
+- [ ] **Visual redesign**: a proper look for Cerberus (logo, colours, fonts, illustration style).
+  - Starts with a brainstorming session on branding: mood boards, a few colour palettes for light and dark mode, logo ideas. Then update `.streamlit/config.toml`, `MOBILE_CSS` and the bottom tab bar together, and check at 375px in light and dark.
 - [ ] More breeds beyond the top 100 (add rows to `data/breeds.csv`)
 - [ ] **Location on a sighting** (optional): where the dog was seen.
   - Simplest start: a free-text place name (e.g. "Hyde Park"). Then add "Use my current location" on phones; Streamlit has no built-in GPS, so this needs a small component that asks the browser for location (with the user's permission). Could also pick a spot on a map.
@@ -59,6 +68,8 @@ _Nothing in progress. Pick the next item from below._
 - [ ] **More social**: follow friends, compare life lists, leaderboards, "new lifer" highlights and photos in the feed, and tapping a name to see that member's profile.
   - Builds on `profiles` and the "Members can read shared sightings" RLS policy. A follows table lets the feed show everyone or only people you follow.
   - Later: likes/comments, and reporting or hiding posts.
+- [ ] **Dog profiles**: give your own dogs a profile of their own (photo, breed, bio) and tag them in posts, so others can follow a dog's sightings.
+  - Builds on More social. Today a member's dogs live in `profiles.dogs` (JSON); dog profiles need their own `dogs` table (owner, name, breed, photo) with RLS, plus a link from sightings to tagged dogs. Only the owner can edit a dog's profile.
 - [ ] **Launch a real app**: Cerberus on your phone's home screen, and later in the app stores.
   - First step: an installable "Add to Home Screen" web app. Needs hosting where we control the web app manifest and icons, so it means moving off Streamlit Community Cloud.
   - Then: a store app (iOS and Android). Options to compare: wrapping the web app (e.g. Capacitor) vs. rebuilding the UI natively; Supabase and the RLS rules can stay as they are.
@@ -66,6 +77,5 @@ _Nothing in progress. Pick the next item from below._
 
 ## Ideas (not yet committed to)
 
-- **Sound ID (bark ID)**: record a short clip and detect a dog bark. Telling *breeds* apart by bark isn't reliable with current public data, so a realistic first version is "dog detected" plus a rough size guess, used as a hint alongside manual or photo ID. Would use a pretrained audio classifier (e.g. YAMNet, which recognises "dog bark") and `st.audio_input`.
-- Mixed-breed / "unknown" sightings that can be identified later.
-- Sighting streaks, badges or regional life lists.
+- Mixed-breed / "unknown" sightings that can be identified later (a good fit for Photo ID).
+- Regional life lists.

@@ -588,7 +588,7 @@ with tab_id:
         notes = st.text_area("Notes", placeholder="Good boy. Very fluffy.", height=80)
         submitted = st.form_submit_button("Log sighting", type="primary", width="stretch")
 
-    st.caption("📷 Photo ID and a guided \"help me identify\" are on the roadmap. "
+    st.caption("📷 Photo ID (identify a dog from a photo) is on the roadmap. "
                "For now, pick the breed yourself.")
 
     if submitted:
