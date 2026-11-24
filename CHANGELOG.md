@@ -6,6 +6,10 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.10.0 - 2026-11-24 - Breed photos everywhere
+- Your life list now shows a small photo of every breed. Breeds you've spotted are in colour with a tick; ones still to find are greyed out.
+- Pick any breed's photo as your profile picture in Profile > Edit profile. It shows on your profile and next to your posts in Social. If you chose an emoji before, you keep it until you pick a photo.
+
 ## 0.9.1 - 2026-11-18 - Clearer sharing for new members
 - When you join, a popup now tells you that other members can see your sightings in Social, including where you saw each dog, and lets you turn sharing off straight away.
 

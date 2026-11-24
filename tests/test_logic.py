@@ -228,3 +228,38 @@ def test_social_feed_adds_names_and_skips_people_who_dont_share():
                 "b": {"username": "bobby", "avatar": "🐩", "share_sightings": False}}
     feed = logic.social_feed(sightings, profiles)
     assert [(p["breed"], p["username"], p["avatar"]) for p in feed] == [("Pug", "alice", "🐶")]
+
+# --- Breed thumbnails and photo profile pictures -------------------------------------
+
+COMMONS = "https://upload.wikimedia.org/wikipedia/commons"
+
+
+@pytest.mark.parametrize("url, small", [
+    # already a resized copy: just change the width
+    ("https://thumb.wikimedia.org/wikipedia/commons/thumb/1/18/Dog.jpg/960px-Dog.jpg",
+     "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/18/Dog.jpg/120px-Dog.jpg"),
+    # a full-size original: switch to the resized form
+    (f"{COMMONS}/b/bd/Golden_Retriever.jpg", f"{COMMONS}/thumb/b/bd/Golden_Retriever.jpg/120px-Golden_Retriever.jpg"),
+    # SVG drawings come back as PNG
+    (f"{COMMONS}/a/ab/Pug.svg", f"{COMMONS}/thumb/a/ab/Pug.svg/120px-Pug.svg.png"),
+    # anything else is left alone
+    ("https://example.com/dog.jpg", "https://example.com/dog.jpg"),
+    ("", ""),
+])
+def test_thumbnail_url(url, small):
+    assert logic.thumbnail_url(url) == small
+
+
+def test_every_breed_photo_gets_a_small_thumbnail():
+    for profile in logic.load_breed_profiles().values():
+        if profile.image_url:
+            assert "/120px-" in logic.thumbnail_url(profile.image_url), profile.breed
+
+
+def test_a_breed_can_be_a_profile_picture_but_other_text_cannot():
+    base = logic.new_profile("charlie")
+    assert logic.clean_profile({**base, "avatar": "Cavalier King Charles Spaniel"})["avatar"] \
+        == "Cavalier King Charles Spaniel"
+    assert logic.clean_profile({**base, "avatar": "🦊"})["avatar"] == "🦊"  # older emoji picks
+    with pytest.raises(ValueError, match="picture"):
+        logic.clean_profile({**base, "avatar": "Cat"})
