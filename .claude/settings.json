@@ -7,11 +7,21 @@
       "Bash(git status:*)",
       "Bash(git diff:*)",
       "Bash(git log:*)",
-      "Bash(git branch:*)"
+      "Bash(git branch:*)",
+      "Bash(supabase --version)",
+      "Bash(supabase --help)"
+    ],
+    "ask": [
+      "Bash(supabase db query:*)",
+      "Bash(supabase db push:*)"
     ],
     "deny": [
       "Read(./.streamlit/secrets.toml)",
-      "Edit(./.streamlit/secrets.toml)"
+      "Edit(./.streamlit/secrets.toml)",
+      "Read(~/.supabase/**)",
+      "Bash(supabase db reset:*)",
+      "Bash(supabase login:*)",
+      "Bash(supabase link:*)"
     ]
   }
 }
