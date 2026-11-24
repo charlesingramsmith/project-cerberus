@@ -2,43 +2,49 @@
 
 The Supabase CLI is a command-line tool that talks to your Supabase project. Once it's set up, a Claude session can apply changes in `supabase/schema.sql` to the live database for you (it will always ask first), instead of you pasting SQL into the SQL Editor.
 
-You only do this once per computer. Run every command below yourself in a PowerShell window (Start menu > "PowerShell", or a Terminal tab in the Claude app). **Don't paste your access token or database password into a Claude chat.** The commands ask for them in the terminal and keep them in Windows' own secure storage.
+You only do this once per computer. Run the commands below in a PowerShell window (Start menu > "PowerShell", or a Terminal tab in the Claude app). **Don't paste your access token or database password into a Claude chat.** The commands ask for them in the terminal or browser and keep them in Windows' own secure storage.
 
-## 1. Install Scoop and the Supabase CLI
+## 1. Install the CLI
 
-[Scoop](https://scoop.sh) is a small installer for command-line tools. It installs into your user folder, so it doesn't need administrator rights, and it's the install method Supabase recommends for Windows. (The other option, `npx supabase`, needs Node.js, which isn't installed on this PC.)
+On this PC it's already installed (v3.1.0, in `%LOCALAPPDATA%\Programs\supabase`). To install it on another PC, or to update it, download the official release from [Supabase's GitHub releases](https://github.com/supabase/cli/releases) and put `supabase.exe` in that folder. No administrator rights needed.
 
-Allow PowerShell to run Scoop's install script (only scripts signed or written on this PC, and only for your user):
-
-```powershell
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-```
-
-Download and run Scoop's official installer:
+Pick the version (any `vX.Y.Z` release, not the `config-...` ones; one that's a week or two old is a safe choice):
 
 ```powershell
-Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
+$v = "3.1.0"
 ```
 
-Tell Scoop where Supabase publishes its CLI (a "bucket" is a list of apps Scoop can install):
+Download it and Supabase's list of file fingerprints ("checksums") into your Downloads folder:
 
 ```powershell
-scoop bucket add supabase https://github.com/supabase/scoop-bucket.git
+cd $env:USERPROFILE\Downloads; Invoke-WebRequest "https://github.com/supabase/cli/releases/download/v$v/supabase_${v}_windows_amd64.tar.gz" -OutFile supabase.tar.gz; Invoke-WebRequest "https://github.com/supabase/cli/releases/download/v$v/checksums.txt" -OutFile supabase-checksums.txt
 ```
 
-Install the CLI:
+Check the download matches Supabase's fingerprint (prints `True` if it's genuine; stop if it says `False`):
 
 ```powershell
-scoop install supabase
+(Get-FileHash supabase.tar.gz -Algorithm SHA256).Hash -eq ((Select-String "supabase_${v}_windows_amd64.tar.gz" supabase-checksums.txt).Line -split ' ')[0].ToUpper()
 ```
 
-Check it worked (prints a version number like `2.x` or `3.x`):
+Unpack `supabase.exe` into its folder:
+
+```powershell
+New-Item -ItemType Directory -Force "$env:LOCALAPPDATA\Programs\supabase"; tar -xzf supabase.tar.gz -C "$env:LOCALAPPDATA\Programs\supabase" supabase.exe
+```
+
+Add that folder to your PATH (the list of places Windows looks for commands). Only needed the first time:
+
+```powershell
+[Environment]::SetEnvironmentVariable('Path', [Environment]::GetEnvironmentVariable('Path','User') + ";$env:LOCALAPPDATA\Programs\supabase", 'User')
+```
+
+Close and reopen PowerShell, then check it works (prints the version number):
 
 ```powershell
 supabase --version
 ```
 
-Later, to update it: `scoop update supabase`.
+(Supabase also offers Scoop and `npx` installs. We don't use them here: Scoop's installer pipes a script from the internet straight into PowerShell, and `npx` needs Node.js, which this PC doesn't have.)
 
 ## 2. Sign in to Supabase
 
@@ -62,7 +68,7 @@ Find your **project ref**: it's the random-looking part of your Supabase URL (`h
 supabase link --project-ref <your-project-ref>
 ```
 
-It asks for your **database password** (the one you chose when creating the Supabase project; reset it under Project Settings > Database if you've forgotten). Type it into the terminal. The CLI keeps it in Windows' secure storage. Linking also writes a few small files in `supabase/.temp/`, which git ignores.
+If it asks for your **database password** (the one you chose when creating the Supabase project; reset it under Project Settings > Database if you've forgotten), type it into the terminal. The CLI keeps it in Windows' secure storage. Linking also writes a few small files in `supabase/.temp/`, which git ignores.
 
 If `supabase link` complains that `config.toml` is missing, run `supabase init` in the project folder, answer "N" to the questions, then run the link command again and tell Claude, so the new `supabase/config.toml` gets committed.
 
@@ -71,7 +77,7 @@ If `supabase link` complains that `config.toml` is missing, run `supabase init` 
 This runs a harmless read-only query against the live database and lists the app's tables:
 
 ```powershell
-supabase db query --linked "select table_name from information_schema.tables where table_schema = 'public'"
+supabase db query --remote --read-only "select table_name from information_schema.tables where table_schema = 'public'"
 ```
 
 You should see `sightings`, `profiles`, `feature_votes` and `feature_suggestions`. That's it: the next time a Claude session changes the schema, it can apply it for you.
@@ -81,15 +87,15 @@ You should see `sightings`, `profiles`, `feature_votes` and `feature_suggestions
 `supabase/schema.sql` stays the single source of truth. It's written to be safe to run again and again ("idempotent"): it creates only what's missing and replaces policies and functions. So applying a change means running the whole file against the linked project:
 
 ```powershell
-supabase db query --linked -f supabase/schema.sql
+supabase db query --remote --yes -f supabase/schema.sql
 ```
 
-This changes the **live production database**, so a Claude session must ask you before every run. You can also run it yourself.
+`--remote` means "the linked live project" and `--yes` confirms you really mean to change it (the CLI refuses live changes without it). This changes the **live production database**, so a Claude session must ask you before every run. You can also run it yourself.
 
 (Supabase also supports a `supabase/migrations/` folder of numbered change files, applied with `supabase db push`. We don't use it: one file you can read top to bottom is simpler, and the app's history lives in git anyway.)
 
 ## Notes
 
-- Newer CLI versions rename `--linked` to `--remote`. If `--linked` gives an "unknown flag" or "deprecated" message, use `--remote` instead.
-- Never run `supabase db reset --linked`: it wipes the live database.
+- Older CLI versions (v2) used `--linked` instead of `--remote`.
+- Never run `supabase db reset` against the live project: it wipes the database.
 - The CLI never needs the app's `.streamlit/secrets.toml` and never needs the secret/service_role key.

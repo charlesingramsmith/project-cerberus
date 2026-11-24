@@ -1,6 +1,6 @@
 -- Project Cerberus database schema.
 -- Apply with the Supabase CLI (see docs/supabase-cli.md):
---   supabase db query --linked -f supabase/schema.sql
+--   supabase db query --remote --yes -f supabase/schema.sql
 -- or paste it into Supabase: Dashboard > SQL Editor > New query > Run.
 -- Safe to re-run: keep every statement idempotent.
 
