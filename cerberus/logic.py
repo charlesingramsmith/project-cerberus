@@ -16,6 +16,7 @@ CHANGELOG_MD = ROOT / "CHANGELOG.md"
 ROADMAP_MD = ROOT / "ROADMAP.md"
 BREED_INFO_CSV = ROOT / "data" / "breed_info.csv"
 BREED_PHOTOS_CSV = ROOT / "data" / "breed_photos.csv"
+BREED_FACES_CSV = ROOT / "data" / "breed_faces.csv"
 
 SIGHTING_COLUMNS = ["id", "breed", "seen_on", "location", "dog_name", "notes"]
 
@@ -39,6 +40,11 @@ class BreedProfile:
     credit: str = ""     # photographer, as named on Wikimedia Commons
     licence: str = ""    # e.g. "CC BY-SA 4.0"
     source: str = ""     # the photo's Commons page (credit and licence details)
+    # Where the photo sits in a small square or circle picture, so it shows the dog's face
+    # (set with scripts/face_cropper.py). CSS background-position (%) and background-size (%).
+    face_x: float | None = None
+    face_y: float | None = None
+    zoom: float | None = None
 
 
 THUMB_WIDTH = 120  # px: sharp at ~48px on a phone screen, and only ~5 KB each
@@ -64,14 +70,37 @@ def thumbnail_url(image_url: str, width: int = THUMB_WIDTH) -> str:
 
 
 def load_breed_profiles(info_csv: Path = BREED_INFO_CSV,
-                        photos_csv: Path = BREED_PHOTOS_CSV) -> dict[str, BreedProfile]:
+                        photos_csv: Path = BREED_PHOTOS_CSV,
+                        faces_csv: Path = BREED_FACES_CSV) -> dict[str, BreedProfile]:
     """{breed: BreedProfile}. Text comes from breed_info.csv (written by hand), photos
-    from breed_photos.csv (made by scripts/fetch_breed_photos.py). A breed with no
-    photo row still gets its text."""
+    from breed_photos.csv (made by scripts/fetch_breed_photos.py) and face crops from
+    breed_faces.csv (made by scripts/face_cropper.py). A breed with no photo or crop row
+    still gets its text."""
     info = pd.read_csv(info_csv, dtype=str, keep_default_na=False)
     photos = pd.read_csv(photos_csv, dtype=str, keep_default_na=False)
     rows = info.merge(photos, on="breed", how="left").fillna("")
-    return {row["breed"]: BreedProfile(**row) for row in rows.to_dict("records")}
+    faces = {}
+    if faces_csv.exists():
+        faces = {row["breed"]: {k: float(row[k]) for k in ("face_x", "face_y", "zoom")}
+                 for row in pd.read_csv(faces_csv, dtype=str).to_dict("records")}
+    return {row["breed"]: BreedProfile(**row, **faces.get(row["breed"], {}))
+            for row in rows.to_dict("records")}
+
+
+FACE_PHOTO_WIDTHS = (120, 330, 500, 960)  # px: sizes Wikimedia Commons serves
+
+
+def face_photo(profile: BreedProfile, box_px: int = 56) -> tuple[str, str] | None:
+    """(photo address, CSS) to draw a breed's face-cropped photo as a background in a
+    square of up to box_px, or None if it has no photo or crop. Zoomed-in crops get a
+    bigger copy of the photo, so the face stays sharp on high-resolution phone screens."""
+    if not profile.image_url or profile.zoom is None:
+        return None
+    needed = profile.zoom / 100 * box_px * 2  # 2 screen pixels per CSS pixel
+    width = next((w for w in FACE_PHOTO_WIDTHS if w >= needed), FACE_PHOTO_WIDTHS[-1])
+    css = (f"background-size:{profile.zoom:g}%;"
+           f"background-position:{profile.face_x:g}% {profile.face_y:g}%")
+    return thumbnail_url(profile.image_url, width), css
 
 
 def sightings_frame(rows: list[dict]) -> pd.DataFrame:

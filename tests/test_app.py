@@ -463,8 +463,9 @@ def test_life_list_rows_show_a_small_breed_photo(at):
     log_breed(at, "Beagle")
     rows = "".join(m.value for m in at.markdown if "cerb-breed" in m.value)
     assert rows.count('class="thumb"') == 100
-    assert "/120px-" in rows  # the small copy, not the full-size photo
-    assert '<span class="thumb"><img' in rows and "<span class=tick>✅</span>" in rows
+    # zoomed in on the dog's face (data/breed_faces.csv), with a tick on breeds you've seen
+    assert rows.count('<span class="thumb"><span class="face" style="background-image:url(') == 100
+    assert "background-size:" in rows and "<span class=tick>✅</span>" in rows
 
 
 def test_choosing_a_breed_photo_as_your_profile_picture(at):
@@ -474,14 +475,14 @@ def test_choosing_a_breed_photo_as_your_profile_picture(at):
     assert not at.exception
     assert "Profile saved" in at.success[0].value
     pictures = [m.value for m in at.markdown if 'class="me-avatar pic"' in m.value]
-    assert pictures and 'alt="Beagle"' in pictures[0]
+    assert pictures and 'aria-label="Beagle"' in pictures[0]
 
     log_breed(at, "Pug")
     open_tab(at, "Social")
-    assert 'class="avatar pic"><img' in feed_html(at)  # shown next to your posts too
+    assert 'class="avatar pic"><span class="face"' in feed_html(at)  # shown next to your posts too
 
 def test_picking_a_breed_previews_the_picture_before_saving(at):
     sign_up(at)
     at.selectbox(key="profile_avatar").set_value("Beagle").run()
     previews = [m.value for m in at.markdown if 'class="me-avatar pic"' in m.value]
-    assert previews and 'alt="Beagle"' in previews[-1]
+    assert previews and 'aria-label="Beagle"' in previews[-1]

@@ -34,6 +34,36 @@ def test_breed_profiles_still_load_without_a_photo(tmp_path):
     assert pug.image_url == ""
 
 
+def test_every_breed_has_a_face_crop_inside_the_photo():
+    profiles = logic.load_breed_profiles()
+    with open(logic.BREED_FACES_CSV, encoding="utf-8") as f:
+        assert len(f.readlines()) == 101  # header + one row per breed, no extra names
+    for profile in profiles.values():
+        assert profile.zoom is not None, f"{profile.breed} has no face crop"
+        assert 0 <= profile.face_x <= 100 and 0 <= profile.face_y <= 100, profile.breed
+        assert profile.zoom >= 100, profile.breed  # the photo always fills the picture
+
+
+def test_face_photo_gives_a_sharp_enough_copy_and_its_crop(tmp_path):
+    info = tmp_path / "info.csv"
+    info.write_text("breed,origin,temperament,intro,fun_fact\nPug,China,Loving,A dog.,A fact.\n",
+                    encoding="utf-8")
+    photos = tmp_path / "photos.csv"
+    photos.write_text("breed,image_url,credit,licence,source\n"
+                      "Pug,https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/Pug.jpg/960px-Pug.jpg,"
+                      "A,CC BY 2.0,https://commons.wikimedia.org/wiki/File:Pug.jpg\n", encoding="utf-8")
+    faces = tmp_path / "faces.csv"
+    faces.write_text("breed,face_x,face_y,zoom\nPug,22.5,20,250\n", encoding="utf-8")
+    pug = logic.load_breed_profiles(info, photos, faces)["Pug"]
+    url, css = logic.face_photo(pug)
+    assert url.endswith("/330px-Pug.jpg")  # 250% of 56px, twice over = 280px
+    assert css == "background-size:250%;background-position:22.5% 20%"
+    assert logic.face_photo(pug, box_px=200)[0].endswith("/960px-Pug.jpg")
+    # no crop file: no crop, and the app falls back to a plain thumbnail
+    plain = logic.load_breed_profiles(info, photos, tmp_path / "missing.csv")["Pug"]
+    assert plain.zoom is None and logic.face_photo(plain) is None
+
+
 def test_empty_sightings_give_an_empty_life_list():
     life = logic.life_list(logic.load_breeds(), logic.sightings_frame([]))
     assert len(life) == 100
