@@ -35,6 +35,7 @@ A guided question flow ("help me identify": size, coat, ears) was considered and
 - [x] **Photos on sightings**: an optional photo (phone camera or upload) on each sighting, shown on its card in Profile. `logic.prepare_photo` shrinks it to a 1600px JPEG, turns it the right way up and drops its metadata (GPS); it goes to the private `sighting-photos` Storage bucket at `<user id>/<photo id>.jpg`, with RLS so only the owner can add, read or delete it, and `sightings.photo_path` points at it. Shown via signed links (1 hour).
 - [x] **Social feed**: the latest 50 sightings from everyone who shares, with their name and picture. Sharing is on by default (a popup says so on a member's first visit), with an off switch in Settings > Privacy; the "where" field is shown as typed (the log form says so).
 - [x] **Password reset**: "Forgot your password?" on the sign-in screen emails a one-time link (Supabase `reset_password_for_email`; the link carries a `token_hash` the app checks with `verify_otp`), then the user must choose a new password before the app opens. Needs the Supabase email template and SMTP setup in [docs/password-reset.md](docs/password-reset.md).
+- [x] **Badges**: milestone badges for your first lifer and 10/25/50/100 breeds, shown on your profile (earned date, or how many to go), a "next badge" hint on the life list, and a message when you earn one. Pure functions in `cerberus/logic.py` (`BADGES`, `badge_progress`), worked out from sightings each run, so no table. Show them to others once member profiles are viewable (More social).
 
 ## Now
 
@@ -56,8 +57,8 @@ _Nothing in progress. Pick the next item from below._
   - Needs a review step: user-chosen breeds can be wrong, so keep only confident or double-checked labels. Retraining happens offline, not in the app.
 - [ ] **Sound ID**: record a short bark and get a hint about the dog.
   - Telling *breeds* apart by bark isn't reliable with current public data, so a realistic first version is "dog detected" plus a rough size guess, used alongside Photo ID or the breed picker. A pretrained audio classifier (e.g. YAMNet, which recognises "dog bark") with `st.audio_input`.
-- [ ] **Badges**: earn badges for milestones (first lifer, 10/25/50/100 breeds, sighting streaks) and show them on your profile.
-  - Badge rules are pure functions of a member's sightings in `cerberus/logic.py` (easy to test), so no new table is needed at first. Shown on your profile card, and to others once member profiles are viewable.
+- [ ] **Streak badges**: badges for spotting dogs several days or weeks in a row.
+  - Add to `logic.BADGES`/`badge_progress` (badges are worked out from sightings, no table). Decide what counts as a streak (days with any sighting?) and whether a streak badge stays once the streak ends.
 - [ ] **Visual redesign**: a proper look for Cerberus (logo, colours, fonts, illustration style).
   - Starts with a brainstorming session on branding: mood boards, a few colour palettes for light and dark mode, logo ideas. Then update `.streamlit/config.toml`, `MOBILE_CSS` and the bottom tab bar together, and check at 375px in light and dark.
 - [ ] More breeds beyond the top 100 (add rows to `data/breeds.csv`)

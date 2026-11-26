@@ -374,3 +374,64 @@ def social_feed(sightings: list[dict], profiles: dict[str, dict]) -> list[dict]:
         if who and who.get("share_sightings", True):
             feed.append({**s, "username": who["username"], "avatar": who["avatar"]})
     return feed
+
+# --- Badges: milestones earned from how many breeds you've spotted ------------------------
+
+@dataclass(frozen=True)
+class Badge:
+    key: str            # stable id, e.g. "breeds-10"
+    emoji: str
+    name: str           # "Pack of 10"
+    goal: int           # how many different breeds earn it
+
+    @property
+    def description(self) -> str:
+        return "Spot your first breed" if self.goal == 1 else f"Spot {self.goal} different breeds"
+
+
+BADGES = (
+    Badge("first-lifer", "🐾", "First lifer", 1),
+    Badge("breeds-10", "🦴", "Pack of 10", 10),
+    Badge("breeds-25", "🎾", "Quarter century", 25),
+    Badge("breeds-50", "🏅", "Halfway hound", 50),
+    Badge("breeds-100", "🏆", "Top dog", 100),
+)
+
+
+@dataclass(frozen=True)
+class BadgeProgress:
+    badge: Badge
+    earned_on: str | None   # ISO date the milestone breed was first seen, or None
+    have: int               # breeds spotted so far (capped at the goal)
+
+    @property
+    def earned(self) -> bool:
+        return self.earned_on is not None
+
+    @property
+    def to_go(self) -> int:
+        return self.badge.goal - self.have
+
+
+def badge_progress(sightings: pd.DataFrame, badges: tuple[Badge, ...] = BADGES) -> list[BadgeProgress]:
+    """Every badge with whether it's earned, and when.
+
+    A badge for N breeds is earned on the day the Nth different breed was first seen.
+    It's worked out from your sightings each time (no table to keep in step), so dates are
+    right even for sightings logged out of order, and deleting a sighting can undo a badge.
+    """
+    first_seen = sorted(sightings.groupby("breed")["seen_on"].min().astype(str))
+    count = len(first_seen)
+    return [BadgeProgress(badge, first_seen[badge.goal - 1] if count >= badge.goal else None,
+                          min(count, badge.goal))
+            for badge in badges]
+
+
+def badge_for_count(count: int, badges: tuple[Badge, ...] = BADGES) -> Badge | None:
+    """The badge earned by reaching exactly `count` breeds (to celebrate a new lifer)."""
+    return next((b for b in badges if b.goal == count), None)
+
+
+def next_badge(progress: list[BadgeProgress]) -> BadgeProgress | None:
+    """The first badge not yet earned, or None once they're all earned."""
+    return next((p for p in progress if not p.earned), None)

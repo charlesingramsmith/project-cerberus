@@ -12,6 +12,7 @@ It's inspired by bird-watching life lists, but for the dogs you pass in the park
 - **Accounts**: one tap with **Continue with Google**, or sign up with email and password (forgotten it? the sign-in screen emails you a reset link). **Keep me signed in** remembers you for 30 days. Your email is never shown to other members.
 - **Dog ID**: log a sighting by picking the breed (searchable, and breeds you haven't collected yet are marked ✨ new), the date, where you saw it, the dog's name and notes, plus an optional photo (take one with your phone's camera or upload one). Photos are private to you, saved smaller and without the GPS location phones store in them.
 - **Lifer celebrations**: a new breed gets balloons 🎉.
+- **Badges**: earn milestone badges for your first lifer and for 10, 25, 50 and all 100 breeds. Your profile shows each one, with the date you earned it or how far there is to go, and the life list tells you how many breeds until the next one.
 - **Life list**: progress towards 100 breeds, the date you first saw each one and how many times, with a small photo of each breed zoomed in on its face (in colour once you've spotted it), filterable by collected or still to find, and searchable. Tap any breed to open its profile: a photo, a short intro, where it's from, its temperament and a fun fact.
 - **Your profile**: a unique username, any breed's photo as your profile picture, your favourite breed and your own dogs, plus a summary of your spotting and every dog you've logged as a card, newest first, with its photo if it has one and its own delete button.
 - **Social**: the latest sightings from everyone in the community, with each spotter's name and picture. Sharing is on by default: new members are told so in a popup when they join, and can switch it off there or any time in Settings > Privacy.
@@ -33,7 +34,7 @@ It's inspired by bird-watching life lists, but for the dogs you pass in the park
 project-cerberus/
 ├── app.py                  # Streamlit UI: sign-in screens and the life list
 ├── cerberus/
-│   ├── logic.py            # Pure life-list, lifer and What's new logic
+│   ├── logic.py            # Pure life-list, lifer, badge and What's new logic
 │   ├── backends.py         # SupabaseBackend (real) and MemoryBackend (tests/demo)
 │   ├── oauth.py            # Remembers a Google sign-in while the user is at Google
 │   └── remember.py         # "Keep me signed in" (browser storage)
@@ -97,11 +98,11 @@ Run the tests with `pytest`.
 - [x] 🐶 Breed profiles: tap a breed for a photo, intro, origin, temperament and a fun fact
 - [x] 🖼️ Breed photos on the life list, and a breed photo as your profile picture
 - [x] 🔑 Password reset by email
+- [x] 🏅 Badges for milestones (first lifer, 10/25/50/100 breeds), shown on your profile
 - [x] 📸 Your own photo on a sighting (private, stored in Supabase Storage): the first step to Photo ID
 - [ ] 📷 Photo ID: snap a photo and an ML model suggests the breed (you confirm, or just pick it yourself)
 - [ ] 🧠 Opt-in: share your confirmed photos to help train the model
 - [ ] 🔊 Sound ID: get a hint from a recorded bark (experimental)
-- [ ] 🏅 Badges for milestones, shown on your profile
 - [ ] 🎨 Visual redesign: branding, logo and colours
 - [ ] 📍 Optional location for a sighting (place name or current location)
 - [ ] 👥 More social: following friends, comparing life lists, leaderboards

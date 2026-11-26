@@ -118,6 +118,22 @@ button { min-height: 2.75rem; }
     background: rgba(232, 131, 58, .12);  /* primaryColor, faint */
 }
 
+/* Badges on the profile: earned ones in colour, locked ones faded grey */
+.cerb-badges {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
+    gap: .5rem; margin: 0 0 1rem;
+}
+.cerb-badge {
+    padding: .6rem .4rem; border-radius: .5rem; text-align: center;
+    background: rgba(232, 131, 58, .12);  /* primaryColor, faint */
+}
+.cerb-badge .icon { display: block; font-size: 1.8rem; line-height: 1.2; }
+.cerb-badge .name { font-weight: 600; font-size: .85rem; }
+.cerb-badge .sub { font-size: .75rem; opacity: .7; }
+.cerb-badge.locked { background: rgba(128, 128, 128, .1); }
+.cerb-badge.locked .icon { filter: grayscale(1); opacity: .4; }
+.cerb-badge.locked .name { font-weight: 400; opacity: .75; }
+
 /* Social feed posts: avatar on the left, who/when, then the sighting */
 .cerb-post {
     display: flex; gap: .75rem; padding: .75rem .25rem;
@@ -618,6 +634,7 @@ if st.session_state.get("sharing_notice"):
 life = logic.life_list(breeds, sightings)
 seen = life["times_seen"] > 0
 collected, total = int(seen.sum()), len(life)
+badges = logic.badge_progress(sightings)
 
 if st.session_state.pop("password_changed", False):
     st.success("Your password has been changed.")
@@ -628,6 +645,10 @@ if flash:
     if kind == "lifer":
         st.balloons()
         st.success(f"🎉 New lifer! **{breed_name}** is on your life list.")
+        badge = logic.badge_for_count(collected)
+        if badge:
+            st.success(f"{badge.emoji} Badge earned: **{badge.name}**! "
+                       f"{badge.description}. See it in Profile.")
     else:
         st.info(f"Logged another **{breed_name}**.")
 photo_problem = st.session_state.pop("photo_problem", None)
@@ -793,6 +814,10 @@ with tab_life:
         st.metric("Sightings", len(sightings), border=True)
         st.metric("To find", total - collected, border=True)
     st.progress(collected / total if total else 0.0)
+    coming = logic.next_badge(badges)
+    if coming:
+        st.caption(f"Next badge: {coming.badge.emoji} **{coming.badge.name}**, "
+                   f"{coming.to_go} more breed{'' if coming.to_go == 1 else 's'} to go.")
 
     show = st.segmented_control(
         "Show", logic.LIFE_LIST_FILTERS, default="All", required=True,
@@ -810,6 +835,18 @@ with tab_life:
                "Breeds ranked by AKC 2025 popularity. Photos from Wikimedia Commons.")
 
 # --- Your profile: who you are, plus every sighting you've logged ------------------------------
+def badge_html(p: logic.BadgeProgress) -> str:
+    """One badge as a small card: when it was earned, or how far there is to go."""
+    if p.earned:
+        day = dt.date.fromisoformat(p.earned_on)
+        css, sub = "cerb-badge", f"Earned {day.day} {day:%b %Y}"
+    else:
+        css, sub = "cerb-badge locked", f"{p.have}/{p.badge.goal} breeds"
+    return (f'<div class="{css}" title="{html.escape(p.badge.description)}">'
+            f'<span class="icon">{p.badge.emoji}</span>'
+            f'<div class="name">{html.escape(p.badge.name)}</div><div class="sub">{sub}</div></div>')
+
+
 def dogs_text(dogs: list[dict]) -> str:
     return ", ".join(f"{d['name']} ({d['breed']})" if d.get("breed") else d["name"] for d in dogs)
 
@@ -902,6 +939,11 @@ with tab_profile:
     if profiles_ready:
         with st.expander("✏️ Edit profile"):
             profile_editor()
+
+    earned = sum(p.earned for p in badges)
+    st.subheader(f"Badges ({earned}/{len(badges)})")
+    st.markdown(f'<div class="cerb-badges">{"".join(badge_html(p) for p in badges)}</div>',
+                unsafe_allow_html=True)
 
     st.subheader("Your sightings")
     if sightings.empty:
