@@ -9,9 +9,9 @@
       "Bash(git log:*)",
       "Bash(git branch:*)",
       "Bash(supabase --version)",
-      "Bash(supabase --help)"
-    ],
-    "ask": [
+      "Bash(supabase --help)",
+      "Bash(git fetch:*)",
+      "Bash(git show:*)",
       "Bash(supabase db query:*)",
       "Bash(supabase db push:*)"
     ],
