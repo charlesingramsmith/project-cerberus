@@ -188,6 +188,101 @@ def test_cancelled_google_sign_in_shows_a_message(monkeypatch):
 
 
 
+# --- Forgot your password? ------------------------------------------------------------
+
+def ask_for_reset_link(at: AppTest, email="charlie@example.com") -> dict:
+    """Request a reset link on the sign-in screen; returns the link's query parameters."""
+    from urllib.parse import parse_qs, urlparse
+
+    at.text_input(key="reset_email").input(email)
+    click(at, "Email me a reset link")
+    assert "If there's an account" in at.success[0].value
+    link = at.session_state["backend"].sent_emails[-1][1]
+    assert urlparse(link).path == "/"  # back to the app (Supabase's allow list needs the slash)
+    return {k: v[0] for k, v in parse_qs(urlparse(link).query).items()}
+
+
+def opening_reset_link(monkeypatch, backend, **params) -> AppTest:
+    """A brand-new session, as when the link in the email is opened."""
+    monkeypatch.setenv("CERBERUS_DEMO", "1")
+    app = AppTest.from_file(APP, default_timeout=10)
+    app.session_state["backend"] = backend  # the same accounts, as on the real site
+    for name, value in params.items():
+        app.query_params[name] = value
+    app.run()
+    assert not app.exception
+    return app
+
+
+def test_forgotten_password_can_be_reset_by_email(at, monkeypatch):
+    sign_up(at, password="old-password")
+    click(at, "Sign out")
+    params = ask_for_reset_link(at)
+
+    back = opening_reset_link(monkeypatch, at.session_state["backend"], **params)
+    assert back.title[0].value == "🐕 Choose a new password"
+    assert not back.header  # the app waits until a new password is chosen
+    assert not back.query_params  # the one-time link is cleared from the address bar
+
+    back.text_input(key="new_password").input("new-password")
+    back.text_input(key="new_password_confirm").input("new-password")
+    click(back, "Save new password")
+    assert "password has been changed" in back.success[0].value
+    assert "charlie's life list" in headers(back)
+
+    click(back, "Sign out")
+    back.text_input(key="sign_in_email").input("charlie@example.com")
+    back.text_input(key="sign_in_password").input("new-password")
+    click(back, "Sign in")
+    assert "charlie's life list" in headers(back)
+
+
+def test_demo_mode_opens_the_reset_link_with_a_button(at):
+    sign_up(at)
+    click(at, "Sign out")
+    ask_for_reset_link(at)
+    click(at, "Open the reset link")
+    assert at.title[0].value == "🐕 Choose a new password"
+
+
+def test_reset_for_an_unknown_email_looks_the_same(at):
+    at.text_input(key="reset_email").input("nobody@example.com")
+    click(at, "Email me a reset link")
+    assert "If there's an account" in at.success[0].value
+    assert not any(b.label == "Open the reset link" for b in at.button)  # nothing was sent
+
+
+def test_used_reset_link_shows_a_message(at, monkeypatch):
+    sign_up(at)
+    click(at, "Sign out")
+    params = ask_for_reset_link(at)
+    backend = at.session_state["backend"]
+    opening_reset_link(monkeypatch, backend, **params)
+    again = opening_reset_link(monkeypatch, backend, **params)
+    assert "expired or was already used" in again.info[0].value
+    assert not again.header
+
+
+def test_new_passwords_must_match(at, monkeypatch):
+    sign_up(at)
+    click(at, "Sign out")
+    back = opening_reset_link(monkeypatch, at.session_state["backend"], **ask_for_reset_link(at))
+    back.text_input(key="new_password").input("new-password")
+    back.text_input(key="new_password_confirm").input("other-password")
+    click(back, "Save new password")
+    assert "don't match" in back.error[0].value
+    assert not back.header
+
+
+def test_cancelling_a_reset_signs_you_out(at, monkeypatch):
+    sign_up(at)
+    click(at, "Sign out")
+    back = opening_reset_link(monkeypatch, at.session_state["backend"], **ask_for_reset_link(at))
+    click(back, "Cancel and sign out")
+    assert "wasn't changed" in back.info[0].value
+    assert any(b.label == "Sign in" for b in back.button)
+
+
 # --- Keep me signed in ----------------------------------------------------------------
 # AppTest can't run the browser-side component (cerberus/remember.py), so FakeBrowser
 # stands in for it: it holds what the browser has saved, reports it once per Streamlit

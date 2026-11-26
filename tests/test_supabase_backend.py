@@ -74,7 +74,23 @@ class FakeAuth:
         self.session = None
 
     def update_user(self, attributes):
+        if attributes.get("password") == "same-as-before":
+            raise RuntimeError("New password should be different from the old password.")
         self.updated = attributes
+
+    # Password reset
+    def reset_password_for_email(self, email, options):
+        if email == "busy@example.com":
+            raise RuntimeError("email rate limit exceeded")
+        self.reset_request = (email, options)
+
+    def verify_otp(self, params):
+        if params != {"token_hash": "good-hash", "type": "recovery"}:
+            raise RuntimeError("Email link is invalid or has expired")
+        user = SimpleNamespace(id="uuid-1", email="charlie@example.com",
+                               user_metadata={"username": "charlie"})
+        self.session = SimpleNamespace(refresh_token="rt-1")
+        return SimpleNamespace(user=user, session=self.session)
 
 
 def make_backend(rpc_data=None, **auth_kwargs) -> tuple[SupabaseBackend, list]:
@@ -314,3 +330,42 @@ def test_social_feed_joins_sightings_with_profiles():
     assert [(p["breed"], p["username"]) for p in feed] == [("Pug", "pat")]  # charlie stopped sharing
     assert ("in_", ("user_id", ["uuid-1", "uuid-9"]), {}) in log
     assert ("limit", (50,), {}) in log
+
+# --- Password reset -------------------------------------------------------------------
+
+def test_password_reset_email_comes_back_to_the_app():
+    backend, _ = make_backend()
+    backend.send_password_reset(" Charlie@Example.com ", "https://app.example/")
+    assert backend.client.auth.reset_request == (
+        "charlie@example.com", {"redirect_to": "https://app.example/"})
+
+
+def test_password_reset_errors_become_auth_errors():
+    backend, _ = make_backend()
+    with pytest.raises(AuthError, match="rate limit"):
+        backend.send_password_reset("busy@example.com", "https://app.example/")
+    with pytest.raises(AuthError, match="valid email"):
+        backend.send_password_reset("nope", "https://app.example/")
+
+
+def test_reset_link_signs_in_then_password_can_be_changed():
+    backend, _ = make_backend()
+    user = backend.finish_password_reset("good-hash")
+    assert user.username == "charlie"
+    backend.change_password("brand-new-pass")
+    assert backend.client.auth.updated == {"password": "brand-new-pass"}
+
+
+def test_bad_reset_link_is_a_friendly_error():
+    backend, _ = make_backend()
+    with pytest.raises(AuthError, match="expired or was already used"):
+        backend.finish_password_reset("old-hash")
+
+
+def test_change_password_checks_length_and_passes_on_supabase_errors():
+    backend, _ = make_backend()
+    backend.finish_password_reset("good-hash")
+    with pytest.raises(AuthError, match="at least 8"):
+        backend.change_password("short")
+    with pytest.raises(AuthError, match="different from the old"):
+        backend.change_password("same-as-before")

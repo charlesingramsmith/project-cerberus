@@ -6,6 +6,10 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.11.0 - 2026-11-26 - Forgot your password?
+- Tap **Forgot your password?** on the sign-in screen and we'll email you a link to choose a new one.
+- The link works once. Opening it signs you in and asks for your new password before anything else.
+
 ## 0.10.2 - 2026-11-26 - "Keep me signed in" really keeps you signed in
 - Ticking **Keep me signed in** now keeps you signed in for 30 days. Before, you were often signed out after about an hour away, even with the box ticked.
 - Coming back to a tab you left open on your phone or computer no longer signs you out.
