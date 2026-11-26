@@ -25,7 +25,7 @@ A guided question flow ("help me identify": size, coat, ears) was considered and
 - [x] Manual sighting log and life list for the top 100 breeds
 - [x] Accounts and a hosted database (Supabase, with row-level security)
 - [x] Continue with Google (setup steps in [docs/google-sign-in.md](docs/google-sign-in.md))
-- [x] Bottom tab bar: Post (was Dog ID), Life list, Profile, Social (placeholder), Settings
+- [x] Bottom tab bar: Spotted! (was Dog ID, then Post), Life list, Profile, Social (placeholder), Settings
 - [x] "Keep me signed in" for 30 days (refresh token in browser storage, renewed on each visit)
 - [x] **What's new** in Settings: version number and history from `CHANGELOG.md`, "Coming next" from this file's Now and Next sections, a +1 vote on each upcoming feature, and a box to suggest features.
 - [x] A "new update" dot on the Settings tab, cleared by opening Settings (the version seen is saved to the user's account)
@@ -48,7 +48,7 @@ _Nothing in progress. Pick the next item from below._
 ## Next
 
 - [ ] **Photo ID**: snap or upload a photo of the dog and get the top 3 likely breeds. Tap one to log it, or skip and pick the breed yourself.
-  - Photo is optional: a sighting can always be logged without one, and the breed picker stays on the Post tab.
+  - Photo is optional: a sighting can always be logged without one, and the breed picker stays on the Spotted! tab.
   - Photo capture and storage are done (see **Photos on sightings** above). Next is the model; it can run on the photo before the sighting is logged, then the same photo is saved with it.
   - Model options to compare: a hosted image-classification API vs. a small pretrained model fine-tuned on dog breeds (e.g. the Stanford Dogs dataset). Watch Streamlit Cloud's memory limits if running a model in-app.
   - Always let the user confirm: the model suggests, the human decides what goes on the life list.

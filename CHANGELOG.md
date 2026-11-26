@@ -6,6 +6,10 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.17.0 - 2026-11-26 - Say hello to Spotted!
+- The **Post** tab is now **Spotted!** (👀), the place to log every dog you see.
+- The button to log a dog now says **Spotted!**, and the life list counts your **Spotted** dogs.
+
 ## 0.15.1 - 2026-11-26 - Tagged dogs fill in their name
 - When you tag a dog in a post and leave **Dog's name** empty, the tagged dog's name is filled in for you, just like its breed. Tag several dogs and you get "Rex and Bella".
 - You can tag as many dogs as you like in one post.
