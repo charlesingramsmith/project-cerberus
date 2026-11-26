@@ -404,3 +404,52 @@ def test_files_that_are_not_photos_are_refused():
 
 def test_photo_paths_start_with_the_owners_folder():
     assert logic.photo_path("uuid-1", "abc") == "uuid-1/abc.jpg"
+
+
+# --- Dog profiles ---------------------------------------------------------------------------
+
+BREEDS = {"Beagle", "Pug"}
+
+
+def test_clean_dog_tidies_input():
+    assert logic.clean_dog({"username": " @rex_the.lab ", "name": " Rex ", "breed": "Beagle",
+                            "bio": "  "}, BREEDS) == {
+        "username": "rex_the.lab", "name": "Rex", "breed": "Beagle", "bio": None,
+        "photo_path": None}
+    assert logic.clean_dog({"username": "mutt", "name": "M", "breed": logic.MIXED_BREED},
+                           BREEDS)["breed"] == logic.MIXED_BREED
+
+
+@pytest.mark.parametrize("dog, message", [
+    ({"username": "re", "name": "Rex"}, "3 to 30"),
+    ({"username": "rex the lab", "name": "Rex"}, "no spaces"),
+    ({"username": "rex", "name": " "}, "name"),
+    ({"username": "rex", "name": "x" * 41}, "40"),
+    ({"username": "rex", "name": "Rex", "breed": "Unicorn"}, "breed"),
+    ({"username": "rex", "name": "Rex", "bio": "x" * 301}, "300"),
+])
+def test_clean_dog_rejects_bad_input(dog, message):
+    with pytest.raises(ValueError, match=message):
+        logic.clean_dog(dog, BREEDS)
+
+
+def test_dog_username_candidates_are_made_from_the_name():
+    names = logic.dog_username_candidates("Mr Biscuit!")
+    assert [next(names), next(names)] == ["mr_biscuit", "mr_biscuit2"]
+    assert next(logic.dog_username_candidates("Bo")) == "bo_"
+    assert next(logic.dog_username_candidates("🐶")) == "dog"
+    assert all(logic.DOG_USERNAME_RE.match(n) for n in logic.dog_username_candidates("x" * 60))
+
+
+def test_tagged_breed_is_used_only_when_the_dogs_agree():
+    assert logic.tagged_breed([{"breed": "Pug"}, {"breed": "Pug"}]) == "Pug"
+    assert logic.tagged_breed([{"breed": "Pug"}, {"breed": "Beagle"}]) is None
+    assert logic.tagged_breed([{"breed": logic.MIXED_BREED}]) is None
+    assert logic.tagged_breed([{"breed": None}]) is None
+    assert logic.tagged_breed([]) is None
+
+
+def test_dog_label_and_photo_path():
+    assert logic.dog_label({"username": "rex", "name": "Rex", "breed": "Pug"}) == "@rex · Rex (Pug)"
+    assert logic.dog_label({"username": "rex", "name": "Rex"}) == "@rex · Rex"
+    assert logic.dog_photo_path("u1", "abc") == "u1/dogs/abc.jpg"
