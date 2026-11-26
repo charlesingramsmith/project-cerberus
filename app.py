@@ -628,7 +628,7 @@ if photo_problem:
 
 # The five main tabs. The "main_nav" key lets MOBILE_CSS pin them to the bottom of the
 # screen as a tab bar; the "\n" puts each icon above its label.
-NAV_TABS = ["➕\nPost", "📋\nLife list", "👤\nProfile", "👥\nSocial", "⚙️\nSettings"]
+NAV_TABS = ["👀\nSpotted!", "📋\nLife list", "👤\nProfile", "👥\nSocial", "⚙️\nSettings"]
 SETTINGS_TAB = NAV_TABS[-1]
 
 
@@ -672,12 +672,12 @@ if unseen:
     st.html(NEW_UPDATE_DOT_CSS)
 
 with st.container(key="main_nav"):
-    tab_post, tab_life, tab_profile, tab_social, tab_settings = st.tabs(
+    tab_spotted, tab_life, tab_profile, tab_social, tab_settings = st.tabs(
         NAV_TABS, key="main_tab", on_change="rerun")
 
-# --- Post: log a sighting (later, also identify the dog) --------------------------------------
-with tab_post:
-    st.header("Post")
+# --- Spotted!: log a sighting (later, also identify the dog) --------------------------------------
+with tab_spotted:
+    st.header("Spotted a dog?")
     seen_breeds = set(life.loc[seen, "breed"])
 
     def breed_label(name: str) -> str:
@@ -725,7 +725,7 @@ with tab_post:
             help="Shown with your sighting in Social if you share your sightings "
                  "(Settings > Privacy). Photos are saved smaller, without the location "
                  "your phone may have stored in them.")
-        submitted = st.form_submit_button("Log sighting", type="primary", width="stretch")
+        submitted = st.form_submit_button("Spotted!", type="primary", width="stretch")
 
     st.caption("📷 Photo ID (identify a dog from a photo) is on the roadmap. "
                "For now, pick the breed yourself.")
@@ -824,7 +824,7 @@ with tab_life:
     # Three small stat cards side by side, even on a narrow phone (st.columns would stack them).
     with st.container(horizontal=True, wrap=False, gap="small"):
         st.metric("Lifers", f"{collected}/{total}", border=True)
-        st.metric("Sightings", len(sightings), border=True)
+        st.metric("Spotted", len(sightings), border=True)
         st.metric("To find", total - collected, border=True)
     st.progress(collected / total if total else 0.0)
     coming = logic.next_badge(badges)
