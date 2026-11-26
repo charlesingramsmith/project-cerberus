@@ -7,10 +7,16 @@ for a fresh sign-in) in the browser's local storage, along with an expiry date.
 The server can't look in the browser's storage, so SAVED_SIGN_IN_JS runs in the page
 as a tiny invisible component (`st.components.v2`). It does two jobs:
 
-1. Once per page load it reports what's saved to Python (an empty string if nothing
-   is, or the saved sign-in has expired), as the component's `saved` state.
-2. Whenever Python passes `data={"save": token}`, it saves that token with a fresh
-   30-day expiry, or deletes the saved sign-in if the token is None.
+1. Once per Streamlit session it reports what's saved to Python, as the component's
+   `saved` state: `{"session": <id>, "token": <token>}`, with an empty token if
+   nothing is saved or the saved sign-in has expired. Python passes its own session id
+   in `data["session"]` and ignores a report for another session. A page that stays
+   open can outlive its Streamlit session (a phone waking up, a long idle tab): the
+   browser then reconnects to a brand-new session and sends it the old report, whose
+   token was spent long ago. Tagging each report with its session means the new
+   session gets a fresh one instead.
+2. Whenever Python passes `data["save"]`, it saves that token with a fresh 30-day
+   expiry, or deletes the saved sign-in if the token is None.
 
 (The first version used a cookie, but on Streamlit Community Cloud the cookie never
 reaches the app, so `st.context.cookies` came back empty.)
@@ -50,11 +56,15 @@ export default function ({{ data, setStateValue }}) {{
       }}
     }} catch (err) {{}}  // storage blocked (e.g. some private modes): just don't remember
   }}
-  // Report what's saved once per page load; reporting reruns the app.
-  if (!window.cerberusSavedSignInReported) {{
-    window.cerberusSavedSignInReported = true;
+  if (!window.cerberusOldCookieCleared) {{
+    window.cerberusOldCookieCleared = true;
     document.cookie = "{OLD_COOKIE_NAME}=; Max-Age=0; Path=/; SameSite=Lax; Secure";
-    setStateValue("saved", readSaved());
+  }}
+  // Report what's saved once per Streamlit session; reporting reruns the app.
+  const session = data && data.session;
+  if (session && window.cerberusSavedSignInReportedTo !== session) {{
+    window.cerberusSavedSignInReportedTo = session;
+    setStateValue("saved", {{ session, token: readSaved() }});
   }}
 }}
 """
