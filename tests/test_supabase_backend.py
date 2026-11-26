@@ -166,6 +166,18 @@ def test_failed_google_exchange_becomes_a_friendly_auth_error():
         backend.finish_google_sign_in("stale-code", "verifier-123")
 
 
+def test_client_does_not_refresh_tokens_in_the_background(monkeypatch):
+    # A background refresh after the visitor leaves would spend the token their browser
+    # saved for "Keep me signed in".
+    import supabase
+
+    made = {}
+    monkeypatch.setattr(supabase, "create_client",
+                        lambda url, key, options: made.setdefault("options", options))
+    SupabaseBackend("https://example.supabase.co", "publishable-key")
+    assert made["options"].auto_refresh_token is False
+
+
 def test_refresh_token_comes_from_the_current_session():
     backend, _ = make_backend()
     assert backend.refresh_token() is None

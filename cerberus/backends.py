@@ -178,9 +178,15 @@ class SupabaseBackend:
     profile_is_new = False  # a class default, so backends from before a deploy have it too
 
     def __init__(self, url: str, key: str):
-        from supabase import create_client  # imported here so tests don't need network
+        from supabase import ClientOptions, create_client  # here so tests don't need network
 
-        self.client = create_client(url, key)
+        # No background refreshing. By default the client swaps its refresh token for a
+        # new one every hour on a timer, and that timer keeps going on the server after
+        # the visitor closes the tab. It spent the token saved in their browser for "Keep
+        # me signed in", so coming back failed. Without it, tokens are only swapped while
+        # someone is using the app (get_session() does it once the hour is up), and the
+        # app saves each new one in the browser straight away.
+        self.client = create_client(url, key, ClientOptions(auto_refresh_token=False))
         self._user: User | None = None
         self._meta: dict = {}  # the signed-in user's Supabase user_metadata
 

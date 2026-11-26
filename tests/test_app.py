@@ -285,13 +285,15 @@ def test_cancelling_a_reset_signs_you_out(at, monkeypatch):
 
 # --- Keep me signed in ----------------------------------------------------------------
 # AppTest can't run the browser-side component (cerberus/remember.py), so FakeBrowser
-# stands in for it: it holds what the browser has saved, reports it once per page load,
-# and saves whatever the app passes in `data["save"]`, just like SAVED_SIGN_IN_JS.
+# stands in for it: it holds what the browser has saved, reports it once per Streamlit
+# session (tagged with that session's id), and saves whatever the app passes in
+# `data["save"]`, just like SAVED_SIGN_IN_JS.
 
 class FakeBrowser:
     def __init__(self):
         self.saved = ""
-        self.reported = None  # what this page load reported; None until it has
+        self.reported = None  # the component's last report; None until it has made one
+        self.last_session = None  # the session id the app passed on its latest run
 
     def component(self, name, js):
         return self.mount
@@ -299,9 +301,16 @@ class FakeBrowser:
     def mount(self, *, key, data, on_saved_change):
         from types import SimpleNamespace
 
+        self.last_session = data["session"]
         if "save" in data:
             self.saved = data["save"] or ""
         return SimpleNamespace(saved=self.reported)
+
+    def report(self, app: AppTest):
+        """The component reports what's saved to the app's current session, which reruns it."""
+        self.reported = {"session": self.last_session, "token": self.saved}
+        app.run()
+        assert not app.exception
 
     def open_app(self, backend=None) -> AppTest:
         """Load the page: the first run, then the rerun from the component's report."""
@@ -310,9 +319,18 @@ class FakeBrowser:
         if backend is not None:  # the same Supabase project, as on the real site
             app.session_state["backend"] = backend
         app.run()
-        self.reported = self.saved
+        self.report(app)
+        return app
+
+    def reconnect(self, backend) -> AppTest:
+        """The page stayed open but its Streamlit session ended (a phone waking up, a
+        long idle tab): the browser reconnects to a fresh session and hands it the
+        report it made to the old one. The component then reports again."""
+        app = AppTest.from_file(APP, default_timeout=10)
+        app.session_state["backend"] = backend
         app.run()
-        assert not app.exception
+        assert not app.header  # the old report isn't used, so nothing stale is tried
+        self.report(app)
         return app
 
 
@@ -341,6 +359,18 @@ def test_coming_back_later_signs_you_straight_in(browser):
     later = browser.open_app(backend)
     assert "charlie's life list" in headers(later)
     assert browser.saved not in ("", saved)  # tokens are single use, so the new one is saved
+
+
+def test_a_page_that_outlives_its_session_still_signs_you_back_in(browser):
+    first_visit = browser.open_app()
+    sign_up(first_visit)
+    backend = first_visit.session_state["backend"]
+    # While the page is open, the hour is up and the token is swapped for a new one;
+    # the app saves it. The component's first report still holds the old, spent token.
+    backend.resume_session(browser.saved)
+    first_visit.run()
+    later = browser.reconnect(backend)
+    assert "charlie's life list" in headers(later)
 
 
 def test_unticking_keep_me_signed_in_saves_nothing(browser):
