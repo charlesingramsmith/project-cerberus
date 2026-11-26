@@ -36,7 +36,7 @@ def headers(at: AppTest) -> list[str]:
 def log_breed(at: AppTest, breed_name: str) -> AppTest:
     breed = next(sb for sb in at.selectbox if sb.label == "Breed")
     breed.set_value(breed_name)
-    return click(at, "Log sighting")
+    return click(at, "Spotted!")
 
 
 def test_signed_out_visitors_see_the_sign_in_screen(at):
@@ -80,8 +80,8 @@ def test_full_journey(at):
 def test_signed_in_app_has_five_main_tabs(at):
     sign_up(at)
     labels = [t.label.split("\n")[-1] for t in at.tabs]  # drop the icon line
-    assert labels == ["Post", "Life list", "Profile", "Social", "Settings"]
-    assert headers(at) == ["Post", "charlie's life list", "Your profile", "Social", "Settings"]
+    assert labels == ["Spotted!", "Life list", "Profile", "Social", "Settings"]
+    assert headers(at) == ["Spotted a dog?", "charlie's life list", "Your profile", "Social", "Settings"]
 
 
 def badge_cards(at: AppTest) -> str:
@@ -405,7 +405,7 @@ def test_settings_dot_shows_until_settings_is_opened(at):
     assert not dot_shown(at)
     assert any(":orange-badge[New]" in m.value for m in at.markdown)  # the update is marked
 
-    open_tab(at, "Post")
+    open_tab(at, "Spotted!")
     assert not dot_shown(at)  # stays gone once seen
     assert at.session_state["backend"].seen_version() == latest_version()
 
@@ -441,7 +441,7 @@ def test_social_shows_everyones_shared_sightings(at):
     breed = next(sb for sb in at.selectbox if sb.label == "Breed")
     breed.set_value("Pug")
     next(t for t in at.text_input if t.label == "Where").input("Hyde <Park>")
-    click(at, "Log sighting")
+    click(at, "Spotted!")
     click(at, "Sign out")
     sign_up(at, username="bobby", email="bobby@example.com")
     log_breed(at, "Beagle")
@@ -540,7 +540,7 @@ def test_sighting_photos_show_on_their_card_in_profile(at):
     from datetime import date
 
     sign_up(at)
-    assert at.get("file_uploader")  # the optional photo on the Post form
+    assert at.get("file_uploader")  # the optional photo on the Spotted! form
     backend = at.session_state["backend"]
     path = backend.add_photo(b"jpeg-bytes")
     backend.add_sighting("Pug", date(2026, 11, 1), photo_path=path)
@@ -581,7 +581,7 @@ def test_tagging_a_dog_fills_in_its_breed_and_shows_in_social(at):
     sign_up(at, username="bobby", email="bobby@example.com")
     rex_id = at.session_state["backend"].list_dogs()[0]["id"]
     at.multiselect(key="sighting_dogs").set_value([rex_id])
-    click(at, "Log sighting")  # no breed picked: Rex's breed is used
+    click(at, "Spotted!")  # no breed picked: Rex's breed is used
     assert "Pug" in at.success[0].value
     assert at.session_state["backend"].list_sightings()[0]["dog_name"] == "Rex"  # filled in too
 
@@ -599,7 +599,7 @@ def test_several_dogs_can_be_tagged_in_one_post(at):
     add_dog(at, "Bella", username="bella", breed="Pug")
     backend = at.session_state["backend"]
     at.multiselect(key="sighting_dogs").set_value([d["id"] for d in backend.list_dogs()])
-    click(at, "Log sighting")
+    click(at, "Spotted!")
     sighting = backend.list_sightings()[0]
     assert len(sighting["dog_ids"]) == 2
     assert sighting["breed"] == "Pug" and sighting["dog_name"] == "Bella and Rex"
