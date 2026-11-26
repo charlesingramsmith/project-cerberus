@@ -471,3 +471,30 @@ def test_social_feed_includes_photos_and_tags():
         "sighting_dogs": [{"sighting_id": 2, "dog_id": 7}]})
     post = backend.social_feed()[0]
     assert post["photo_path"] == "uuid-9/p.jpg" and post["dog_ids"] == [7]
+
+
+def test_adding_a_breed_sends_it_with_user_id_and_ignores_duplicates():
+    backend, log = make_backend()
+    backend.sign_in("charlie@example.com", "correct-horse")
+    backend.add_user_breed("Cavapoo")
+    assert ("insert", ({"name": "Cavapoo", "added_by": "uuid-1"},), {}) in log
+
+    class Taken(FakeQuery):
+        def execute(self):
+            raise DuplicateError("duplicate key value violates unique constraint")
+    backend.client.table = lambda name: Taken(log)
+    backend.add_user_breed("cavapoo")  # someone added it first: no error
+
+
+def test_added_breeds_are_listed_a_to_z_and_missing_table_gives_none():
+    backend, log = make_backend()
+    backend.sign_in("charlie@example.com", "correct-horse")
+    backend.client.table = lambda name: FakeQuery(log, [{"name": "cavapoo"},
+                                                        {"name": "Aussiedoodle"}])
+    assert backend.list_user_breeds() == ["Aussiedoodle", "cavapoo"]
+
+    class Missing(FakeQuery):
+        def execute(self):
+            raise RuntimeError("relation user_breeds does not exist")
+    backend.client.table = lambda name: Missing(log)
+    assert backend.list_user_breeds() == []

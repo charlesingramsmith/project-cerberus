@@ -10,7 +10,7 @@ It's inspired by bird-watching life lists, but for the dogs you pass in the park
 
 - **Mobile first**: designed to be used one-handed on a phone while you're out walking, with a bottom tab bar (Spotted!, Life list, Profile, Social, Settings), big tap targets and phone-sized stat cards. On a desktop it shows the same layout in a centred column. Follows your device's light or dark mode.
 - **Accounts**: one tap with **Continue with Google**, or sign up with email and password. **Keep me signed in** remembers you for 30 days. Your email is never shown to other members.
-- **Spotted!**: log a sighting by picking the breed (searchable, and breeds you haven't collected yet are marked ✨ new), the date, where you saw it, the dog's name and notes, plus an optional photo (take one with your phone's camera or upload one), and tag any dog that has a profile by its @username (the tagged dog's name and breed fill in as soon as you tag it). Photos are saved smaller and without the GPS location phones store in them, and show in Social when you share your sightings.
+- **Spotted!**: log a sighting by picking the breed (searchable, and breeds you haven't collected yet are marked ✨ new), the date, where you saw it, the dog's name and notes, plus an optional photo (take one with your phone's camera or upload one), and tag any dog that has a profile by its @username (the tagged dog's name and breed fill in as soon as you tag it). Can't find the breed? Type it in: it's logged as an **unverified breed** and added to a list of breeds we review for adding to the app (other members can pick it too). Unverified breeds get their own section on the life list and don't count as lifers until they're verified. Photos are saved smaller and without the GPS location phones store in them, and show in Social when you share your sightings.
 - **Lifer celebrations**: a new breed gets balloons 🎉.
 - **Badges**: earn milestone badges for your first lifer and for 10, 25, 50 and all 100 breeds. Your profile shows each one, with the date you earned it or how far there is to go, and the life list tells you how many breeds until the next one.
 - **Life list**: progress towards 100 breeds, the date you first saw each one and how many times, with a small photo of each breed zoomed in on its face (in colour once you've spotted it), filterable by collected or still to find, and searchable. Tap any breed to open its profile: a photo, a short intro, where it's from, its temperament and a fun fact.
@@ -39,7 +39,7 @@ project-cerberus/
 │   ├── oauth.py            # Remembers a Google sign-in while the user is at Google
 │   └── remember.py         # "Keep me signed in" (browser storage)
 ├── .streamlit/config.toml  # Theme (colours, light/dark) and toolbar settings
-├── docs/                   # Setup guides (Google sign-in, Supabase CLI)
+├── docs/                   # Setup guides (Google sign-in, Supabase CLI, reviewing added breeds)
 ├── data/breeds.csv         # Top 100 breeds, AKC 2025 popularity ranking
 ├── data/breed_info.csv     # Each breed's intro, origin, temperament and fun fact
 ├── data/breed_photos.csv   # A credited, free-licensed photo per breed
@@ -52,7 +52,7 @@ project-cerberus/
 ```
 
 **Security notes**
-- The app only ever uses Supabase's *publishable* (anon) key. Postgres row-level security policies in [`supabase/schema.sql`](supabase/schema.sql) enforce that each user can only change their own sightings, profile, votes and suggestions, even if someone calls the API directly. Members can read profiles and the sightings of people who share them (for the Social tab), but never emails or anyone's private sightings. Vote totals come from a database function that returns only counts, never who voted. Photos live in a private Supabase Storage bucket where each member has a folder only they can add to or delete from. Other members can see dog profile photos, and sighting photos only while that sighting is shared; the app shows them through links that expire after an hour. Dog profiles are readable by all members but only their owner can change them; anyone can tag a dog in their own post, and the post's author or the dog's owner can remove a tag.
+- The app only ever uses Supabase's *publishable* (anon) key. Postgres row-level security policies in [`supabase/schema.sql`](supabase/schema.sql) enforce that each user can only change their own sightings, profile, votes and suggestions, even if someone calls the API directly. Members can read profiles and the sightings of people who share them (for the Social tab), but never emails or anyone's private sightings. Vote totals come from a database function that returns only counts, never who voted. Photos live in a private Supabase Storage bucket where each member has a folder only they can add to or delete from. Other members can see dog profile photos, and sighting photos only while that sighting is shared; the app shows them through links that expire after an hour. Breeds members add are readable by all members; only the owner (in the dashboard) can mark one rejected. Dog profiles are readable by all members but only their owner can change them; anyone can tag a dog in their own post, and the post's author or the dog's owner can remove a tag.
 - Each browser session gets its own Supabase client, so one visitor's sign-in is never shared with another's.
 - "Keep me signed in" stores a single-use Supabase refresh token in the browser's local storage for 30 days, via a tiny invisible component. Each visit swaps it for a new one (only while you're using the app, never in the background, so the saved one stays valid), and signing out cancels it. It's never sent with web requests, but scripts on the page can read it, so the box can be unticked on shared computers. (Safari clears script-written storage after 7 days without a visit.)
 - Passwords are handled entirely by Supabase Auth and never stored by the app. Google sign-in uses PKCE, so the one-time code Google returns is useless without a secret that never leaves the server.
@@ -99,6 +99,7 @@ Run the tests with `pytest`.
 - [x] 🏅 Badges for milestones (first lifer, 10/25/50/100 breeds), shown on your profile
 - [x] 📸 Your own photo on a sighting (stored in Supabase Storage, shown in Social when shared): the first step to Photo ID
 - [x] 🐕 Dog profiles: your dogs get their own @username and profile, and can be tagged in posts
+- [x] ➕ Add your own breeds: typed-in breeds are logged as unverified and reviewed for the app
 - [ ] 📷 Photo ID: snap a photo and an ML model suggests the breed (you confirm, or just pick it yourself)
 - [ ] 🧠 Opt-in: share your confirmed photos to help train the model
 - [ ] 🔊 Sound ID: get a hint from a recorded bark (experimental)

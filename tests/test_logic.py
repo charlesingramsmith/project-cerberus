@@ -460,3 +460,40 @@ def test_dog_label_and_photo_path():
     assert logic.dog_label({"username": "rex", "name": "Rex", "breed": "Pug"}) == "@rex · Rex (Pug)"
     assert logic.dog_label({"username": "rex", "name": "Rex"}) == "@rex · Rex"
     assert logic.dog_photo_path("u1", "abc") == "u1/dogs/abc.jpg"
+
+
+# --- Verified and unverified breeds ---------------------------------------------------
+
+def test_clean_breed_uses_the_known_spelling_and_tidies_typed_ones():
+    known = ["Labrador Retriever", "Cavapoo"]
+    assert logic.clean_breed("labrador  retriever ", known) == "Labrador Retriever"
+    assert logic.clean_breed("CAVAPOO", known) == "Cavapoo"
+    assert logic.clean_breed("  Sprocker   Spaniel ", known) == "Sprocker Spaniel"
+    with pytest.raises(ValueError, match="Pick a breed"):
+        logic.clean_breed("   ", known)
+    with pytest.raises(ValueError, match="100 characters"):
+        logic.clean_breed("x" * 101, known)
+
+
+def test_only_verified_breeds_are_lifers_or_count_for_badges():
+    listed = {"Pug", "Beagle"}
+    sightings = sightings_of(("Cavapoo", "2026-01-01"), ("Pug", "2026-02-01"))
+    assert not logic.is_lifer(sightings, "Sprocker", listed)
+    assert logic.is_lifer(sightings, "Beagle", listed)
+    first = logic.badge_progress(sightings, listed=listed)[0]
+    assert first.earned_on == "2026-02-01"  # the Pug, not the earlier Cavapoo
+
+
+def test_unverified_breeds_lists_your_sightings_of_unlisted_breeds():
+    sightings = sightings_of(("Cavapoo", "2026-03-01"), ("Pug", "2026-01-01"),
+                             ("Cavapoo", "2026-01-05"), ("Sprocker", "2026-02-01"))
+    out = logic.unverified_breeds(sightings, {"Pug"})
+    assert out.to_dict("records") == [
+        {"breed": "Cavapoo", "first_seen": "2026-01-05", "times_seen": 2},
+        {"breed": "Sprocker", "first_seen": "2026-02-01", "times_seen": 1}]
+
+
+def test_escape_markdown_neutralises_formatting():
+    assert logic.escape_markdown("**Rex** [x](y) :red[z]") == (
+        r"\*\*Rex\*\* \[x\]\(y\) \:red\[z\]")
+    assert logic.escape_markdown("Hyde Park") == "Hyde Park"

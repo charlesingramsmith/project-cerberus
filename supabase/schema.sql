@@ -311,3 +311,35 @@ create policy "Members can see dog and shared sighting photos"
            and (exists (select 1 from public.dogs d where d.photo_path = objects.name)
                 or exists (select 1 from public.sightings s
                            where s.photo_path = objects.name)));
+
+
+-- Breeds members have added. Every breed in data/breeds.csv is verified; a member can
+-- also type in a breed that isn't listed when they log a sighting. It's logged as an
+-- "Unverified breed", and its name lands here so other members can pick it too and the
+-- owner can review the list (Table Editor > user_breeds, or the query in
+-- docs/reviewing-breeds.md). To verify one, add it to data/breeds.csv (and the other
+-- breed files). To hide one from everyone's breed picker, tick "rejected".
+create table if not exists public.user_breeds (
+    id          bigint generated always as identity primary key,
+    name        text not null check (char_length(name) between 1 and 100),
+    added_by    uuid default auth.uid() references auth.users (id) on delete set null,
+    rejected    boolean not null default false,
+    created_at  timestamptz not null default now()
+);
+
+-- One row per breed, ignoring capitals ("Cavapoo" and "cavapoo" are the same breed).
+create unique index if not exists user_breeds_name_unique on public.user_breeds (lower(name));
+
+alter table public.user_breeds enable row level security;
+
+drop policy if exists "Members can read added breeds" on public.user_breeds;
+create policy "Members can read added breeds"
+    on public.user_breeds for select
+    to authenticated
+    using (not rejected);
+
+drop policy if exists "Members can add breeds" on public.user_breeds;
+create policy "Members can add breeds"
+    on public.user_breeds for insert
+    to authenticated
+    with check ((select auth.uid()) = added_by and not rejected);

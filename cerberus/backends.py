@@ -87,6 +87,14 @@ class Backend(Protocol):
     def delete_sighting(self, sighting_id: int) -> None:
         """Delete one of your sightings, and its photo if it has one."""
 
+    def list_user_breeds(self) -> list[str]:
+        """Breeds members have added that aren't verified yet (any member's), A to Z.
+        Empty if they can't be read (say the table isn't set up yet)."""
+
+    def add_user_breed(self, name: str) -> None:
+        """Add a breed that isn't verified to the shared list for the owner to review.
+        One that's already there (in any capitals) is left as it is."""
+
     def add_photo(self, photo: bytes) -> str:
         """Store a sighting photo (a JPEG from logic.prepare_photo) in the signed-in
         user's own folder. Returns its path, to pass to add_sighting()."""
@@ -174,7 +182,7 @@ def _clean(value: str | None) -> str | None:
 def _sighting_row(breed: str, seen_on: date, location, dog_name, notes,
                   photo_path=None) -> dict:
     row = {
-        "breed": breed,
+        "breed": _checked_breed(breed),
         "seen_on": seen_on.isoformat(),
         "location": _clean(location),
         "dog_name": _clean(dog_name),
@@ -183,6 +191,18 @@ def _sighting_row(breed: str, seen_on: date, location, dog_name, notes,
     if photo_path:  # only sent when there is one, so photo-less logging never needs the column
         row["photo_path"] = photo_path
     return row
+
+
+def _checked_breed(breed: str) -> str:
+    """Breeds are 1 to 100 characters (the app tidies them first with logic.clean_breed)."""
+    breed = (breed or "").strip()
+    if not 1 <= len(breed) <= logic.MAX_BREED_LENGTH:
+        raise ValueError(f"A breed must be 1 to {logic.MAX_BREED_LENGTH} characters.")
+    return breed
+
+
+def _sorted_breeds(names) -> list[str]:
+    return sorted(names, key=str.lower)
 
 
 def _with_tags(rows: list[dict], tags: dict[int, list[int]]) -> list[dict]:
@@ -353,6 +373,23 @@ class SupabaseBackend:
         rows = (self.client.table("sightings").delete()
                 .eq("id", sighting_id).eq("user_id", user.id).execute().data)
         self._remove_photos([r["photo_path"] for r in rows or [] if r.get("photo_path")])
+
+    def list_user_breeds(self):
+        self._require_user()
+        try:
+            rows = self.client.table("user_breeds").select("name").execute().data
+        except Exception:  # not set up yet: typed-in breeds still get logged
+            return []
+        return _sorted_breeds(r["name"] for r in rows)
+
+    def add_user_breed(self, name):
+        user = self._require_user()
+        try:
+            self.client.table("user_breeds").insert(
+                {"name": _checked_breed(name), "added_by": user.id}).execute()
+        except Exception as err:
+            if not _is_duplicate(err):  # someone added it first: that's fine
+                raise
 
     def add_photo(self, photo):
         user = self._require_user()
@@ -650,6 +687,20 @@ class MemoryBackend:
         for s in mine:
             self._photos().pop(s["photo_path"], None)
             self.__dict__["tags"] = {t for t in self._tags() if t[0] != s["id"]}
+
+    def _user_breeds(self) -> dict[str, dict]:
+        """lower-case name -> {name, added_by}, like the user_breeds table (whose unique
+        index ignores case). Made on first use, for backends from before a deploy."""
+        return self.__dict__.setdefault("user_breeds", {})
+
+    def list_user_breeds(self):
+        self._require_user()
+        return _sorted_breeds(b["name"] for b in self._user_breeds().values())
+
+    def add_user_breed(self, name):
+        user = self._require_user()
+        name = _checked_breed(name)
+        self._user_breeds().setdefault(name.lower(), {"name": name, "added_by": user.id})
 
     def _photos(self) -> dict[str, bytes]:
         """path -> JPEG, like the storage bucket. Made on first use, so a backend copied
