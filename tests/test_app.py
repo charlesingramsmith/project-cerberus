@@ -622,10 +622,13 @@ def test_tagging_a_dog_fills_in_its_breed_and_shows_in_social(at):
     click(at, "Sign out")
     sign_up(at, username="bobby", email="bobby@example.com")
     rex_id = at.session_state["backend"].list_dogs()[0]["id"]
-    at.multiselect(key="sighting_dogs").set_value([rex_id])
+    at.multiselect(key="sighting_dogs").set_value([rex_id]).run()
+    assert at.text_input(key="sighting_dog_name").value == "Rex"  # filled in straight away
+    assert at.selectbox(key="sighting_breed").value == "Pug"
     click(at, "Spotted!")  # no breed picked: Rex's breed is used
     assert "Pug" in at.success[0].value
     assert at.session_state["backend"].list_sightings()[0]["dog_name"] == "Rex"  # filled in too
+    assert at.multiselect(key="sighting_dogs").value == []  # ready for the next dog
 
     open_tab(at, "Social")
     assert '<span class="dog-tag" title="Rex">@rex</span>' in feed_html(at)
