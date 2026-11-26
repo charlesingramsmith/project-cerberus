@@ -286,17 +286,27 @@ def test_a_sighting_can_have_a_photo(backend):
     assert links[path].startswith("data:image/jpeg;base64,")
 
 
-def test_photos_are_private_to_their_owner(backend):
+def test_photos_show_to_others_only_while_their_owner_shares(backend):
     backend.sign_up("a@example.com", "longenough", "alice")
+    backend.my_profile()
     path = backend.add_photo(b"jpeg-bytes")
     backend.add_sighting("Pug", date(2026, 11, 1), photo_path=path)
+    secret = backend.add_photo(b"not-on-any-sighting")
     backend.sign_out()
 
     backend.sign_up("b@example.com", "longenough", "bob")
-    assert backend.photo_urls([path]) == {}
+    backend.my_profile()
+    assert [p["photo_path"] for p in backend.social_feed()] == [path]
+    assert list(backend.photo_urls([path, secret])) == [path]  # a loose file stays private
     with pytest.raises(ValueError):  # can't attach someone else's photo to your sighting
         backend.add_sighting("Pug", date(2026, 11, 1), photo_path=path)
-    assert all("photo_path" not in post for post in backend.social_feed())
+
+    backend.sign_out()
+    backend.sign_in("a@example.com", "longenough")
+    backend.save_profile({**backend.my_profile(), "share_sightings": False})
+    backend.sign_out()
+    backend.sign_in("b@example.com", "longenough")
+    assert backend.photo_urls([path]) == {}
 
 
 def test_deleting_a_sighting_deletes_its_photo(backend):
@@ -312,3 +322,89 @@ def test_photos_need_a_sign_in(backend):
         backend.add_photo(b"jpeg-bytes")
     with pytest.raises(AuthError):
         backend.photo_urls(["user-1/a.jpg"])
+
+
+# --- Dog profiles and tags ----------------------------------------------------------------
+
+def add_member(backend, name):
+    backend.sign_up(f"{name}@example.com", "longenough", name)
+    backend.my_profile()
+
+
+def test_dogs_have_unique_usernames_ignoring_capitals(backend):
+    add_member(backend, "alice")
+    rex = backend.add_dog({"username": "@Rex", "name": " Rex ", "breed": "Beagle"})
+    assert rex["username"] == "Rex" and rex["name"] == "Rex" and rex["owner_id"] == "user-1"
+    backend.sign_out()
+    add_member(backend, "bobby")
+    with pytest.raises(ValueError, match="taken"):
+        backend.add_dog({"username": "rex", "name": "Another Rex"})
+    dogs = backend.list_dogs()
+    assert [(d["username"], d["owner"]) for d in dogs] == [("Rex", "alice")]
+
+
+def test_only_the_owner_can_change_or_delete_a_dog(backend):
+    add_member(backend, "alice")
+    rex = backend.add_dog({"username": "rex", "name": "Rex"})
+    backend.sign_out()
+    add_member(backend, "bobby")
+    with pytest.raises(ValueError, match="isn't yours"):
+        backend.update_dog(rex["id"], {"username": "rex", "name": "Stolen"})
+    backend.delete_dog(rex["id"])  # quietly does nothing, like a database delete
+    assert [d["name"] for d in backend.list_dogs()] == ["Rex"]
+
+    backend.sign_out()
+    backend.sign_in("alice@example.com", "longenough")
+    backend.update_dog(rex["id"], {"username": "rexy", "name": "Rex", "bio": "Good boy"})
+    assert backend.list_dogs()[0]["username"] == "rexy"
+    assert backend.list_dogs()[0]["bio"] == "Good boy"
+
+
+def test_anyone_can_tag_any_dog_and_everyone_who_sees_the_post_sees_the_tag(backend):
+    add_member(backend, "alice")
+    rex = backend.add_dog({"username": "rex", "name": "Rex"})
+    backend.sign_out()
+    add_member(backend, "bobby")
+    backend.add_sighting("Beagle", date(2026, 11, 1), dog_ids=[rex["id"]])
+    backend.add_sighting("Pug", date(2026, 11, 2))
+    assert [s["dog_ids"] for s in backend.list_sightings()] == [[], [rex["id"]]]
+    backend.sign_out()
+    backend.sign_in("alice@example.com", "longenough")
+    assert [p["dog_ids"] for p in backend.social_feed()] == [[], [rex["id"]]]
+    with pytest.raises(ValueError):
+        backend.add_sighting("Pug", date(2026, 11, 2), dog_ids=[999])
+
+
+def test_deleting_a_dog_removes_its_photo_and_tags(backend):
+    add_member(backend, "alice")
+    photo = backend.add_dog_photo(b"jpeg")
+    assert photo.startswith("user-1/dogs/")
+    rex = backend.add_dog({"username": "rex", "name": "Rex", "photo_path": photo})
+    backend.add_sighting("Beagle", date(2026, 11, 1), dog_ids=[rex["id"]])
+    backend.delete_dog(rex["id"])
+    assert backend.list_dogs() == []
+    assert backend.list_sightings()[0]["dog_ids"] == []
+    assert backend.photo_urls([photo]) == {}
+
+
+def test_dog_photos_are_seen_by_every_member_and_replaced_photos_are_deleted(backend):
+    add_member(backend, "alice")
+    old = backend.add_dog_photo(b"old")
+    rex = backend.add_dog({"username": "rex", "name": "Rex", "photo_path": old})
+    backend.sign_out()
+    add_member(backend, "bobby")
+    assert list(backend.photo_urls([old])) == [old]
+    with pytest.raises(ValueError):  # your dog can't use someone else's photo
+        backend.add_dog({"username": "bob_dog", "name": "B", "photo_path": old})
+    backend.sign_out()
+    backend.sign_in("alice@example.com", "longenough")
+    new = backend.add_dog_photo(b"new")
+    backend.update_dog(rex["id"], {"username": "rex", "name": "Rex", "photo_path": new})
+    assert list(backend.photo_urls([old, new])) == [new]
+
+
+def test_dogs_need_a_sign_in(backend):
+    for call in (backend.list_dogs, lambda: backend.add_dog_photo(b"x"),
+                 lambda: backend.add_dog({"username": "rex", "name": "Rex"})):
+        with pytest.raises(AuthError):
+            call()

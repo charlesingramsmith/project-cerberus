@@ -34,6 +34,11 @@ A guided question flow ("help me identify": size, coat, ears) was considered and
 - [x] **Breed photos as pictures**: small breed photos on every life-list row (greyed out until spotted), and any breed's photo as your profile picture (shown on your profile and in Social). Each picture is zoomed in on the dog's face, framed by hand with `scripts/face_cropper.py` (saved in `data/breed_faces.csv`; `logic.face_photo` picks a sharp enough copy).
 - [x] **Photos on sightings**: an optional photo (phone camera or upload) on each sighting, shown on its card in Profile. `logic.prepare_photo` shrinks it to a 1600px JPEG, turns it the right way up and drops its metadata (GPS); it goes to the private `sighting-photos` Storage bucket at `<user id>/<photo id>.jpg`, with RLS so only the owner can add, read or delete it, and `sightings.photo_path` points at it. Shown via signed links (1 hour).
 - [x] **Social feed**: the latest 50 sightings from everyone who shares, with their name and picture. Sharing is on by default (a popup says so on a member's first visit), with an off switch in Settings > Privacy; the "where" field is shown as typed (the log form says so).
+- [x] **Dog profiles**: give your dogs a profile (a unique @username, name, breed, bio and photo) and tag any dog in a sighting. Tags and sighting photos show in Social; "Find a dog" shows a dog's profile and its latest posts.
+  - `dogs` table (owner-only changes, all members read) and `sighting_dogs` tags (you tag in your own sightings; the poster or the dog's owner can remove a tag) in `supabase/schema.sql`. Dog photos go in the owner's folder of the `sighting-photos` bucket at `<user id>/dogs/<id>.jpg`; one Storage policy lets members see dog photos and photos on sightings they can see.
+  - The older `profiles.dogs` list (names only) is moved into dog profiles automatically on the member's next visit (`move_listed_dogs_to_profiles` in `app.py`); the column stays for now.
+  - Tagging a dog with a known breed and leaving Breed empty logs that breed (`logic.tagged_breed`), a first step towards posting as a way to identify dogs.
+  - Still to do: removing a tag of your dog from someone else's post (the database allows it, there's no button yet), a dog's page reachable by tapping its tag, and a feed of more than the latest 50 posts for a dog.
 - [x] **Badges**: milestone badges for your first lifer and 10/25/50/100 breeds, shown on your profile (earned date, or how many to go), a "next badge" hint on the life list, and a message when you earn one. Pure functions in `cerberus/logic.py` (`BADGES`, `badge_progress`), worked out from sightings each run, so no table. Show them to others once member profiles are viewable (More social).
 
 ## Now
@@ -69,8 +74,6 @@ _Nothing in progress. Pick the next item from below._
 - [ ] **More social**: follow friends, compare life lists, leaderboards, "new lifer" highlights and photos in the feed, and tapping a name to see that member's profile.
   - Builds on `profiles` and the "Members can read shared sightings" RLS policy. A follows table lets the feed show everyone or only people you follow.
   - Later: likes/comments, and reporting or hiding posts.
-- [ ] **Dog profiles**: give your own dogs a profile of their own (photo, breed, bio) and tag them in posts, so others can follow a dog's sightings.
-  - Builds on More social. Today a member's dogs live in `profiles.dogs` (JSON); dog profiles need their own `dogs` table (owner, name, breed, photo) with RLS, plus a link from sightings to tagged dogs. Only the owner can edit a dog's profile.
 - [ ] **Launch a real app**: Cerberus on your phone's home screen, and later in the app stores.
   - First step: an installable "Add to Home Screen" web app. Needs hosting where we control the web app manifest and icons, so it means moving off Streamlit Community Cloud.
   - Then: a store app (iOS and Android). Options to compare: wrapping the web app (e.g. Capacitor) vs. rebuilding the UI natively; Supabase and the RLS rules can stay as they are.

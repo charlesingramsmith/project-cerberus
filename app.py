@@ -157,9 +157,15 @@ button { min-height: 2.75rem; }
 .cerb-post .breed { font-weight: 600; }
 .cerb-post .sub { font-size: .85rem; opacity: .75; }
 
-/* A sighting's own photo, on its card in Profile > Your sightings */
+/* A sighting's own photo, on its card in Profile and on shared posts in Social */
 .sighting-photo {
     display: block; width: 100%; max-height: 20rem; object-fit: cover; border-radius: .5rem;
+}
+.cerb-post .sighting-photo { margin-top: .4rem; }
+/* Tagged dogs on a post: @username chips */
+.dog-tag {
+    display: inline-block; padding: 0 .45rem; margin: .15rem .25rem 0 0; border-radius: 1rem;
+    background: rgba(232, 131, 58, .15); font-size: .85rem;
 }
 
 /* Bottom tab bar: the main tabs, pinned to the bottom of the screen like a phone
@@ -510,6 +516,49 @@ except Exception:
 user = dataclasses.replace(user, username=profile["username"])  # the name others see
 
 
+def load_dogs() -> list[dict] | None:
+    """Every member's dog profiles, or None if dog profiles aren't set up yet (then the
+    app carries on without them: no tagging, and the older "my dogs" list in Profile)."""
+    if not profiles_ready:
+        return None
+    try:
+        return backend.list_dogs()
+    except AuthError as err:
+        end_session(str(err))
+    except Exception:
+        return None
+
+
+def move_listed_dogs_to_profiles() -> bool:
+    """Members listed their dogs (name and breed) on their profile before dogs had
+    profiles of their own. Give each of those a dog profile, with a username made from
+    its name, then empty the old list. Returns True if anything moved."""
+    if all_dogs is None or not profile["dogs"]:
+        return False
+    try:
+        for listed in profile["dogs"]:
+            for username in logic.dog_username_candidates(listed["name"]):
+                try:
+                    backend.add_dog({**listed, "username": username})
+                    break
+                except ValueError as err:
+                    if str(err) != logic.DOG_USERNAME_TAKEN:
+                        raise
+        backend.save_profile({**profile, "dogs": []})
+    except AuthError as err:
+        end_session(str(err))
+    except Exception:  # try again next visit; nothing is lost while the old list remains
+        return False
+    return True
+
+
+all_dogs = load_dogs()
+if move_listed_dogs_to_profiles():
+    profile, all_dogs = backend.my_profile(), load_dogs()
+dogs_by_id = {d["id"]: d for d in all_dogs or []}
+my_dogs = [d for d in all_dogs or [] if d["owner_id"] == user.id]
+
+
 def close_sharing_notice():
     st.session_state.pop("sharing_notice", None)
 
@@ -634,6 +683,14 @@ with tab_post:
             placeholder="Start typing a breed…",
         )
         seen_on = st.date_input("Date seen", value=dt.date.today(), max_value=dt.date.today())
+        tagged = []
+        if all_dogs:  # dogs with a profile (anyone's) can be tagged by their @username
+            tagged = st.multiselect(
+                "Tag dogs", list(dogs_by_id), key="sighting_dogs",
+                format_func=lambda dog_id: logic.dog_label(dogs_by_id[dog_id]),
+                placeholder="Type a dog's @username",
+                help="Tag dogs that have a profile, like your own. If you tag a dog and "
+                     "leave Breed empty, its breed is used.")
         dog_name = st.text_input("Dog's name (if you found out)")
         location = st.text_input(
             "Where", placeholder="e.g. Hyde Park",
@@ -644,16 +701,20 @@ with tab_post:
         photo = st.file_uploader(
             "Photo (optional)", type=logic.PHOTO_TYPES, key="sighting_photo",
             max_upload_size=logic.MAX_PHOTO_UPLOAD_MB,
-            help="Only you can see your photos. They're saved smaller, without the "
-                 "location your phone may have stored in them.")
+            help="Shown with your sighting in Social if you share your sightings "
+                 "(Settings > Privacy). Photos are saved smaller, without the location "
+                 "your phone may have stored in them.")
         submitted = st.form_submit_button("Log sighting", type="primary", width="stretch")
 
     st.caption("📷 Photo ID (identify a dog from a photo) is on the roadmap. "
                "For now, pick the breed yourself.")
 
     if submitted:
+        tagged_dogs = [dogs_by_id[d] for d in tagged if d in dogs_by_id]
+        breed = breed or logic.tagged_breed(tagged_dogs)
         if breed is None:
-            st.warning("Pick a breed first.")
+            st.warning("Pick a breed first." if not tagged_dogs else
+                       "Pick a breed first (the dogs you tagged don't have one breed listed).")
         else:
             lifer = logic.is_lifer(sightings, breed)
             photo_path = None
@@ -668,7 +729,8 @@ with tab_post:
                     st.session_state.photo_problem = ("Your photo couldn't be saved, so the "
                                                       "sighting was logged without it.")
             try:
-                backend.add_sighting(breed, seen_on, location, dog_name, notes, photo_path)
+                backend.add_sighting(breed, seen_on, location, dog_name, notes, photo_path,
+                                     [d["id"] for d in tagged_dogs])
             except AuthError as err:
                 end_session(str(err))
             st.session_state.flash = ("lifer" if lifer else "repeat", breed)
@@ -781,8 +843,11 @@ def profile_editor():
         "Favourite breed", breed_names, key="profile_favourite", placeholder="Pick a breed",
         index=breed_names.index(profile["favourite_breed"])
         if profile["favourite_breed"] in breed_names else None)
-    dogs = []
-    if st.toggle("I have a dog", value=bool(profile["dogs"]), key="profile_has_dogs"):
+    dogs = profile["dogs"]
+    # Before dog profiles are set up, dogs are a simple list on your profile.
+    if all_dogs is None and st.toggle("I have a dog", value=bool(profile["dogs"]),
+                                      key="profile_has_dogs"):
+        dogs = []
         count = st.number_input("How many dogs?", min_value=1, max_value=logic.MAX_DOGS,
                                 value=max(1, len(profile["dogs"])), key="profile_dog_count")
         own_breeds = breed_names + [logic.MIXED_BREED]
@@ -811,22 +876,105 @@ def profile_editor():
             st.rerun()
 
 
-def sighting_photo_links() -> dict[str, str]:
-    """Links to show your sighting photos. Storage links expire after an hour, so they're
-    kept in this browser session for 50 minutes rather than fetched again every rerun."""
+def photo_links(paths) -> dict[str, str]:
+    """Links to show photos (sightings and dogs). Storage links expire after an hour, so
+    they're kept in this browser session for 50 minutes rather than fetched every rerun."""
     links = st.session_state.setdefault("photo_links", {})  # path -> (link, fetched at)
     now = time.time()
-    wanted = [p for p in sightings["photo_path"].dropna().unique()
+    wanted = [p for p in dict.fromkeys(p for p in paths if isinstance(p, str))
               if p not in links or now - links[p][1] > 50 * 60]
     if wanted:
         try:
             fresh = backend.photo_urls(list(wanted))
         except AuthError as err:
             end_session(str(err))
-        except Exception:  # photos are extras: never let them break the Profile tab
+        except Exception:  # photos are extras: never let them break a tab
             fresh = {}
         links.update({p: (link, now) for p, link in fresh.items()})
     return {p: link for p, (link, _) in links.items()}
+
+
+def dog_pic_html(dog: dict, links: dict[str, str], css: str = "me-avatar") -> str:
+    """A dog's picture: its own photo, else its breed's photo, else 🐶."""
+    if dog.get("photo_path") in links:
+        return (f'<span class="{css} pic"><img src="{html.escape(links[dog["photo_path"]])}" '
+                f'alt="{html.escape(dog["name"])}"></span>')
+    return avatar_html(dog["breed"] if dog.get("breed") in breed_profiles else "🐶", css)
+
+
+def dog_tags_html(dog_ids) -> str:
+    """The dogs tagged in a sighting, as @username chips."""
+    dogs = [dogs_by_id[d] for d in dog_ids or [] if d in dogs_by_id]
+    return "".join(f'<span class="dog-tag" title="{html.escape(d["name"])}">'
+                   f'@{html.escape(d["username"])}</span>' for d in dogs)
+
+
+def dog_card(dog: dict, links: dict[str, str]):
+    """A dog's profile: picture, @username, name, breed, owner and bio (all escaped)."""
+    with st.container(border=True):
+        with st.container(horizontal=True, vertical_alignment="center", gap="small"):
+            st.markdown(dog_pic_html(dog, links), unsafe_allow_html=True, width="content")
+            breed = f" · {dog['breed']}" if dog.get("breed") else ""
+            with st.container(gap=None):
+                # The username is only letters, numbers, dots and underscores; the name is
+                # typed freely, so it's plain text.
+                st.markdown(f"**@{dog['username']}**")
+                st.text(f"{dog['name']}{breed}")
+        if dog.get("owner") and dog["owner_id"] != user.id:
+            st.caption(f"Owned by {dog['owner']}")
+        if dog.get("bio"):
+            st.text(dog["bio"])  # plain text: members wrote it
+
+
+def dog_form(key: str, dog: dict | None = None):
+    """Add a dog (dog=None) or edit one of yours. Saves on submit."""
+    dog = dog or {}
+    own_breeds = breeds["breed"].tolist() + [logic.MIXED_BREED]
+    with st.form(f"dog_form_{key}", clear_on_submit=not dog, border=False):
+        name = st.text_input("Name", value=dog.get("name", ""), key=f"dog_{key}_name",
+                             max_chars=logic.MAX_DOG_NAME_LENGTH)
+        username = st.text_input(
+            "Username", value=dog.get("username", ""), key=f"dog_{key}_username",
+            max_chars=30, placeholder="e.g. rex_the_lab",
+            help="Others tag your dog in their posts with this. Letters, numbers, dots "
+                 "and underscores. Leave it empty to make one from the name.")
+        breed = st.selectbox("Breed", own_breeds, key=f"dog_{key}_breed",
+                             placeholder="Pick a breed (optional)",
+                             index=own_breeds.index(dog["breed"])
+                             if dog.get("breed") in own_breeds else None)
+        bio = st.text_area("Bio", value=dog.get("bio") or "", key=f"dog_{key}_bio",
+                           max_chars=logic.MAX_DOG_BIO_LENGTH, height=80,
+                           placeholder="Loves tennis balls, scared of cats.")
+        photo = st.file_uploader("Photo (optional)", type=logic.PHOTO_TYPES,
+                                 key=f"dog_{key}_photo", max_upload_size=logic.MAX_PHOTO_UPLOAD_MB,
+                                 help="Other members can see your dog's photo.")
+        saved = st.form_submit_button("Save dog" if dog else "Add dog", type="primary",
+                                      width="stretch")
+    if not saved:
+        return
+    if not username.strip() and name.strip():  # first free name made from the dog's name
+        taken = {d["username"].lower() for d in all_dogs or [] if d.get("id") != dog.get("id")}
+        username = next(u for u in logic.dog_username_candidates(name) if u not in taken)
+    try:
+        photo_path = dog.get("photo_path")
+        if photo is not None:
+            photo_path = backend.add_dog_photo(
+                logic.prepare_photo(photo.getvalue(), logic.DOG_PHOTO_MAX_SIDE))
+        new = {"username": username, "name": name, "breed": breed, "bio": bio,
+               "photo_path": photo_path}
+        if dog:
+            backend.update_dog(dog["id"], new)
+        else:
+            backend.add_dog(new)
+    except ValueError as err:
+        st.error(str(err))
+    except AuthError as err:
+        end_session(str(err))
+    except Exception:
+        st.error("Your dog didn't save. Please try again.")
+    else:
+        st.session_state.dog_saved = f"@{username.strip().lstrip('@')} saved."
+        st.rerun()
 
 
 with tab_profile:
@@ -840,7 +988,10 @@ with tab_profile:
             st.markdown(f"### {user.username}")
         if profile["favourite_breed"]:
             st.markdown(f"❤️ Favourite breed: **{profile['favourite_breed']}**")
-        if profile["dogs"]:
+        if my_dogs:
+            st.markdown(f"🐕 {'My dog' if len(my_dogs) == 1 else 'My dogs'}: "
+                        + ", ".join(f"@{d['username']}" for d in my_dogs))
+        elif profile["dogs"]:
             st.markdown(f"🐕 {'My dog' if len(profile['dogs']) == 1 else 'My dogs'}: "
                         f"{dogs_text(profile['dogs'])}")
         if sightings.empty:
@@ -853,6 +1004,26 @@ with tab_profile:
         with st.expander("✏️ Edit profile"):
             profile_editor()
 
+    if all_dogs is not None:
+        st.subheader("Your dogs")
+        if dog_saved := st.session_state.pop("dog_saved", None):
+            st.success(dog_saved)
+        st.caption("Give your dogs a profile and a username, so you and others can tag "
+                   "them when they're spotted.")
+        mine_links = photo_links(d["photo_path"] for d in my_dogs) if tab_profile.open else {}
+        for dog in my_dogs:
+            dog_card(dog, mine_links)
+            with st.expander(f"✏️ Edit @{dog['username']}"):
+                dog_form(f"edit_{dog['id']}", dog)
+                if st.button("Delete this dog", key=f"delete_dog_{dog['id']}"):
+                    try:
+                        backend.delete_dog(dog["id"])
+                    except AuthError as err:
+                        end_session(str(err))
+                    st.rerun()
+        with st.expander("➕ Add a dog"):
+            dog_form("new")
+
     earned = sum(p.earned for p in badges)
     st.subheader(f"Badges ({earned}/{len(badges)})")
     st.markdown(f'<div class="cerb-badges">{"".join(badge_html(p) for p in badges)}</div>',
@@ -861,7 +1032,7 @@ with tab_profile:
     st.subheader("Your sightings")
     if sightings.empty:
         st.info("No sightings yet. Go find a dog!")
-    photo_links = sighting_photo_links() if tab_profile.open else {}
+    my_photos = photo_links(sightings["photo_path"].dropna()) if tab_profile.open else {}
     for s in logic.recent_first(sightings).itertuples():
         with st.container(border=True):
             with st.container(horizontal=True, vertical_alignment="top",
@@ -876,29 +1047,36 @@ with tab_profile:
                         except AuthError as err:
                             end_session(str(err))
                         st.rerun()
-            if s.photo_path in photo_links:
-                st.markdown(f'<img class="sighting-photo" src="{html.escape(photo_links[s.photo_path])}" '
+            if s.photo_path in my_photos:
+                st.markdown(f'<img class="sighting-photo" src="{html.escape(my_photos[s.photo_path])}" '
                             f'alt="Your photo of a {html.escape(s.breed)}" loading="lazy">',
                             unsafe_allow_html=True)
+            if tags := dog_tags_html(s.dog_ids):
+                st.markdown(tags, unsafe_allow_html=True)
             if s.dog_name:
                 st.caption(f"🐶 {s.dog_name}")
             if s.notes:
                 st.caption(s.notes)
 
 # --- Social: recent sightings from everyone who shares -------------------------------------
-def feed_post(post: dict) -> str:
+def feed_post(post: dict, links: dict[str, str]) -> str:
     """One sighting in the feed as HTML. Everything members typed is escaped."""
     seen_on = dt.date.fromisoformat(str(post["seen_on"]))
     who = f"<b>{html.escape(post['username'])}</b>" + (" (you)" if post["user_id"] == user.id else "")
     details = [f"📍 {html.escape(post['location'])}" if post.get("location") else "",
                f"🐶 {html.escape(post['dog_name'])}" if post.get("dog_name") else ""]
     lines = [" · ".join(d for d in details if d), html.escape(post.get("notes") or "")]
+    photo = (f'<img class="sighting-photo" src="{html.escape(links[post["photo_path"]])}" '
+             f'alt="A {html.escape(post["breed"])}" loading="lazy">'
+             if post.get("photo_path") in links else "")
+    tags = dog_tags_html(post.get("dog_ids"))
     return (
         f'<div class="cerb-post">{avatar_html(post["avatar"], "avatar")}'
         f'<div class="main"><div class="who">{who} · {seen_on.day} {seen_on:%b %Y}</div>'
         f'<div class="breed">{html.escape(post["breed"])}</div>'
+        + (f"<div>{tags}</div>" if tags else "")
         + "".join(f'<div class="sub">{line}</div>' for line in lines if line)
-        + "</div></div>"
+        + photo + "</div></div>"
     )
 
 
@@ -915,10 +1093,23 @@ with tab_social:
             feed = None
         if feed is None:
             st.info("Social isn't available right now. Please try again later.")
-        elif not feed:
-            st.info("No sightings yet. Log a dog and you'll be the first!")
         else:
-            st.markdown("".join(feed_post(p) for p in feed), unsafe_allow_html=True)
+            if all_dogs:  # look up any member's dog, and the latest posts it's tagged in
+                dog_id = st.selectbox("Find a dog", list(dogs_by_id), index=None,
+                                      key="social_dog", placeholder="Find a dog by @username",
+                                      format_func=lambda i: logic.dog_label(dogs_by_id[i]))
+                if dog_id is not None:
+                    dog = dogs_by_id[dog_id]
+                    feed = [p for p in feed if dog_id in (p.get("dog_ids") or [])]
+                    dog_card(dog, photo_links([dog.get("photo_path")]))
+                    st.caption(f"Latest posts tagging @{dog['username']}")
+            links = photo_links(p.get("photo_path") for p in feed)
+            if not feed:
+                st.info("No sightings yet. Log a dog and you'll be the first!"
+                        if st.session_state.get("social_dog") is None else
+                        "No recent posts tag this dog yet.")
+            else:
+                st.markdown("".join(feed_post(p, links) for p in feed), unsafe_allow_html=True)
 
 # --- Settings ------------------------------------------------------------------------------
 def release_card(release: logic.Release, border: bool = True):

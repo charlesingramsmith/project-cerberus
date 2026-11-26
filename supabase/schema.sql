@@ -189,8 +189,8 @@ on conflict (id) do update
         allowed_mime_types = excluded.allowed_mime_types;
 
 -- Storage access rules: each member has a folder named after their user id and can only
--- add, see and delete files in it. Nobody else (not even sharing members) can see them yet;
--- showing photos in Social would need its own policy here.
+-- add, see and delete files in it. Who else can see them is set further down, under dog
+-- profiles ("Members can see dog and shared sighting photos").
 drop policy if exists "Users can add their own sighting photos" on storage.objects;
 create policy "Users can add their own sighting photos"
     on storage.objects for insert
@@ -211,3 +211,103 @@ create policy "Users can delete their own sighting photos"
     to authenticated
     using (bucket_id = 'sighting-photos'
            and (storage.foldername(name))[1] = (select auth.uid())::text);
+
+
+-- Dog profiles: members' own dogs, each with a unique @username so it can be tagged in
+-- posts. Every member can see every dog; only the owner can add, change or delete one.
+-- (profiles.dogs above is the older list of names; the app moves those into here.)
+create table if not exists public.dogs (
+    id          bigint generated always as identity primary key,
+    owner_id    uuid not null default auth.uid() references auth.users (id) on delete cascade,
+    username    text not null check (username ~ '^[A-Za-z0-9_.]{3,30}$'),
+    name        text not null check (char_length(name) between 1 and 40),
+    breed       text check (char_length(breed) <= 100),
+    bio         text check (char_length(bio) <= 300),
+    -- "<owner id>/dogs/<photo id>.jpg" in the sighting-photos bucket, or null.
+    photo_path  text check (char_length(photo_path) <= 200),
+    created_at  timestamptz not null default now()
+);
+
+-- Dog usernames are unique, ignoring capitals.
+create unique index if not exists dogs_username_unique on public.dogs (lower(username));
+create index if not exists dogs_owner_idx on public.dogs (owner_id);
+
+alter table public.dogs enable row level security;
+
+drop policy if exists "Members can read dogs" on public.dogs;
+create policy "Members can read dogs"
+    on public.dogs for select
+    to authenticated
+    using (true);
+
+drop policy if exists "Users can add their own dogs" on public.dogs;
+create policy "Users can add their own dogs"
+    on public.dogs for insert
+    to authenticated
+    with check ((select auth.uid()) = owner_id);
+
+drop policy if exists "Users can update their own dogs" on public.dogs;
+create policy "Users can update their own dogs"
+    on public.dogs for update
+    to authenticated
+    using ((select auth.uid()) = owner_id)
+    with check ((select auth.uid()) = owner_id);
+
+drop policy if exists "Users can delete their own dogs" on public.dogs;
+create policy "Users can delete their own dogs"
+    on public.dogs for delete
+    to authenticated
+    using ((select auth.uid()) = owner_id);
+
+
+-- Tags: which dogs appear in which sighting. Anyone can tag any dog in their own
+-- sighting; a tag can be removed by whoever posted it or by the dog's owner.
+create table if not exists public.sighting_dogs (
+    sighting_id  bigint not null references public.sightings (id) on delete cascade,
+    dog_id       bigint not null references public.dogs (id) on delete cascade,
+    created_at   timestamptz not null default now(),
+    primary key (sighting_id, dog_id)
+);
+
+create index if not exists sighting_dogs_dog_idx on public.sighting_dogs (dog_id);
+
+alter table public.sighting_dogs enable row level security;
+
+-- You can see a tag when you can see its sighting (yours, or a shared one: the sightings
+-- policies above apply inside this check too).
+drop policy if exists "Members can read tags on sightings they can see" on public.sighting_dogs;
+create policy "Members can read tags on sightings they can see"
+    on public.sighting_dogs for select
+    to authenticated
+    using (exists (select 1 from public.sightings s where s.id = sighting_id));
+
+drop policy if exists "Users can tag dogs in their own sightings" on public.sighting_dogs;
+create policy "Users can tag dogs in their own sightings"
+    on public.sighting_dogs for insert
+    to authenticated
+    with check (exists (select 1 from public.sightings s
+                        where s.id = sighting_id and s.user_id = (select auth.uid())));
+
+drop policy if exists "Posters and dog owners can remove tags" on public.sighting_dogs;
+create policy "Posters and dog owners can remove tags"
+    on public.sighting_dogs for delete
+    to authenticated
+    using (exists (select 1 from public.sightings s
+                   where s.id = sighting_id and s.user_id = (select auth.uid()))
+           or exists (select 1 from public.dogs d
+                      where d.id = dog_id and d.owner_id = (select auth.uid())));
+
+
+-- Who else can see photos. Dog profile photos: every member. Sighting photos: anyone who
+-- can see the sighting, which means members who share have their photos in Social, and
+-- switching sharing off makes them private again. (Uploading and deleting stay owner-only,
+-- see the policies further up.)
+drop policy if exists "Members can see dog and shared sighting photos" on storage.objects;
+create policy "Members can see dog and shared sighting photos"
+    on storage.objects for select
+    to authenticated
+    using (bucket_id = 'sighting-photos'
+           -- "objects.name" is the file's path; plain "name" would mean the dog's name.
+           and (exists (select 1 from public.dogs d where d.photo_path = objects.name)
+                or exists (select 1 from public.sightings s
+                           where s.photo_path = objects.name)));
