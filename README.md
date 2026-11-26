@@ -9,7 +9,7 @@ It's inspired by bird-watching life lists, but for the dogs you pass in the park
 ## Features
 
 - **Mobile first**: designed to be used one-handed on a phone while you're out walking, with a bottom tab bar (Dog ID, Life list, Profile, Social, Settings), big tap targets and phone-sized stat cards. On a desktop it shows the same layout in a centred column. Follows your device's light or dark mode.
-- **Accounts**: one tap with **Continue with Google**, or sign up with email and password (forgotten it? the sign-in screen emails you a reset link). **Keep me signed in** remembers you for 30 days. Your email is never shown to other members.
+- **Accounts**: one tap with **Continue with Google**, or sign up with email and password. **Keep me signed in** remembers you for 30 days. Your email is never shown to other members.
 - **Dog ID**: log a sighting by picking the breed (searchable, and breeds you haven't collected yet are marked ✨ new), the date, where you saw it, the dog's name and notes, plus an optional photo (take one with your phone's camera or upload one). Photos are private to you, saved smaller and without the GPS location phones store in them.
 - **Lifer celebrations**: a new breed gets balloons 🎉.
 - **Badges**: earn milestone badges for your first lifer and for 10, 25, 50 and all 100 breeds. Your profile shows each one, with the date you earned it or how far there is to go, and the life list tells you how many breeds until the next one.
@@ -39,7 +39,7 @@ project-cerberus/
 │   ├── oauth.py            # Remembers a Google sign-in while the user is at Google
 │   └── remember.py         # "Keep me signed in" (browser storage)
 ├── .streamlit/config.toml  # Theme (colours, light/dark) and toolbar settings
-├── docs/                   # Setup guides (Google sign-in, password reset, Supabase CLI)
+├── docs/                   # Setup guides (Google sign-in, Supabase CLI)
 ├── data/breeds.csv         # Top 100 breeds, AKC 2025 popularity ranking
 ├── data/breed_info.csv     # Each breed's intro, origin, temperament and fun fact
 ├── data/breed_photos.csv   # A credited, free-licensed photo per breed
@@ -77,7 +77,6 @@ Without Supabase keys the app starts in **demo mode**. To connect a real databas
 3. In **Authentication > URL Configuration**, set **Site URL** to where the app runs (e.g. `http://localhost:8501`). Email confirmation links go there.
 4. Copy `.streamlit/secrets.example.toml` to `.streamlit/secrets.toml`, then fill in your project URL and **publishable** key (Project Settings > API Keys).
 5. Optional: turn on **Continue with Google** by following [docs/google-sign-in.md](docs/google-sign-in.md).
-6. For **Forgot your password?** emails, set up the reset email template (and your own email sender) as in [docs/password-reset.md](docs/password-reset.md).
 
 Run the tests with `pytest`.
 
@@ -97,7 +96,6 @@ Run the tests with `pytest`.
 - [x] 👤 Profiles (username, emoji picture, favourite breed, your dogs) and a 👥 Social feed of everyone's shared sightings
 - [x] 🐶 Breed profiles: tap a breed for a photo, intro, origin, temperament and a fun fact
 - [x] 🖼️ Breed photos on the life list, and a breed photo as your profile picture
-- [x] 🔑 Password reset by email
 - [x] 🏅 Badges for milestones (first lifer, 10/25/50/100 breeds), shown on your profile
 - [x] 📸 Your own photo on a sighting (private, stored in Supabase Storage): the first step to Photo ID
 - [ ] 📷 Photo ID: snap a photo and an ML model suggests the breed (you confirm, or just pick it yourself)

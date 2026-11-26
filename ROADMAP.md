@@ -34,7 +34,6 @@ A guided question flow ("help me identify": size, coat, ears) was considered and
 - [x] **Breed photos as pictures**: small breed photos on every life-list row (greyed out until spotted), and any breed's photo as your profile picture (shown on your profile and in Social). Each picture is zoomed in on the dog's face, framed by hand with `scripts/face_cropper.py` (saved in `data/breed_faces.csv`; `logic.face_photo` picks a sharp enough copy).
 - [x] **Photos on sightings**: an optional photo (phone camera or upload) on each sighting, shown on its card in Profile. `logic.prepare_photo` shrinks it to a 1600px JPEG, turns it the right way up and drops its metadata (GPS); it goes to the private `sighting-photos` Storage bucket at `<user id>/<photo id>.jpg`, with RLS so only the owner can add, read or delete it, and `sightings.photo_path` points at it. Shown via signed links (1 hour).
 - [x] **Social feed**: the latest 50 sightings from everyone who shares, with their name and picture. Sharing is on by default (a popup says so on a member's first visit), with an off switch in Settings > Privacy; the "where" field is shown as typed (the log form says so).
-- [x] **Password reset**: "Forgot your password?" on the sign-in screen emails a one-time link (Supabase `reset_password_for_email`; the link carries a `token_hash` the app checks with `verify_otp`), then the user must choose a new password before the app opens. Needs the Supabase email template and SMTP setup in [docs/password-reset.md](docs/password-reset.md).
 - [x] **Badges**: milestone badges for your first lifer and 10/25/50/100 breeds, shown on your profile (earned date, or how many to go), a "next badge" hint on the life list, and a message when you earn one. Pure functions in `cerberus/logic.py` (`BADGES`, `badge_progress`), worked out from sightings each run, so no table. Show them to others once member profiles are viewable (More social).
 
 ## Now
@@ -79,5 +78,6 @@ _Nothing in progress. Pick the next item from below._
 
 ## Ideas (not yet committed to)
 
+- Password reset by email. Built and removed in Nov 2026 (v0.11.0 to v0.13.1): Supabase only lets you edit the reset email template once custom SMTP is set up, and the owner chose not to set one up yet. The working version is in git (commit e30b98e): the email template links to `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=recovery`, and the app checks it with `verify_otp` and then asks for a new password. Bring it back once there's an email sender (for example a domain with Resend).
 - Mixed-breed / "unknown" sightings that can be identified later (a good fit for Photo ID).
 - Regional life lists.
