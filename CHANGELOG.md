@@ -6,6 +6,10 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.15.0 - 2026-11-26 - Dog ID is now Post
+- The **Dog ID** tab is now called **Post**, with a ➕ icon. It works just the same: pick the breed, tag dogs, add the details and an optional photo, then log it.
+- This is the first step towards making Post the place to share your dogs and spot new ones.
+
 ## 0.14.0 - 2026-11-26 - Dog profiles and tags
 - Give your own dogs a profile in **Profile > Your dogs**: a unique @username, their name, breed, a short bio and a photo.
 - Tag dogs in your sightings by their @username, on the Dog ID tab. Tag a dog and leave Breed empty, and we'll use that dog's breed.
