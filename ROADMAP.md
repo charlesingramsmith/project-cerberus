@@ -77,9 +77,22 @@ _Nothing in progress. Pick the next item from below._
 - [ ] **More social**: follow friends, compare life lists, leaderboards, "new lifer" highlights and photos in the feed, and tapping a name to see that member's profile.
   - Builds on `profiles` and the "Members can read shared sightings" RLS policy. A follows table lets the feed show everyone or only people you follow.
   - Later: likes/comments, and reporting or hiding posts.
+- [ ] **A brand name**: a proper name for the app (it's called Project Cerberus for now).
+  - Planning: shortlist names; check each is free as a domain, on the App Store and Google Play, and on social handles; do a quick trademark search (UK IPO, EUIPO, USPTO) for the pet/app classes; ask a few members which they like.
+  - Decide whether "Cerberus" stays as the code/project name and only the app's display name changes.
+  - Do this before **Visual redesign** (the logo follows the name) and before buying a domain.
+  - Changing it touches the page title and text in `app.py`, `README.md`, the Google sign-in consent screen and Supabase email templates.
+- [ ] **Our own web address (domain)**: e.g. `<brand>.app` instead of `project-cerberus.streamlit.app`.
+  - Planning: pick the name first; choose a registrar (cost per year, renewal price, WHOIS privacy); decide between `.com`, `.app` (HTTPS only, fine for us) or a country domain.
+  - Streamlit Community Cloud can't use a custom domain, so a domain mostly pays off together with **Launch a real app** (new hosting). Until then it could redirect to the current address.
+  - A domain also gives us an email sender (e.g. Resend or similar with SPF/DKIM records), which is what **password reset** was waiting for (see Ideas), and a `hello@` address for feedback.
+  - After moving: add the new address to Supabase **Redirect URLs** and **Site URL**, and to the Google Cloud OAuth client.
 - [ ] **Launch a real app**: Cerberus on your phone's home screen, and later in the app stores.
   - First step: an installable "Add to Home Screen" web app. Needs hosting where we control the web app manifest and icons, so it means moving off Streamlit Community Cloud.
   - Then: a store app (iOS and Android). Options to compare: wrapping the web app (e.g. Capacitor) vs. rebuilding the UI natively; Supabase and the RLS rules can stay as they are.
+  - Planning: decide on hosting (another Python host such as Render or Fly.io, or a rebuild in a web framework), what it costs per month, and how a deploy works without breaking "Keep me signed in" (saved tokens are tied to the site's address, so members sign in once more after a move). Name, domain and visual redesign should be done first.
+  - Store launch checklist: Apple Developer (yearly fee) and Google Play accounts, a privacy policy page (photos, location, sharing), store screenshots and description, an age rating, and account deletion inside the app (both stores require it).
+  - Keep the daily user-suggestions check going through launch, and add a way to report problems.
   - **Fix the tab bar height when we move.** Today `MOBILE_CSS` in `app.py` lifts the bottom tab bar by 3rem on screens up to 840px wide so Streamlit Community Cloud's "Hosted with Streamlit" badge doesn't cover the last tabs. Off Community Cloud that badge is gone, so remove the lift (the `@media (max-width: 840px)` block) and the bar sits flush with the bottom again, keeping `env(safe-area-inset-bottom)` for phones with a home bar. Check it at 375px in light and dark.
 
 ## Ideas (not yet committed to)

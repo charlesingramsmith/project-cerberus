@@ -107,6 +107,7 @@ Run the tests with `pytest`.
 - [ ] 📍 Optional location for a sighting (place name or current location)
 - [ ] 👥 More social: following friends, comparing life lists, leaderboards
 - [ ] More breeds, a sightings map
+- [ ] 🏷️ A brand name and our own web address (domain)
 - [ ] 📱 Launch a real app: home-screen install first, then the app stores
 
 Inspired by bird ID apps like Merlin, which identify birds from a photo or their song. The full plan, with notes on each item, is in [ROADMAP.md](ROADMAP.md).
