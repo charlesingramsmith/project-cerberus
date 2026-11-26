@@ -105,7 +105,8 @@ Run the tests with `pytest`.
 - [ ] 🔊 Sound ID: get a hint from a recorded bark (experimental)
 - [ ] 🎨 Visual redesign: branding, logo and colours
 - [ ] 📍 Optional location for a sighting (place name or current location)
-- [ ] 👥 More social: following friends, comparing life lists, leaderboards
+- [ ] 👥 More social: comparing life lists, leaderboards
+- [ ] 🤝 Friends and private messaging (with blocking and reporting)
 - [ ] More breeds, a sightings map
 - [ ] 🏷️ A brand name and our own web address (domain)
 - [ ] 📱 Launch a real app: home-screen install first, then the app stores

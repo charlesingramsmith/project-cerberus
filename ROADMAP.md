@@ -74,9 +74,20 @@ _Nothing in progress. Pick the next item from below._
   - New nullable column(s) on sightings in `supabase/schema.sql` (place name, and optionally latitude/longitude).
   - The free-text "where" already exists and is shown in the Social feed as typed. Exact GPS spots should stay private (never shown in Social).
 - [ ] Map of where you've spotted dogs (builds on location on a sighting)
-- [ ] **More social**: follow friends, compare life lists, leaderboards, "new lifer" highlights and photos in the feed, and tapping a name to see that member's profile.
-  - Builds on `profiles` and the "Members can read shared sightings" RLS policy. A follows table lets the feed show everyone or only people you follow.
+- [ ] **More social**: compare life lists, leaderboards, "new lifer" highlights in the feed, and tapping a name to see that member's profile.
+  - Builds on `profiles` and the "Members can read shared sightings" RLS policy. Comparing life lists and leaderboards work best between **Friends** (below).
   - Later: likes/comments, and reporting or hiding posts.
+- [ ] **Friends**: add other members as friends, see a friends-only feed and compare life lists with them.
+  - Planning: decide mutual friends (request + accept) or one-way follows; mutual is simpler for privacy and is what messaging would need. How do you find someone: by member username, from a post in Social, or an invite link?
+  - Builds on `profiles` (member usernames) and the Social feed: a feed filter of "Everyone / Friends". Dog @usernames stay separate: you befriend people, and could later "follow" a dog.
+  - Decide how it fits the sharing switch: maybe a third setting, "share with friends only", which needs a new RLS rule on sightings and on the photo Storage policy.
+  - New `friendships` table (who asked, who, status) with RLS so only the two members involved can see or change it. Removing a friend should be quiet (no notice).
+- [ ] **Messaging**: send a private message to a friend, for example about a dog you both spotted.
+  - Planning: friends-only to start (needs **Friends**), which cuts spam. Text only first; photos later. Decide whether it's one-to-one only or group chats too.
+  - Safety comes with it, not after: block a member (they can't message you, find you or see your posts), report a message, and a way for the owner to review reports. Blocking should also hide them in Social and Find a dog.
+  - New `conversations`/`messages` tables with RLS so only the people in a conversation can read it. Messages are member text, so show them escaped (plain text), like bios.
+  - Streamlit has no live updates or push notifications: new messages would show on the next rerun or a refresh button. Realtime chat and notifications fit better after **Launch a real app** (Supabase Realtime and push in a store app). Email alerts would need the domain's email sender.
+  - Check privacy-policy and age-rating wording before launch: app stores ask about user-to-user messaging.
 - [ ] **A brand name**: a proper name for the app (it's called Project Cerberus for now).
   - Planning: shortlist names; check each is free as a domain, on the App Store and Google Play, and on social handles; do a quick trademark search (UK IPO, EUIPO, USPTO) for the pet/app classes; ask a few members which they like.
   - Decide whether "Cerberus" stays as the code/project name and only the app's display name changes.
