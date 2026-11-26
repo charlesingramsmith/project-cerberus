@@ -497,3 +497,6 @@ def test_escape_markdown_neutralises_formatting():
     assert logic.escape_markdown("**Rex** [x](y) :red[z]") == (
         r"\*\*Rex\*\* \[x\]\(y\) \:red\[z\]")
     assert logic.escape_markdown("Hyde Park") == "Hyde Park"
+    # An empty optional field from the database (None, which pandas turns into NaN)
+    assert logic.escape_markdown(None) == ""
+    assert logic.escape_markdown(float("nan")) == ""
