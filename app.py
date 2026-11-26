@@ -674,6 +674,32 @@ with tab_spotted:
     def breed_label(name: str) -> str:
         return name if name in seen_breeds else f"{name}  ✨ new"
 
+    def fill_from_tags():
+        """Tagging dogs fills in the dog's name and breed straight away (if they're empty,
+        or still hold what an earlier tag filled in), so you can see and change them."""
+        dogs = [dogs_by_id[d] for d in st.session_state.get("sighting_dogs", [])
+                if d in dogs_by_id]
+        filled = st.session_state.get("tag_filled", {})
+        if (st.session_state.get("sighting_dog_name") or "") in ("", filled.get("name")):
+            filled["name"] = st.session_state.sighting_dog_name = logic.tagged_names(dogs)
+        if st.session_state.get("sighting_breed") in (None, filled.get("breed")):
+            filled["breed"] = st.session_state.sighting_breed = logic.tagged_breed(dogs)
+        st.session_state.tag_filled = filled
+
+    if st.session_state.pop("clear_tags", False):  # the last sighting was just logged
+        st.session_state.sighting_dogs = []
+        st.session_state.pop("tag_filled", None)
+    tagged = []
+    if all_dogs:  # dogs with a profile (anyone's) can be tagged by their @username
+        # Outside the form below, so picking a dog can fill in its name and breed at once
+        # (widgets inside a form only send their values when the form is submitted).
+        tagged = st.multiselect(
+            "Tag dogs", list(dogs_by_id), key="sighting_dogs", on_change=fill_from_tags,
+            format_func=lambda dog_id: logic.dog_label(dogs_by_id[dog_id]),
+            placeholder="Tag one or more dogs by @username",
+            help="Tag dogs that have a profile, like your own. Their name and breed are "
+                 "filled in for you.")
+
     with st.form("log_sighting", clear_on_submit=True, border=False):
         breed = st.selectbox(
             "Breed",
@@ -681,20 +707,10 @@ with tab_spotted:
             index=None,
             format_func=breed_label,
             placeholder="Start typing a breed…",
+            key="sighting_breed",
         )
         seen_on = st.date_input("Date seen", value=dt.date.today(), max_value=dt.date.today())
-        tagged = []
-        if all_dogs:  # dogs with a profile (anyone's) can be tagged by their @username
-            tagged = st.multiselect(
-                "Tag dogs", list(dogs_by_id), key="sighting_dogs",
-                format_func=lambda dog_id: logic.dog_label(dogs_by_id[dog_id]),
-                placeholder="Tag one or more dogs by @username",
-                help="Tag dogs that have a profile, like your own. If you tag a dog and "
-                     "leave Breed empty, its breed is used.")
-        dog_name = st.text_input(
-            "Dog's name (if you found out)",
-            help="Tagged a dog? Leave this empty and its name is filled in for you."
-            if all_dogs else None)
+        dog_name = st.text_input("Dog's name (if you found out)", key="sighting_dog_name")
         location = st.text_input(
             "Where", placeholder="e.g. Hyde Park",
             help="Other members can see this in Social if you share your sightings "
@@ -737,6 +753,7 @@ with tab_spotted:
                                      [d["id"] for d in tagged_dogs])
             except AuthError as err:
                 end_session(str(err))
+            st.session_state.clear_tags = True
             st.session_state.flash = ("lifer" if lifer else "repeat", breed)
             st.rerun()
 
