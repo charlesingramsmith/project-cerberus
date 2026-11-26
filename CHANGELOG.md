@@ -6,6 +6,12 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.11.0 - 2026-11-26 - Photos on your sightings
+- Add a photo when you log a dog: take one with your phone's camera or pick one from your photos. It's optional, so you can still log a sighting without one.
+- Your photos show on your sightings in Profile. Only you can see them.
+- Photos are saved smaller, and without the location your phone may have stored in them.
+- This is the first step towards Photo ID, where the app will suggest the breed from your photo.
+
 ## 0.10.1 - 2026-11-24 - Breed pictures show the dog's face
 - The small breed photos on your life list, profile pictures and Social now zoom in on each dog's face, instead of showing whatever was in the middle of the photo.
 

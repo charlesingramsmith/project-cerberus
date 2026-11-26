@@ -32,6 +32,7 @@ A guided question flow ("help me identify": size, coat, ears) was considered and
 - [x] **Profiles**: unique username, a dog emoji picture, favourite breed and your own dogs (up to 5), in a `profiles` table created on first sign-in.
 - [x] **Breed profiles**: tap a breed on the life list to see a photo, a short intro, where it's from, its temperament and a fun fact. Text in `data/breed_info.csv`; credited Wikimedia Commons photos in `data/breed_photos.csv` (made by `scripts/fetch_breed_photos.py`).
 - [x] **Breed photos as pictures**: small breed photos on every life-list row (greyed out until spotted), and any breed's photo as your profile picture (shown on your profile and in Social). Each picture is zoomed in on the dog's face, framed by hand with `scripts/face_cropper.py` (saved in `data/breed_faces.csv`; `logic.face_photo` picks a sharp enough copy).
+- [x] **Photos on sightings**: an optional photo (phone camera or upload) on each sighting, shown on its card in Profile. `logic.prepare_photo` shrinks it to a 1600px JPEG, turns it the right way up and drops its metadata (GPS); it goes to the private `sighting-photos` Storage bucket at `<user id>/<photo id>.jpg`, with RLS so only the owner can add, read or delete it, and `sightings.photo_path` points at it. Shown via signed links (1 hour).
 - [x] **Social feed**: the latest 50 sightings from everyone who shares, with their name and picture. Sharing is on by default (a popup says so on a member's first visit), with an off switch in Settings > Privacy; the "where" field is shown as typed (the log form says so).
 
 ## Now
@@ -42,7 +43,7 @@ _Nothing in progress. Pick the next item from below._
 
 - [ ] **Photo ID**: snap or upload a photo of the dog and get the top 3 likely breeds. Tap one to log it, or skip and pick the breed yourself.
   - Photo is optional: a sighting can always be logged without one, and the breed picker stays on the Dog ID tab.
-  - Phone camera via `st.camera_input` / `st.file_uploader`. Store the photo with the sighting in a Supabase Storage bucket with RLS (users only see their own photos, unless shared). Schema change goes in `supabase/schema.sql`.
+  - Photo capture and storage are done (see **Photos on sightings** above). Next is the model; it can run on the photo before the sighting is logged, then the same photo is saved with it.
   - Model options to compare: a hosted image-classification API vs. a small pretrained model fine-tuned on dog breeds (e.g. the Stanford Dogs dataset). Watch Streamlit Cloud's memory limits if running a model in-app.
   - Always let the user confirm: the model suggests, the human decides what goes on the life list.
 - [ ] Password reset

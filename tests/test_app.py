@@ -486,3 +486,19 @@ def test_picking_a_breed_previews_the_picture_before_saving(at):
     at.selectbox(key="profile_avatar").set_value("Beagle").run()
     previews = [m.value for m in at.markdown if 'class="me-avatar pic"' in m.value]
     assert previews and 'aria-label="Beagle"' in previews[-1]
+
+
+def test_sighting_photos_show_on_their_card_in_profile(at):
+    from datetime import date
+
+    sign_up(at)
+    assert at.get("file_uploader")  # the optional photo on the Dog ID form
+    backend = at.session_state["backend"]
+    path = backend.add_photo(b"jpeg-bytes")
+    backend.add_sighting("Pug", date(2026, 11, 1), photo_path=path)
+    log_breed(at, "Beagle")  # no photo
+
+    open_tab(at, "Profile")
+    photos = [m.value for m in at.markdown if "sighting-photo" in m.value]
+    assert len(photos) == 1
+    assert 'alt="Your photo of a Pug"' in photos[0]

@@ -293,3 +293,60 @@ def test_a_breed_can_be_a_profile_picture_but_other_text_cannot():
     assert logic.clean_profile({**base, "avatar": "🦊"})["avatar"] == "🦊"  # older emoji picks
     with pytest.raises(ValueError, match="picture"):
         logic.clean_profile({**base, "avatar": "Cat"})
+
+# --- Sighting photos ---------------------------------------------------------------
+
+def make_image(size=(4000, 3000), orientation=None, gps=False, fmt="JPEG") -> bytes:
+    import io
+
+    from PIL import Image
+
+    img = Image.new("RGB", size, "tan")
+    exif = Image.Exif()
+    if orientation:
+        exif[0x0112] = orientation  # "rotate me" note, as phones write it
+    if gps:
+        exif[0x8825] = {2: (51.0, 30.0, 0.0)}  # GPS latitude
+    out = io.BytesIO()
+    img.save(out, format=fmt, exif=exif)
+    return out.getvalue()
+
+
+def open_image(data: bytes):
+    import io
+
+    from PIL import Image
+
+    return Image.open(io.BytesIO(data))
+
+
+def test_photos_are_shrunk_to_a_small_jpeg():
+    photo = logic.prepare_photo(make_image((4000, 3000)))
+    img = open_image(photo)
+    assert img.format == "JPEG"
+    assert img.size == (logic.PHOTO_MAX_SIDE, 1200)
+
+
+def test_small_photos_are_not_enlarged():
+    assert open_image(logic.prepare_photo(make_image((800, 600), fmt="PNG"))).size == (800, 600)
+
+
+def test_photos_are_turned_the_right_way_up():
+    # Orientation 6 = "turn 90°": a 4000x3000 sensor image is really a portrait photo.
+    img = open_image(logic.prepare_photo(make_image((4000, 3000), orientation=6)))
+    assert img.size == (1200, logic.PHOTO_MAX_SIDE)
+
+
+def test_photo_metadata_such_as_gps_is_removed():
+    original = make_image(gps=True)
+    assert open_image(original).getexif().get_ifd(0x8825)  # the test photo has a GPS spot
+    assert not open_image(logic.prepare_photo(original)).getexif()
+
+
+def test_files_that_are_not_photos_are_refused():
+    with pytest.raises(ValueError, match="doesn't look like a photo"):
+        logic.prepare_photo(b"definitely not a jpeg")
+
+
+def test_photo_paths_start_with_the_owners_folder():
+    assert logic.photo_path("uuid-1", "abc") == "uuid-1/abc.jpg"

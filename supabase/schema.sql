@@ -172,3 +172,42 @@ create policy "Users can add their own suggestions"
     on public.feature_suggestions for insert
     to authenticated
     with check ((select auth.uid()) = user_id);
+
+
+-- Sighting photos (optional). The picture itself lives in the private Storage bucket
+-- below; the sighting keeps its path, "<user id>/<photo id>.jpg".
+alter table public.sightings add column if not exists photo_path text
+    check (char_length(photo_path) <= 200);
+
+-- A private bucket: photos are only reachable through short-lived signed links, never a
+-- public URL. The app sends small JPEGs (about 300 KB); the limit is a safety net.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('sighting-photos', 'sighting-photos', false, 5242880, array['image/jpeg'])
+on conflict (id) do update
+    set public = excluded.public,
+        file_size_limit = excluded.file_size_limit,
+        allowed_mime_types = excluded.allowed_mime_types;
+
+-- Storage access rules: each member has a folder named after their user id and can only
+-- add, see and delete files in it. Nobody else (not even sharing members) can see them yet;
+-- showing photos in Social would need its own policy here.
+drop policy if exists "Users can add their own sighting photos" on storage.objects;
+create policy "Users can add their own sighting photos"
+    on storage.objects for insert
+    to authenticated
+    with check (bucket_id = 'sighting-photos'
+                and (storage.foldername(name))[1] = (select auth.uid())::text);
+
+drop policy if exists "Users can see their own sighting photos" on storage.objects;
+create policy "Users can see their own sighting photos"
+    on storage.objects for select
+    to authenticated
+    using (bucket_id = 'sighting-photos'
+           and (storage.foldername(name))[1] = (select auth.uid())::text);
+
+drop policy if exists "Users can delete their own sighting photos" on storage.objects;
+create policy "Users can delete their own sighting photos"
+    on storage.objects for delete
+    to authenticated
+    using (bucket_id = 'sighting-photos'
+           and (storage.foldername(name))[1] = (select auth.uid())::text);

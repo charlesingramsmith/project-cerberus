@@ -302,3 +302,73 @@ def test_social_feed_joins_sightings_with_profiles():
     assert [(p["breed"], p["username"]) for p in feed] == [("Pug", "pat")]  # charlie stopped sharing
     assert ("in_", ("user_id", ["uuid-1", "uuid-9"]), {}) in log
     assert ("limit", (50,), {}) in log
+
+# --- Sighting photos ---------------------------------------------------------------
+
+class FakeBucket:
+    def __init__(self, log):
+        self.log = log
+
+    def upload(self, path, file, options):
+        self.log.append(("upload", (path, file, options), {}))
+
+    def create_signed_urls(self, paths, expires_in):
+        self.log.append(("sign", (paths, expires_in), {}))
+        return [{"path": p, "signedURL": f"https://signed/{p}", "error": None}
+                if p.startswith("uuid-1/") else
+                {"path": p, "signedURL": None, "error": "Either the object does not exist"}
+                for p in paths]
+
+    def remove(self, paths):
+        self.log.append(("remove", (paths,), {}))
+
+
+def with_storage(backend, log, rows=None):
+    """Give the fake client a storage bucket, and table queries that return `rows`."""
+    buckets = []
+    backend.client.storage = SimpleNamespace(
+        from_=lambda name: buckets.append(name) or FakeBucket(log))
+    backend.client.table = lambda name: FakeQuery(log, rows)
+    return buckets
+
+
+def test_photos_upload_into_the_users_own_folder_of_the_private_bucket():
+    backend, log = make_backend()
+    buckets = with_storage(backend, log)
+    backend.sign_in("charlie@example.com", "correct-horse")
+    path = backend.add_photo(b"jpeg-bytes")
+
+    assert buckets == ["sighting-photos"]
+    assert path.startswith("uuid-1/") and path.endswith(".jpg")
+    assert ("upload", (path, b"jpeg-bytes", {"content-type": "image/jpeg"}), {}) in log
+
+    backend.add_sighting("Pug", date(2026, 11, 1), photo_path=path)
+    insert = next(args[0] for name, args, _ in log if name == "insert")
+    assert insert["photo_path"] == path
+
+
+def test_a_sighting_cant_point_at_someone_elses_photo():
+    backend, log = make_backend()
+    with_storage(backend, log)
+    backend.sign_in("charlie@example.com", "correct-horse")
+    with pytest.raises(ValueError):
+        backend.add_sighting("Pug", date(2026, 11, 1), photo_path="uuid-2/theirs.jpg")
+
+
+def test_photo_links_are_signed_and_skip_missing_files():
+    backend, log = make_backend()
+    with_storage(backend, log)
+    backend.sign_in("charlie@example.com", "correct-horse")
+    links = backend.photo_urls(["uuid-1/a.jpg", "uuid-2/b.jpg"])
+    assert links == {"uuid-1/a.jpg": "https://signed/uuid-1/a.jpg"}
+    assert ("sign", (["uuid-1/a.jpg", "uuid-2/b.jpg"], 3600), {}) in log
+    assert backend.photo_urls([]) == {}
+
+
+def test_deleting_a_sighting_removes_its_photo_too():
+    backend, log = make_backend()
+    with_storage(backend, log, rows=[{"id": 7, "photo_path": "uuid-1/a.jpg"}])
+    backend.sign_in("charlie@example.com", "correct-horse")
+    backend.delete_sighting(7)
+    assert ("eq", ("user_id", "uuid-1"), {}) in log
+    assert ("remove", (["uuid-1/a.jpg"],), {}) in log

@@ -4,6 +4,7 @@ A "lifer" is the first time a spotter logs a given breed.
 """
 from __future__ import annotations
 
+import io
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -18,7 +19,7 @@ BREED_INFO_CSV = ROOT / "data" / "breed_info.csv"
 BREED_PHOTOS_CSV = ROOT / "data" / "breed_photos.csv"
 BREED_FACES_CSV = ROOT / "data" / "breed_faces.csv"
 
-SIGHTING_COLUMNS = ["id", "breed", "seen_on", "location", "dog_name", "notes"]
+SIGHTING_COLUMNS = ["id", "breed", "seen_on", "location", "dog_name", "notes", "photo_path"]
 
 
 def load_breeds(csv_path: Path = BREEDS_CSV) -> pd.DataFrame:
@@ -106,6 +107,46 @@ def face_photo(profile: BreedProfile, box_px: int = 56) -> tuple[str, str] | Non
 def sightings_frame(rows: list[dict]) -> pd.DataFrame:
     """Turn sighting rows from any backend into a DataFrame with a fixed set of columns."""
     return pd.DataFrame(rows, columns=SIGHTING_COLUMNS)
+
+
+# --- Sighting photos ---------------------------------------------------------------
+
+PHOTO_TYPES = ["jpg", "jpeg", "png", "webp"]  # what the photo picker accepts
+MAX_PHOTO_UPLOAD_MB = 20  # a phone camera photo is usually 2-8 MB
+PHOTO_MAX_SIDE = 1600  # px: plenty for Photo ID later, and about 300 KB as a JPEG
+PHOTO_QUALITY = 85
+NOT_A_PHOTO = "That file doesn't look like a photo. Try a JPG or PNG."
+
+
+def prepare_photo(data: bytes, max_side: int = PHOTO_MAX_SIDE) -> bytes:
+    """Turn an uploaded photo into a small JPEG that's safe to store.
+
+    - Turned the right way up (phones often save photos sideways plus a "rotate me" note).
+    - Shrunk so its longest side is at most `max_side` pixels.
+    - Saved without its metadata (EXIF), which can include the GPS spot it was taken at.
+    Raises ValueError if the file isn't an image.
+    """
+    from PIL import Image, ImageOps  # Pillow comes with Streamlit
+
+    try:
+        with Image.open(io.BytesIO(data)) as img:
+            img = ImageOps.exif_transpose(img)
+            img.thumbnail((max_side, max_side))
+            out = io.BytesIO()
+            # A fresh RGB copy carries no EXIF or other metadata into the saved file.
+            img.convert("RGB").save(out, format="JPEG", quality=PHOTO_QUALITY, optimize=True)
+    except (OSError, SyntaxError, ValueError, Image.DecompressionBombError) as err:
+        raise ValueError(NOT_A_PHOTO) from err
+    return out.getvalue()
+
+
+def photo_path(user_id: str, photo_id: str) -> str:
+    """Where a sighting photo lives in the storage bucket: "<user id>/<photo id>.jpg".
+
+    The storage rules in supabase/schema.sql only let a user touch files in the folder
+    named after their own id, so the folder must come first.
+    """
+    return f"{user_id}/{photo_id}.jpg"
 
 
 def is_lifer(sightings: pd.DataFrame, breed: str) -> bool:
