@@ -6,6 +6,11 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.11.0 - 2026-11-26 - Badges
+- Earn badges as your life list grows: one for your first lifer, then for 10, 25, 50 and all 100 breeds.
+- See them in Profile > Badges, with the date you earned each one, or how many breeds you still need.
+- The life list shows how many breeds until your next badge, and you get a message the moment you earn one.
+
 ## 0.10.1 - 2026-11-24 - Breed pictures show the dog's face
 - The small breed photos on your life list, profile pictures and Social now zoom in on each dog's face, instead of showing whatever was in the middle of the photo.
 

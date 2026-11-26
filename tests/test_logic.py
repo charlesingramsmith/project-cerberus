@@ -293,3 +293,56 @@ def test_a_breed_can_be_a_profile_picture_but_other_text_cannot():
     assert logic.clean_profile({**base, "avatar": "🦊"})["avatar"] == "🦊"  # older emoji picks
     with pytest.raises(ValueError, match="picture"):
         logic.clean_profile({**base, "avatar": "Cat"})
+
+def sightings_of(*rows: tuple[str, str]):
+    """A sightings frame from (breed, seen_on) pairs."""
+    return logic.sightings_frame([{"id": i, "breed": b, "seen_on": d}
+                                  for i, (b, d) in enumerate(rows, 1)])
+
+
+def test_no_sightings_means_no_badges():
+    progress = logic.badge_progress(sightings_of())
+    assert [p.badge.goal for p in progress] == [1, 10, 25, 50, 100]
+    assert not any(p.earned for p in progress)
+    assert logic.next_badge(progress).badge.name == "First lifer"
+    assert logic.next_badge(progress).to_go == 1
+
+
+def test_first_lifer_badge_is_earned_on_the_first_sighting_date():
+    progress = logic.badge_progress(sightings_of(("Pug", "2026-03-02"), ("Pug", "2026-01-05")))
+    first = progress[0]
+    assert first.earned and first.earned_on == "2026-01-05"  # earliest, not first logged
+    assert not progress[1].earned and progress[1].have == 1 and progress[1].to_go == 9
+
+
+def test_breed_count_badges_date_from_the_nth_new_breed():
+    breeds = logic.load_breeds()["breed"].tolist()
+    rows = [(breed, f"2026-01-{day:02d}") for day, breed in enumerate(breeds[:12], 1)]
+    rows += [(breeds[0], "2026-02-01")] * 5  # repeats don't count towards badges
+    progress = {p.badge.key: p for p in logic.badge_progress(sightings_of(*rows))}
+    assert progress["breeds-10"].earned_on == "2026-01-10"
+    assert not progress["breeds-25"].earned and progress["breeds-25"].to_go == 13
+    assert logic.next_badge(list(progress.values())).badge.key == "breeds-25"
+
+
+def test_collecting_every_breed_earns_every_badge():
+    rows = [(b, "2026-05-01") for b in logic.load_breeds()["breed"]]
+    progress = logic.badge_progress(sightings_of(*rows))
+    assert all(p.earned and p.to_go == 0 for p in progress)
+    assert logic.next_badge(progress) is None
+
+
+@pytest.mark.parametrize("count, key", [(1, "first-lifer"), (10, "breeds-10"), (25, "breeds-25"),
+                                        (50, "breeds-50"), (100, "breeds-100"),
+                                        (0, None), (2, None), (11, None)])
+def test_badge_for_count_only_matches_a_milestone(count, key):
+    badge = logic.badge_for_count(count)
+    assert (badge.key if badge else None) == key
+
+
+def test_badges_have_unique_keys_and_rising_goals():
+    goals = [b.goal for b in logic.BADGES]
+    assert goals == sorted(set(goals))
+    assert len({b.key for b in logic.BADGES}) == len(logic.BADGES)
+    assert logic.BADGES[0].description == "Spot your first breed"
+    assert logic.BADGES[1].description == "Spot 10 different breeds"
