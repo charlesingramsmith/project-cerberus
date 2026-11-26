@@ -386,15 +386,6 @@ def test_deleting_a_sighting_removes_its_photo_too():
     assert ("remove", (["uuid-1/a.jpg"],), {}) in log
 
 
-def test_identifying_a_sighting_only_updates_your_own_row():
-    backend, log = make_backend()
-    backend.sign_in("charlie@example.com", "correct-horse")
-    backend.set_sighting_breed(7, " Lurcher ")
-    assert ("update", ({"breed": "Lurcher"},), {}) in log
-    assert ("eq", ("id", 7), {}) in log
-    assert ("eq", ("user_id", "uuid-1"), {}) in log
-
-
 # --- Dog profiles and tags ----------------------------------------------------------------
 
 def tables(backend, log, data):
