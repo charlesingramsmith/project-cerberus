@@ -319,3 +319,47 @@ def test_a_breed_photo_can_be_saved_as_your_picture(backend):
     backend.sign_up("a@example.com", "correct-horse", "charlie")
     backend.save_profile({**backend.my_profile(), "avatar": "Beagle"})
     assert backend.my_profile()["avatar"] == "Beagle"
+
+# --- Sighting photos ---------------------------------------------------------------
+
+def test_a_sighting_can_have_a_photo(backend):
+    backend.sign_up("a@example.com", "longenough", "alice")
+    path = backend.add_photo(b"jpeg-bytes")
+    assert path.startswith("user-1/") and path.endswith(".jpg")
+    backend.add_sighting("Pug", date(2026, 11, 1), photo_path=path)
+    backend.add_sighting("Beagle", date(2026, 11, 2))
+
+    by_breed = {s["breed"]: s for s in backend.list_sightings()}
+    assert by_breed["Pug"]["photo_path"] == path
+    assert by_breed["Beagle"]["photo_path"] is None
+    links = backend.photo_urls([path, "user-1/missing.jpg"])
+    assert list(links) == [path]
+    assert links[path].startswith("data:image/jpeg;base64,")
+
+
+def test_photos_are_private_to_their_owner(backend):
+    backend.sign_up("a@example.com", "longenough", "alice")
+    path = backend.add_photo(b"jpeg-bytes")
+    backend.add_sighting("Pug", date(2026, 11, 1), photo_path=path)
+    backend.sign_out()
+
+    backend.sign_up("b@example.com", "longenough", "bob")
+    assert backend.photo_urls([path]) == {}
+    with pytest.raises(ValueError):  # can't attach someone else's photo to your sighting
+        backend.add_sighting("Pug", date(2026, 11, 1), photo_path=path)
+    assert all("photo_path" not in post for post in backend.social_feed())
+
+
+def test_deleting_a_sighting_deletes_its_photo(backend):
+    backend.sign_up("a@example.com", "longenough", "alice")
+    path = backend.add_photo(b"jpeg-bytes")
+    backend.add_sighting("Pug", date(2026, 11, 1), photo_path=path)
+    backend.delete_sighting(backend.list_sightings()[0]["id"])
+    assert backend.photo_urls([path]) == {}
+
+
+def test_photos_need_a_sign_in(backend):
+    with pytest.raises(AuthError):
+        backend.add_photo(b"jpeg-bytes")
+    with pytest.raises(AuthError):
+        backend.photo_urls(["user-1/a.jpg"])

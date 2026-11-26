@@ -7,6 +7,7 @@ import datetime as dt
 import html
 import os
 import sys
+import time
 import uuid
 from pathlib import Path
 from urllib.parse import parse_qsl, urlparse
@@ -156,6 +157,11 @@ button { min-height: 2.75rem; }
 .cerb-post .who { font-size: .85rem; opacity: .75; }
 .cerb-post .breed { font-weight: 600; }
 .cerb-post .sub { font-size: .85rem; opacity: .75; }
+
+/* A sighting's own photo, on its card in Profile > Your sightings */
+.sighting-photo {
+    display: block; width: 100%; max-height: 20rem; object-fit: cover; border-radius: .5rem;
+}
 
 /* Bottom tab bar: the main tabs, pinned to the bottom of the screen like a phone
    app. Five equal slots, each an icon above a short label. On wider screens the
@@ -645,6 +651,9 @@ if flash:
                        f"{badge.description}. See it in Profile.")
     else:
         st.info(f"Logged another **{breed_name}**.")
+photo_problem = st.session_state.pop("photo_problem", None)
+if photo_problem:
+    st.warning(photo_problem)
 
 # The five main tabs. The "main_nav" key lets MOBILE_CSS pin them to the bottom of the
 # screen as a tab bar; the "\n" puts each icon above its label.
@@ -718,6 +727,12 @@ with tab_id:
             help="Other members can see this in Social if you share your sightings "
                  "(Settings > Privacy).")
         notes = st.text_area("Notes", placeholder="Good boy. Very fluffy.", height=80)
+        # On a phone this offers the camera as well as the photo library.
+        photo = st.file_uploader(
+            "Photo (optional)", type=logic.PHOTO_TYPES, key="sighting_photo",
+            max_upload_size=logic.MAX_PHOTO_UPLOAD_MB,
+            help="Only you can see your photos. They're saved smaller, without the "
+                 "location your phone may have stored in them.")
         submitted = st.form_submit_button("Log sighting", type="primary", width="stretch")
 
     st.caption("📷 Photo ID (identify a dog from a photo) is on the roadmap. "
@@ -728,8 +743,19 @@ with tab_id:
             st.warning("Pick a breed first.")
         else:
             lifer = logic.is_lifer(sightings, breed)
+            photo_path = None
+            if photo is not None:
+                try:
+                    photo_path = backend.add_photo(logic.prepare_photo(photo.getvalue()))
+                except AuthError as err:
+                    end_session(str(err))
+                except ValueError as err:  # not an image
+                    st.session_state.photo_problem = f"{err} The sighting was logged without it."
+                except Exception:  # storage not set up or unreachable: still log the dog
+                    st.session_state.photo_problem = ("Your photo couldn't be saved, so the "
+                                                      "sighting was logged without it.")
             try:
-                backend.add_sighting(breed, seen_on, location, dog_name, notes)
+                backend.add_sighting(breed, seen_on, location, dog_name, notes, photo_path)
             except AuthError as err:
                 end_session(str(err))
             st.session_state.flash = ("lifer" if lifer else "repeat", breed)
@@ -872,6 +898,24 @@ def profile_editor():
             st.rerun()
 
 
+def sighting_photo_links() -> dict[str, str]:
+    """Links to show your sighting photos. Storage links expire after an hour, so they're
+    kept in this browser session for 50 minutes rather than fetched again every rerun."""
+    links = st.session_state.setdefault("photo_links", {})  # path -> (link, fetched at)
+    now = time.time()
+    wanted = [p for p in sightings["photo_path"].dropna().unique()
+              if p not in links or now - links[p][1] > 50 * 60]
+    if wanted:
+        try:
+            fresh = backend.photo_urls(list(wanted))
+        except AuthError as err:
+            end_session(str(err))
+        except Exception:  # photos are extras: never let them break the Profile tab
+            fresh = {}
+        links.update({p: (link, now) for p, link in fresh.items()})
+    return {p: link for p, (link, _) in links.items()}
+
+
 with tab_profile:
     st.header("Your profile")
     if st.session_state.pop("profile_saved", False):
@@ -904,6 +948,7 @@ with tab_profile:
     st.subheader("Your sightings")
     if sightings.empty:
         st.info("No sightings yet. Go find a dog!")
+    photo_links = sighting_photo_links() if tab_profile.open else {}
     for s in logic.recent_first(sightings).itertuples():
         with st.container(border=True):
             with st.container(horizontal=True, vertical_alignment="top",
@@ -918,6 +963,10 @@ with tab_profile:
                         except AuthError as err:
                             end_session(str(err))
                         st.rerun()
+            if s.photo_path in photo_links:
+                st.markdown(f'<img class="sighting-photo" src="{html.escape(photo_links[s.photo_path])}" '
+                            f'alt="Your photo of a {html.escape(s.breed)}" loading="lazy">',
+                            unsafe_allow_html=True)
             if s.dog_name:
                 st.caption(f"🐶 {s.dog_name}")
             if s.notes:

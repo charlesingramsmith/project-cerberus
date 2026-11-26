@@ -10,10 +10,12 @@ sign-in is never shared with another's.
 """
 from __future__ import annotations
 
+import base64
 import hashlib
 import itertools
 import re
 import secrets
+import uuid
 from collections import Counter
 from dataclasses import dataclass
 from datetime import date
@@ -26,6 +28,8 @@ from cerberus.oauth import with_query
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 MIN_PASSWORD_LENGTH = 8
 FEED_LIMIT = 50  # sightings shown in the Social tab
+PHOTO_BUCKET = "sighting-photos"  # private Supabase Storage bucket, see supabase/schema.sql
+PHOTO_LINK_SECONDS = 3600  # how long a link to view a photo works
 GOOGLE_FAILED = "Google sign-in didn't work. Please try again."
 RESUME_FAILED = "You've been signed out. Please sign in again."
 RESET_LINK_FAILED = ("That password reset link has expired or was already used. "
@@ -90,9 +94,20 @@ class Backend(Protocol):
     def list_sightings(self) -> list[dict]: ...
 
     def add_sighting(self, breed: str, seen_on: date, location: str | None = None,
-                     dog_name: str | None = None, notes: str | None = None) -> None: ...
+                     dog_name: str | None = None, notes: str | None = None,
+                     photo_path: str | None = None) -> None:
+        """Log a sighting. `photo_path` is what add_photo() returned, if there's a photo."""
 
-    def delete_sighting(self, sighting_id: int) -> None: ...
+    def delete_sighting(self, sighting_id: int) -> None:
+        """Delete one of your sightings, and its photo if it has one."""
+
+    def add_photo(self, photo: bytes) -> str:
+        """Store a sighting photo (a JPEG from logic.prepare_photo) in the signed-in
+        user's own folder. Returns its path, to pass to add_sighting()."""
+
+    def photo_urls(self, paths: list[str]) -> dict[str, str]:
+        """Links to show your sighting photos, by path. Each works for about an hour.
+        Paths that can't be found (or aren't yours) are left out."""
 
     def feature_vote_counts(self) -> dict[str, int]:
         """Total +1 votes per upcoming feature, from all users (no names)."""
@@ -161,14 +176,24 @@ def _clean(value: str | None) -> str | None:
     return value or None
 
 
-def _sighting_row(breed: str, seen_on: date, location, dog_name, notes) -> dict:
-    return {
+def _sighting_row(breed: str, seen_on: date, location, dog_name, notes,
+                  photo_path=None) -> dict:
+    row = {
         "breed": breed,
         "seen_on": seen_on.isoformat(),
         "location": _clean(location),
         "dog_name": _clean(dog_name),
         "notes": _clean(notes),
     }
+    if photo_path:  # only sent when there is one, so photo-less logging never needs the column
+        row["photo_path"] = photo_path
+    return row
+
+
+def _check_photo_path(user: User, path: str) -> None:
+    """A sighting may only point at a photo in its owner's own folder."""
+    if not path.startswith(f"{user.id}/"):
+        raise ValueError("That photo isn't yours.")
 
 
 # --- Supabase ---------------------------------------------------------------------
@@ -317,7 +342,7 @@ class SupabaseBackend:
         user = self._require_user()
         res = (
             self.client.table("sightings")
-            .select("id, breed, seen_on, location, dog_name, notes")
+            .select("id, breed, seen_on, location, dog_name, notes, photo_path")
             # RLS also lets members read other people's shared sightings (for Social),
             # so ask for this user's own rows explicitly.
             .eq("user_id", user.id)
@@ -327,14 +352,40 @@ class SupabaseBackend:
         )
         return res.data
 
-    def add_sighting(self, breed, seen_on, location=None, dog_name=None, notes=None):
+    def add_sighting(self, breed, seen_on, location=None, dog_name=None, notes=None,
+                     photo_path=None):
         user = self._require_user()
-        row = _sighting_row(breed, seen_on, location, dog_name, notes)
+        if photo_path:
+            _check_photo_path(user, photo_path)
+        row = _sighting_row(breed, seen_on, location, dog_name, notes, photo_path)
         self.client.table("sightings").insert({**row, "user_id": user.id}).execute()
 
     def delete_sighting(self, sighting_id):
+        user = self._require_user()
+        rows = (self.client.table("sightings").delete()
+                .eq("id", sighting_id).eq("user_id", user.id).execute().data)
+        photos = [r["photo_path"] for r in rows or [] if r.get("photo_path")]
+        if photos:
+            try:  # the sighting is gone either way; a leftover file is only wasted space
+                self.client.storage.from_(PHOTO_BUCKET).remove(photos)
+            except Exception:
+                pass
+
+    def add_photo(self, photo):
+        user = self._require_user()
+        path = logic.photo_path(user.id, uuid.uuid4().hex)
+        self.client.storage.from_(PHOTO_BUCKET).upload(
+            path, photo, {"content-type": "image/jpeg"})
+        return path
+
+    def photo_urls(self, paths):
         self._require_user()
-        self.client.table("sightings").delete().eq("id", sighting_id).execute()
+        if not paths:
+            return {}
+        links = self.client.storage.from_(PHOTO_BUCKET).create_signed_urls(
+            list(paths), PHOTO_LINK_SECONDS)
+        return {link["path"]: link["signedURL"] for link in links
+                if link.get("signedURL") and not link.get("error")}
 
     def feature_vote_counts(self):
         self._require_user()
@@ -536,15 +587,39 @@ class MemoryBackend:
                 for s in self._sightings if s["user_id"] == user.id]
         return sorted(mine, key=lambda s: (s["seen_on"], s["id"]), reverse=True)
 
-    def add_sighting(self, breed, seen_on, location=None, dog_name=None, notes=None):
+    def add_sighting(self, breed, seen_on, location=None, dog_name=None, notes=None,
+                     photo_path=None):
         user = self._require_user()
-        row = _sighting_row(breed, seen_on, location, dog_name, notes)
-        self._sightings.append({"id": next(self._ids), "user_id": user.id, **row})
+        if photo_path:
+            _check_photo_path(user, photo_path)
+        row = _sighting_row(breed, seen_on, location, dog_name, notes, photo_path)
+        self._sightings.append({"id": next(self._ids), "user_id": user.id,
+                                "photo_path": None, **row})
 
     def delete_sighting(self, sighting_id):
         user = self._require_user()
-        self._sightings = [s for s in self._sightings
-                           if not (s["id"] == sighting_id and s["user_id"] == user.id)]
+        mine = [s for s in self._sightings if s["id"] == sighting_id and s["user_id"] == user.id]
+        self._sightings = [s for s in self._sightings if s not in mine]
+        for s in mine:
+            self._photos().pop(s["photo_path"], None)
+
+    def _photos(self) -> dict[str, bytes]:
+        """path -> JPEG, like the storage bucket. Made on first use, so a backend copied
+        from before a deploy (see refresh_stale_backend in app.py) gets one too."""
+        return self.__dict__.setdefault("photos", {})
+
+    def add_photo(self, photo):
+        user = self._require_user()
+        path = logic.photo_path(user.id, uuid.uuid4().hex)
+        self._photos()[path] = photo
+        return path
+
+    def photo_urls(self, paths):
+        user = self._require_user()
+        # Demo mode has no file server, so the photo travels inside the link itself.
+        photos = self._photos()
+        return {p: "data:image/jpeg;base64," + base64.b64encode(photos[p]).decode()
+                for p in paths if p in photos and p.startswith(f"{user.id}/")}
 
     def feature_vote_counts(self):
         self._require_user()
@@ -598,4 +673,6 @@ class MemoryBackend:
                    if s["user_id"] == user.id
                    or self._profiles.get(s["user_id"], {}).get("share_sightings")]
         newest = sorted(visible, key=lambda s: (s["seen_on"], s["id"]), reverse=True)[:limit]
+        # Photos stay private for now: the feed doesn't get their paths (nor does Supabase's).
+        newest = [{k: v for k, v in s.items() if k != "photo_path"} for s in newest]
         return logic.social_feed(newest, self._profiles)
