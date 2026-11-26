@@ -406,6 +406,67 @@ def test_photo_paths_start_with_the_owners_folder():
     assert logic.photo_path("uuid-1", "abc") == "uuid-1/abc.jpg"
 
 
+# --- Dogs that aren't on the list (yet) ---------------------------------------------
+
+LISTED = {"Beagle", "Pug"}
+
+
+def _sightings(*rows):
+    return logic.sightings_frame([{"id": i, "breed": b, "seen_on": d}
+                                  for i, (b, d) in enumerate(rows, start=1)])
+
+
+@pytest.mark.parametrize("typed, expected", [
+    ("Beagle", "Beagle"),
+    ("  beagle ", "Beagle"),             # listed breeds get their usual spelling
+    ("unidentified", logic.UNIDENTIFIED),
+    ("MIXED BREED", logic.MIXED),
+    ("Border   Lurcher", "Border Lurcher"),        # not listed yet: kept as typed, spaces tidied
+])
+def test_clean_breed(typed, expected):
+    assert logic.clean_breed(typed, LISTED) == expected
+
+
+@pytest.mark.parametrize("typed", [None, "", "   ", "x" * 101])
+def test_clean_breed_rejects_empty_or_long(typed):
+    with pytest.raises(ValueError):
+        logic.clean_breed(typed, LISTED)
+
+
+def test_breed_kind():
+    assert logic.breed_kind("Pug", LISTED) == "listed"
+    assert logic.breed_kind(logic.UNIDENTIFIED, LISTED) == "unidentified"
+    assert logic.breed_kind(logic.MIXED, LISTED) == "mixed"
+    assert logic.breed_kind("Lurcher", LISTED) == "other"
+
+
+def test_only_listed_breeds_can_be_lifers():
+    none_yet = _sightings()
+    assert logic.is_lifer(none_yet, "Pug", LISTED)
+    assert not logic.is_lifer(none_yet, logic.UNIDENTIFIED, LISTED)
+    assert not logic.is_lifer(none_yet, "Lurcher", LISTED)
+    assert logic.is_lifer(none_yet, "Lurcher")  # without a list, any new breed counts
+
+
+def test_dogs_to_identify_and_other_dogs():
+    s = _sightings(("Pug", "2026-11-01"), (logic.UNIDENTIFIED, "2026-11-02"),
+                   ("Lurcher", "2026-11-03"), (logic.MIXED, "2026-11-04"),
+                   (logic.MIXED, "2026-11-05"), (logic.UNIDENTIFIED, "2026-11-06"))
+    assert logic.to_identify(s)["seen_on"].tolist() == ["2026-11-06", "2026-11-02"]
+    others = logic.other_dogs(s, LISTED)
+    assert others.to_dict("records") == [
+        {"breed": logic.MIXED, "first_seen": "2026-11-04", "times_seen": 2},
+        {"breed": "Lurcher", "first_seen": "2026-11-03", "times_seen": 1},
+    ]
+
+
+def test_badges_only_count_listed_breeds():
+    s = _sightings((logic.UNIDENTIFIED, "2026-11-01"), ("Lurcher", "2026-11-02"),
+                   ("Pug", "2026-11-03"))
+    first = logic.badge_progress(s, listed=LISTED)[0]
+    assert first.earned_on == "2026-11-03"
+
+
 # --- Dog profiles ---------------------------------------------------------------------------
 
 BREEDS = {"Beagle", "Pug"}
