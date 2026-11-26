@@ -625,6 +625,7 @@ def test_tagging_a_dog_fills_in_its_breed_and_shows_in_social(at):
     at.multiselect(key="sighting_dogs").set_value([rex_id])
     click(at, "Log sighting")  # no breed picked: Rex's breed is used
     assert "Pug" in at.success[0].value
+    assert at.session_state["backend"].list_sightings()[0]["dog_name"] == "Rex"  # filled in too
 
     open_tab(at, "Social")
     assert '<span class="dog-tag" title="Rex">@rex</span>' in feed_html(at)
@@ -632,6 +633,18 @@ def test_tagging_a_dog_fills_in_its_breed_and_shows_in_social(at):
     assert any("**@rex**" in m.value for m in at.markdown)
     assert any("Owned by alice" in c.value for c in at.caption)
     assert "Pug" in feed_html(at)
+
+
+def test_several_dogs_can_be_tagged_in_one_post(at):
+    sign_up(at)
+    add_dog(at, "Rex", username="rex", breed="Pug")
+    add_dog(at, "Bella", username="bella", breed="Pug")
+    backend = at.session_state["backend"]
+    at.multiselect(key="sighting_dogs").set_value([d["id"] for d in backend.list_dogs()])
+    click(at, "Log sighting")
+    sighting = backend.list_sightings()[0]
+    assert len(sighting["dog_ids"]) == 2
+    assert sighting["breed"] == "Pug" and sighting["dog_name"] == "Bella and Rex"
 
 
 def test_dogs_listed_on_an_old_profile_get_dog_profiles(at):

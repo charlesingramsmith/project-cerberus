@@ -12,6 +12,10 @@ Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed b
 - Mixed breeds and crosses have their own option, and if a breed isn't on our list you can type it in.
 - Mixed breeds and breeds we don't list yet show under **Other dogs** at the bottom of your life list. They don't count towards your 100 breeds or badges (for now).
 
+## 0.15.1 - 2026-11-26 - Tagged dogs fill in their name
+- When you tag a dog in a post and leave **Dog's name** empty, the tagged dog's name is filled in for you, just like its breed. Tag several dogs and you get "Rex and Bella".
+- You can tag as many dogs as you like in one post.
+
 ## 0.15.0 - 2026-11-26 - Dog ID is now Post
 - The **Dog ID** tab is now called **Post**, with a ➕ icon. It works just the same: pick the breed, tag dogs, add the details and an optional photo, then log it.
 - This is the first step towards making Post the place to share your dogs and spot new ones.

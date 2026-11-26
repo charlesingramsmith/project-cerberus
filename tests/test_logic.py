@@ -502,6 +502,13 @@ def test_dog_username_candidates_are_made_from_the_name():
     assert all(logic.DOG_USERNAME_RE.match(n) for n in logic.dog_username_candidates("x" * 60))
 
 
+def test_tagged_names_read_naturally():
+    assert logic.tagged_names([]) == ""
+    assert logic.tagged_names([{"name": "Rex"}]) == "Rex"
+    assert logic.tagged_names([{"name": "Rex"}, {"name": "Bella"}]) == "Rex and Bella"
+    assert logic.tagged_names([{"name": n} for n in ("Rex", "Bella", "Max")]) == "Rex, Bella and Max"
+
+
 def test_tagged_breed_is_used_only_when_the_dogs_agree():
     assert logic.tagged_breed([{"breed": "Pug"}, {"breed": "Pug"}]) == "Pug"
     assert logic.tagged_breed([{"breed": "Pug"}, {"breed": "Beagle"}]) is None
