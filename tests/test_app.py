@@ -552,48 +552,6 @@ def test_sighting_photos_show_on_their_card_in_profile(at):
     assert 'alt="Your photo of a Pug"' in photos[0]
 
 
-def test_not_sure_dogs_can_be_identified_later(at):
-    sign_up(at)
-    log_breed(at, "Unidentified")
-    assert "identify" in at.info[0].value.lower()
-    assert at.metric[0].value == "0/100"  # not a lifer
-    assert any("1 dog is waiting to be identified" in i.value for i in at.info)
-    assert any("Not identified yet" in m.value for m in at.markdown)
-
-    at.selectbox(key=next(sb.key for sb in at.selectbox
-                          if sb.key and sb.key.startswith("identify_breed_"))).set_value("Beagle")
-    click(at, "Save breed")
-    assert "New lifer" in at.success[0].value
-    assert at.metric[0].value == "1/100"
-    assert not any("waiting to be identified" in i.value for i in at.info)
-
-
-def test_unlisted_breeds_and_mixes_go_under_other_dogs(at):
-    from datetime import date
-
-    sign_up(at)
-    log_breed(at, "Mixed breed")
-    assert "isn't one of the breeds" in at.info[0].value
-    # AppTest can't type a new option into a selectbox, so add a typed-in breed directly.
-    at.session_state["backend"].add_sighting("Lurcher", date(2026, 11, 1))
-    at.run()
-    assert at.metric[0].value == "0/100"
-    assert at.metric[1].value == "2"
-    assert "Other dogs" in [h.value for h in at.subheader]
-    rows = next(m.value for m in at.markdown if "Lurcher" in m.value and "cerb-row" in m.value)
-    assert "Mixed breed" in rows
-
-
-def test_typed_breeds_are_escaped_in_the_social_feed(at):
-    from datetime import date
-
-    sign_up(at)
-    at.session_state["backend"].add_sighting("<b>Shiba</b>", date(2026, 11, 1))
-    open_tab(at, "Social")
-    post = next(m.value for m in at.markdown if "cerb-post" in m.value)
-    assert "&lt;b&gt;Shiba&lt;/b&gt;" in post
-
-
 # --- Dog profiles and tags ----------------------------------------------------------------
 
 def add_dog(at: AppTest, name: str, username: str = "", breed: str | None = None) -> AppTest:

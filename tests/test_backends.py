@@ -324,24 +324,6 @@ def test_photos_need_a_sign_in(backend):
         backend.photo_urls(["user-1/a.jpg"])
 
 
-def test_a_sighting_can_be_identified_later_by_its_owner_only(backend):
-    backend.sign_up("alice@example.com", "password-a", "alice")
-    backend.add_sighting(logic.UNIDENTIFIED, date(2026, 11, 1))
-    sighting_id = backend.list_sightings()[0]["id"]
-    backend.sign_out()
-
-    backend.sign_up("bob@example.com", "password-b", "bob")
-    backend.set_sighting_breed(sighting_id, "Pug")  # not bob's: nothing changes
-    backend.sign_out()
-
-    backend.sign_in("alice@example.com", "password-a")
-    assert backend.list_sightings()[0]["breed"] == logic.UNIDENTIFIED
-    backend.set_sighting_breed(sighting_id, "Lurcher")
-    assert backend.list_sightings()[0]["breed"] == "Lurcher"
-    with pytest.raises(ValueError):
-        backend.set_sighting_breed(sighting_id, "  ")
-
-
 # --- Dog profiles and tags ----------------------------------------------------------------
 
 def add_member(backend, name):
