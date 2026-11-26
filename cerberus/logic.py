@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import io
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -150,8 +151,55 @@ def photo_path(user_id: str, photo_id: str) -> str:
     return f"{user_id}/{photo_id}.jpg"
 
 
-def is_lifer(sightings: pd.DataFrame, breed: str) -> bool:
-    """True if this breed isn't in the spotter's sightings yet."""
+# --- Verified and unverified breeds ----------------------------------------------------
+# Every breed in data/breeds.csv is verified: it's on the life list and counts towards
+# lifers and badges. Members can also type in a breed that isn't listed. That's an
+# unverified breed: it's logged, shown with an "Unverified breed" badge and added to the
+# shared list of member-added breeds (the user_breeds table) for the owner to review.
+# Once a breed is added to data/breeds.csv it's verified, and old sightings of it count.
+
+MAX_BREED_LENGTH = 100  # matches the check on sightings.breed in supabase/schema.sql
+UNVERIFIED = "Unverified breed"
+
+
+def clean_breed(text: str | None, known: Iterable[str] = ()) -> str:
+    """Tidy a breed picked or typed on the Spotted! form. A known breed (verified, or
+    already added by a member) typed in any capitals becomes its usual spelling; anything
+    else is kept as typed, with spaces tidied. Raises ValueError if empty or too long."""
+    text = " ".join((text or "").split())
+    if not text:
+        raise ValueError("Pick a breed first, or type one in.")
+    if len(text) > MAX_BREED_LENGTH:
+        raise ValueError(f"Please keep the breed under {MAX_BREED_LENGTH} characters.")
+    spelling = {name.lower(): name for name in known}
+    return spelling.get(text.lower(), text)
+
+
+_MARKDOWN_SPECIAL = re.compile(r"([\\`*_{}\[\]()#+\-.!|<>~:$])")
+
+
+def escape_markdown(text: str) -> str:
+    """Text members typed, made safe to put inside st.markdown: every character Markdown
+    (or Streamlit's extras, like :red[...] and $maths$) could act on gets a backslash."""
+    return _MARKDOWN_SPECIAL.sub(r"\\\1", text)
+
+
+def unverified_breeds(sightings: pd.DataFrame, listed: set[str]) -> pd.DataFrame:
+    """Your sightings of breeds that aren't verified yet: breed, first_seen, times_seen,
+    most seen first."""
+    rest = sightings[~sightings["breed"].isin(listed)]
+    return (rest.groupby("breed")
+            .agg(first_seen=("seen_on", "min"), times_seen=("seen_on", "size"))
+            .reset_index()
+            .sort_values(["times_seen", "breed"], ascending=[False, True])
+            .reset_index(drop=True))
+
+
+def is_lifer(sightings: pd.DataFrame, breed: str, listed: set[str] | None = None) -> bool:
+    """True if this breed isn't in the spotter's sightings yet. If `listed` is given, only
+    those (verified) breeds can be lifers."""
+    if listed is not None and breed not in listed:
+        return False
     return breed not in set(sightings["breed"])
 
 
@@ -487,13 +535,17 @@ class BadgeProgress:
         return self.badge.goal - self.have
 
 
-def badge_progress(sightings: pd.DataFrame, badges: tuple[Badge, ...] = BADGES) -> list[BadgeProgress]:
+def badge_progress(sightings: pd.DataFrame, badges: tuple[Badge, ...] = BADGES,
+                   listed: set[str] | None = None) -> list[BadgeProgress]:
     """Every badge with whether it's earned, and when.
 
     A badge for N breeds is earned on the day the Nth different breed was first seen.
     It's worked out from your sightings each time (no table to keep in step), so dates are
     right even for sightings logged out of order, and deleting a sighting can undo a badge.
+    If `listed` is given, only those (verified) breeds count.
     """
+    if listed is not None:
+        sightings = sightings[sightings["breed"].isin(listed)]
     first_seen = sorted(sightings.groupby("breed")["seen_on"].min().astype(str))
     count = len(first_seen)
     return [BadgeProgress(badge, first_seen[badge.goal - 1] if count >= badge.goal else None,

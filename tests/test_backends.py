@@ -408,3 +408,23 @@ def test_dogs_need_a_sign_in(backend):
                  lambda: backend.add_dog({"username": "rex", "name": "Rex"})):
         with pytest.raises(AuthError):
             call()
+
+
+def test_added_breeds_are_shared_and_ignore_capitals(backend):
+    backend.sign_up("a@example.com", "correct-horse", "alice")
+    backend.add_user_breed("Cavapoo")
+    backend.add_user_breed("cavapoo")  # already there: kept as first spelled
+    backend.add_user_breed("Aussiedoodle")
+    backend.sign_out()
+    backend.sign_up("b@example.com", "correct-horse", "bobby")
+    assert backend.list_user_breeds() == ["Aussiedoodle", "Cavapoo"]
+    with pytest.raises(ValueError):
+        backend.add_user_breed("x" * 101)
+
+
+def test_sightings_can_be_of_a_typed_in_breed_but_not_an_empty_one(backend):
+    backend.sign_up("a@example.com", "correct-horse", "alice")
+    backend.add_sighting("Cavapoo", date(2026, 11, 1))
+    assert backend.list_sightings()[0]["breed"] == "Cavapoo"
+    with pytest.raises(ValueError):
+        backend.add_sighting("  ", date(2026, 11, 1))

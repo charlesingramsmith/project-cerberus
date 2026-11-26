@@ -628,3 +628,51 @@ def test_shared_sighting_photos_show_in_social(at):
     sign_up(at, username="bobby", email="bobby@example.com")
     open_tab(at, "Social")
     assert 'class="sighting-photo" src="data:image/jpeg;base64,' in feed_html(at)
+
+
+@pytest.fixture
+def typing(monkeypatch):
+    """Let AppTest type a new option into a selectbox (accept_new_options). Like the browser,
+    it sends the typed text itself when it isn't one of the options."""
+    from streamlit.proto.WidgetStates_pb2 import WidgetState
+    from streamlit.testing.v1.element_tree import Selectbox, _format_value_for_widget
+
+    def widget_state(self):
+        ws = WidgetState(id=self.id)
+        if self.value is not None:
+            shown = _format_value_for_widget(self.format_func, self.value)
+            ws.string_value = shown if shown in self.options else self.value
+        return ws
+    monkeypatch.setattr(Selectbox, "_widget_state", property(widget_state))
+
+
+def type_breed(at: AppTest, text: str) -> AppTest:
+    at.selectbox(key="sighting_breed").set_value(text)
+    return click(at, "Spotted!")
+
+
+def test_a_typed_in_breed_is_logged_as_unverified_and_shared_for_review(at, typing):
+    sign_up(at, username="alice", email="alice@example.com")
+    type_breed(at, "Sprocker   Spaniel")
+    assert "unverified breed" in at.info[0].value
+    assert not at.success  # not a lifer
+    assert at.metric[0].value == "0/100" and at.metric[1].value == "1"
+    assert "Unverified breeds" in [h.value for h in at.subheader]
+    life = "".join(m.value for m in at.markdown)
+    assert "Sprocker Spaniel" in life and "Unverified breed" in life
+
+    # Another member can pick it (typed in any capitals, it's the same breed)
+    click(at, "Sign out")
+    sign_up(at, username="bobby", email="bobby@example.com")
+    assert "Sprocker Spaniel" in at.selectbox(key="sighting_breed").options[-1]
+    type_breed(at, "sprocker spaniel")
+    assert at.session_state["backend"].list_user_breeds() == ["Sprocker Spaniel"]
+    open_tab(at, "Social")
+    feed = feed_html(at)
+    assert "Sprocker Spaniel" in feed and "cerb-chip unverified" in feed
+
+
+def test_listed_breeds_say_they_are_verified(at):
+    sign_up(at)
+    life = "".join(m.value for m in at.markdown)
+    assert "✓ Verified breed" in life

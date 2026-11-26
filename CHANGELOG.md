@@ -6,6 +6,12 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.18.0 - 2026-11-26 - Add your own breeds
+- Every breed on the life list is now a **verified breed** (tap one to see the label).
+- Can't find the breed you spotted? Type it into **Breed** on **Spotted!** and pick "Add". It's logged with an **Unverified breed** badge.
+- Breeds you add go on a list we review, so you're helping us choose which breeds to add next. Other members can pick them too.
+- Unverified breeds sit under **Unverified breeds** at the bottom of your life list. They don't count as lifers or towards badges until we verify them, and then your earlier sightings count straight away.
+
 ## 0.17.1 - 2026-11-26 - Tagging a dog fills in its name straight away
 - When you tag a dog on **Spotted!**, its name and breed now appear in the form straight away, so you can see them (and change them) before you post.
 

@@ -86,6 +86,8 @@ button { min-height: 2.75rem; }
 .cerb-row .thumb .tick {
     position: absolute; right: .1rem; bottom: .1rem; font-size: .75rem; line-height: 1;
 }
+.cerb-row .thumb.icon { display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem; }  /* an unverified breed: an emoji, no photo */
 .cerb-row .main { flex: 1; min-width: 0; }
 .cerb-row .name { font-weight: 600; }
 .cerb-row .sub { font-size: .85rem; opacity: .7; }
@@ -156,6 +158,15 @@ button { min-height: 2.75rem; }
 .cerb-post .who { font-size: .85rem; opacity: .75; }
 .cerb-post .breed { font-weight: 600; }
 .cerb-post .sub { font-size: .85rem; opacity: .75; }
+
+/* "Verified breed" and "Unverified breed" labels next to a breed's name */
+.cerb-chip {
+    display: inline-block; margin-left: .35rem; padding: 0 .45rem; border-radius: 999px;
+    font-size: .7rem; font-weight: 600; line-height: 1.5; vertical-align: middle;
+    white-space: nowrap;
+}
+.cerb-chip.unverified { border: 1px solid rgba(232, 131, 58, .7); color: #E8833A; }
+.cerb-chip.verified { background: rgba(46, 160, 67, .15); color: #2EA043; }
 
 /* A sighting's own photo, on its card in Profile and on shared posts in Social */
 .sighting-photo {
@@ -515,6 +526,21 @@ except Exception:
     profile, profiles_ready = logic.new_profile(user.username), False
 user = dataclasses.replace(user, username=profile["username"])  # the name others see
 
+# Every breed in breeds.csv is verified. Members can type in others ("unverified breeds"),
+# which go on a shared list (user_breeds) so others can pick them and the owner can review.
+listed = set(breeds["breed"])  # only these count towards the life list, lifers and badges
+try:
+    added_breeds = [b for b in backend.list_user_breeds() if b not in listed]
+except AuthError as err:
+    end_session(str(err))
+md_text = logic.escape_markdown
+UNVERIFIED_CHIP = f'<span class="cerb-chip unverified">{logic.UNVERIFIED}</span>'
+
+
+def unverified_chip(breed: str) -> str:
+    """The "Unverified breed" label, for a breed that isn't on the verified list."""
+    return "" if breed in listed else UNVERIFIED_CHIP
+
 
 def load_dogs() -> list[dict] | None:
     """Every member's dog profiles, or None if dog profiles aren't set up yet (then the
@@ -599,7 +625,7 @@ if st.session_state.get("sharing_notice"):
 life = logic.life_list(breeds, sightings)
 seen = life["times_seen"] > 0
 collected, total = int(seen.sum()), len(life)
-badges = logic.badge_progress(sightings)
+badges = logic.badge_progress(sightings, listed=listed)
 
 flash = st.session_state.pop("flash", None)
 if flash:
@@ -611,6 +637,10 @@ if flash:
         if badge:
             st.success(f"{badge.emoji} Badge earned: **{badge.name}**! "
                        f"{badge.description}. See it in Profile.")
+    elif kind == "unverified":
+        st.info(f"Logged a **{md_text(breed_name)}**, an unverified breed. It's not on the "
+                "life list yet, so it's under **Unverified breeds** on your life list. "
+                "Thanks for helping us find breeds to add!")
     else:
         st.info(f"Logged another **{breed_name}**.")
 photo_problem = st.session_state.pop("photo_problem", None)
@@ -672,6 +702,8 @@ with tab_spotted:
     seen_breeds = set(life.loc[seen, "breed"])
 
     def breed_label(name: str) -> str:
+        if name not in listed:
+            return f"{name}  · unverified"
         return name if name in seen_breeds else f"{name}  ✨ new"
 
     def fill_from_tags():
@@ -703,11 +735,14 @@ with tab_spotted:
     with st.form("log_sighting", clear_on_submit=True, border=False):
         breed = st.selectbox(
             "Breed",
-            breeds["breed"].tolist(),
+            [*breeds["breed"], *added_breeds],
             index=None,
             format_func=breed_label,
             placeholder="Start typing a breed…",
+            accept_new_options=True,  # a breed that isn't listed can be typed in
             key="sighting_breed",
+            help="Can't find the breed? Type it in. It's logged as an **unverified breed** "
+                 "and we'll look at adding it to the app.",
         )
         seen_on = st.date_input("Date seen", value=dt.date.today(), max_value=dt.date.today())
         dog_name = st.text_input("Dog's name (if you found out)", key="sighting_dog_name")
@@ -732,11 +767,14 @@ with tab_spotted:
         tagged_dogs = [dogs_by_id[d] for d in tagged if d in dogs_by_id]
         breed = breed or logic.tagged_breed(tagged_dogs)
         dog_name = dog_name.strip() or logic.tagged_names(tagged_dogs)
-        if breed is None:
-            st.warning("Pick a breed first." if not tagged_dogs else
+        try:
+            breed = logic.clean_breed(breed, [*listed, *added_breeds])
+        except ValueError as err:
+            st.warning(str(err) if not tagged_dogs else
                        "Pick a breed first (the dogs you tagged don't have one breed listed).")
-        else:
-            lifer = logic.is_lifer(sightings, breed)
+            breed = None
+        if breed is not None:
+            lifer = logic.is_lifer(sightings, breed, listed)
             photo_path = None
             if photo is not None:
                 try:
@@ -753,8 +791,16 @@ with tab_spotted:
                                      [d["id"] for d in tagged_dogs])
             except AuthError as err:
                 end_session(str(err))
+            if breed not in listed and breed not in added_breeds:
+                try:  # put it on the list of breeds to review (and for others to pick)
+                    backend.add_user_breed(breed)
+                except AuthError as err:
+                    end_session(str(err))
+                except Exception:
+                    pass  # not set up yet: the sighting is logged all the same
             st.session_state.clear_tags = True
-            st.session_state.flash = ("lifer" if lifer else "repeat", breed)
+            st.session_state.flash = ("lifer" if lifer else
+                                      "repeat" if breed in listed else "unverified", breed)
             st.rerun()
 
 # --- Life list ----------------------------------------------------------------------------------
@@ -772,7 +818,9 @@ def breed_profile_html(profile: logic.BreedProfile | None) -> str:
             f'rel="noopener">{esc(profile.credit)}</a>{licence}, via Wikimedia Commons</div>'
         )
     return (
-        f'<div class="cerb-profile">{photo}<p>{esc(profile.intro)}</p>'
+        f'<div class="cerb-profile">{photo}'
+        f'<p><span class="cerb-chip verified">✓ Verified breed</span></p>'
+        f'<p>{esc(profile.intro)}</p>'
         f'<div class="facts"><b>From:</b> {esc(profile.origin)}<br>'
         f'<b>Temperament:</b> {esc(profile.temperament)}</div>'
         f'<div class="fun">💡 <b>Fun fact:</b> {esc(profile.fun_fact)}</div></div>'
@@ -802,6 +850,14 @@ def life_row(row, profile: logic.BreedProfile | None) -> str:
     )
 
 
+def unverified_row(row) -> str:
+    """A breed that isn't verified yet, as a plain row (no photo; its name was typed in)."""
+    return (f'<div class="cerb-row"><span class="thumb icon">🐕</span><div class="main">'
+            f'<div class="name">{html.escape(row.breed)}{UNVERIFIED_CHIP}</div>'
+            f'<div class="sub">First seen {row.first_seen} · seen {row.times_seen}×</div>'
+            f'</div></div>')
+
+
 with tab_life:
     st.header(f"{user.username}'s life list")
     # Three small stat cards side by side, even on a narrow phone (st.columns would stack them).
@@ -829,6 +885,14 @@ with tab_life:
                     unsafe_allow_html=True)
     st.caption("Tap a breed to see a photo and a short intro. "
                "Breeds ranked by AKC 2025 popularity. Photos from Wikimedia Commons.")
+
+    unverified = logic.unverified_breeds(sightings, listed)
+    if not unverified.empty:
+        st.subheader("Unverified breeds")
+        st.caption("Breeds you typed in that aren't on the life list yet. We review them, "
+                   "and once a breed is verified your sightings of it count as lifers.")
+        st.markdown("".join(unverified_row(r) for r in unverified.itertuples()),
+                    unsafe_allow_html=True)
 
 # --- Your profile: who you are, plus every sighting you've logged ------------------------------
 def badge_html(p: logic.BadgeProgress) -> str:
@@ -1058,8 +1122,10 @@ with tab_profile:
         with st.container(border=True):
             with st.container(horizontal=True, vertical_alignment="top",
                               horizontal_alignment="distribute"):
-                st.markdown(f"**{s.breed}**  \n{s.seen_on}"
-                            + (f" · {s.location}" if s.location else ""))
+                st.markdown(f"**{md_text(s.breed)}**"
+                            + ("" if s.breed in listed else " :orange-badge[Unverified breed]")
+                            + f"  \n{s.seen_on}"
+                            + (f" · {md_text(s.location)}" if s.location else ""))
                 with st.popover("🗑", help="Delete this sighting"):
                     st.write("Delete this sighting? This can't be undone.")
                     if st.button("Delete", key=f"delete_{s.id}", type="primary"):
@@ -1094,7 +1160,7 @@ def feed_post(post: dict, links: dict[str, str]) -> str:
     return (
         f'<div class="cerb-post">{avatar_html(post["avatar"], "avatar")}'
         f'<div class="main"><div class="who">{who} · {seen_on.day} {seen_on:%b %Y}</div>'
-        f'<div class="breed">{html.escape(post["breed"])}</div>'
+        f'<div class="breed">{html.escape(post["breed"])}{unverified_chip(post["breed"])}</div>'
         + (f"<div>{tags}</div>" if tags else "")
         + "".join(f'<div class="sub">{line}</div>' for line in lines if line)
         + photo + "</div></div>"
