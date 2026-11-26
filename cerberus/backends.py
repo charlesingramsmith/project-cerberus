@@ -28,6 +28,8 @@ MIN_PASSWORD_LENGTH = 8
 FEED_LIMIT = 50  # sightings shown in the Social tab
 GOOGLE_FAILED = "Google sign-in didn't work. Please try again."
 RESUME_FAILED = "You've been signed out. Please sign in again."
+RESET_LINK_FAILED = ("That password reset link has expired or was already used. "
+                     "Please ask for a new one.")
 
 
 class AuthError(Exception):
@@ -69,6 +71,21 @@ class Backend(Protocol):
 
     def sign_out(self) -> None:
         """Sign out on this device only; other devices stay signed in."""
+
+    def send_password_reset(self, email: str, redirect_to: str) -> None:
+        """Email a link for choosing a new password ("Forgot your password?").
+
+        The link brings the user back to `redirect_to` with `?token_hash=...&type=recovery`.
+        Nothing says whether an account exists for that email, so this can't be used to
+        find out who's a member. Raises AuthError for a badly formed email address.
+        """
+
+    def finish_password_reset(self, token_hash: str) -> User:
+        """Sign in with the token from a reset link, so the user can choose a new password.
+        Each link works once. Raises AuthError if it's expired or used."""
+
+    def change_password(self, new_password: str) -> None:
+        """Set a new password for the signed-in user. Raises AuthError if it's too short."""
 
     def list_sightings(self) -> list[dict]: ...
 
@@ -117,13 +134,23 @@ def _is_duplicate(err: Exception) -> bool:
     return getattr(err, "code", None) == "23505"
 
 
-def validate_sign_up(email: str, password: str, username: str) -> tuple[str, str]:
-    """Check sign-up input and return the cleaned (email, username)."""
-    email, username = email.strip().lower(), username.strip()
+def validate_email(email: str) -> str:
+    """Check an email address and return it cleaned (trimmed, lower case)."""
+    email = email.strip().lower()
     if not EMAIL_RE.match(email):
         raise AuthError("That doesn't look like a valid email address.")
+    return email
+
+
+def validate_password(password: str) -> None:
     if len(password) < MIN_PASSWORD_LENGTH:
         raise AuthError(f"Password must be at least {MIN_PASSWORD_LENGTH} characters.")
+
+
+def validate_sign_up(email: str, password: str, username: str) -> tuple[str, str]:
+    """Check sign-up input and return the cleaned (email, username)."""
+    email, username = validate_email(email), username.strip()
+    validate_password(password)
     if not 3 <= len(username) <= MAX_USERNAME_LENGTH:
         raise AuthError(f"Username must be 3 to {MAX_USERNAME_LENGTH} characters.")
     return email, username
@@ -250,6 +277,36 @@ class SupabaseBackend:
         finally:
             self._user = None
 
+    # Password reset. Supabase emails a link; its "Reset Password" email template must
+    # point the link at this app with the token in the address (see
+    # docs/password-reset.md), so the app can check it with verify_otp. That works on
+    # any device, even if the server restarted in between, unlike the PKCE code that
+    # Google sign-in uses (whose secret only lives in this server's memory).
+    def send_password_reset(self, email, redirect_to):
+        email = validate_email(email)
+        try:
+            self.client.auth.reset_password_for_email(email, {"redirect_to": redirect_to})
+        except Exception as err:  # e.g. "email rate limit exceeded"
+            raise AuthError(getattr(err, "message", str(err))) from err
+
+    def finish_password_reset(self, token_hash):
+        try:
+            res = self.client.auth.verify_otp({"token_hash": token_hash, "type": "recovery"})
+        except Exception as err:
+            raise AuthError(RESET_LINK_FAILED) from err
+        if res.user is None:
+            raise AuthError(RESET_LINK_FAILED)
+        self._user = self._keep(res.user)
+        return self._user
+
+    def change_password(self, new_password):
+        validate_password(new_password)
+        self._require_user()
+        try:
+            self.client.auth.update_user({"password": new_password})
+        except Exception as err:  # e.g. "New password should be different from the old password."
+            raise AuthError(getattr(err, "message", str(err))) from err
+
     def list_sightings(self):
         user = self._require_user()
         res = (
@@ -375,6 +432,10 @@ class MemoryBackend:
         self.suggestions: list[dict] = []
         self._seen: dict[str, str] = {}  # user id -> newest update they've seen
         self._profiles: dict[str, dict] = {}  # user id -> profile
+        # Password reset: single-use tokens (token -> email), and the "emails" that
+        # would have been sent, as (to, link), since demo mode can't send real ones.
+        self._reset_tokens: dict[str, str] = {}
+        self.sent_emails: list[tuple[str, str]] = []
 
     @staticmethod
     def _hash(password: str) -> str:
@@ -442,6 +503,26 @@ class MemoryBackend:
         self._tokens.pop(self._token, None)
         self._token = None
         self._user = None
+
+    def send_password_reset(self, email, redirect_to):
+        email = validate_email(email)
+        if email not in self._accounts:  # like Supabase: no email, and no error either
+            return
+        token = secrets.token_urlsafe(16)
+        self._reset_tokens[token] = email
+        self.sent_emails.append(
+            (email, with_query(redirect_to, token_hash=token, type="recovery")))
+
+    def finish_password_reset(self, token_hash):
+        email = self._reset_tokens.pop(token_hash, None)  # each link works once
+        if email is None:
+            raise AuthError(RESET_LINK_FAILED)
+        return self._signed_in(self._accounts[email][1])
+
+    def change_password(self, new_password):
+        validate_password(new_password)
+        user = self._require_user()
+        self._accounts[user.email] = (self._hash(new_password), user)
 
     def list_sightings(self):
         user = self._require_user()

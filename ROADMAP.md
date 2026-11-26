@@ -33,6 +33,7 @@ A guided question flow ("help me identify": size, coat, ears) was considered and
 - [x] **Breed profiles**: tap a breed on the life list to see a photo, a short intro, where it's from, its temperament and a fun fact. Text in `data/breed_info.csv`; credited Wikimedia Commons photos in `data/breed_photos.csv` (made by `scripts/fetch_breed_photos.py`).
 - [x] **Breed photos as pictures**: small breed photos on every life-list row (greyed out until spotted), and any breed's photo as your profile picture (shown on your profile and in Social). Each picture is zoomed in on the dog's face, framed by hand with `scripts/face_cropper.py` (saved in `data/breed_faces.csv`; `logic.face_photo` picks a sharp enough copy).
 - [x] **Social feed**: the latest 50 sightings from everyone who shares, with their name and picture. Sharing is on by default (a popup says so on a member's first visit), with an off switch in Settings > Privacy; the "where" field is shown as typed (the log form says so).
+- [x] **Password reset**: "Forgot your password?" on the sign-in screen emails a one-time link (Supabase `reset_password_for_email`; the link carries a `token_hash` the app checks with `verify_otp`), then the user must choose a new password before the app opens. Needs the Supabase email template and SMTP setup in [docs/password-reset.md](docs/password-reset.md).
 
 ## Now
 
@@ -45,7 +46,6 @@ _Nothing in progress. Pick the next item from below._
   - Phone camera via `st.camera_input` / `st.file_uploader`. Store the photo with the sighting in a Supabase Storage bucket with RLS (users only see their own photos, unless shared). Schema change goes in `supabase/schema.sql`.
   - Model options to compare: a hosted image-classification API vs. a small pretrained model fine-tuned on dog breeds (e.g. the Stanford Dogs dataset). Watch Streamlit Cloud's memory limits if running a model in-app.
   - Always let the user confirm: the model suggests, the human decides what goes on the life list.
-- [ ] Password reset
 
 ## Later
 
