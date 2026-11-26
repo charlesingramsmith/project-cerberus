@@ -6,6 +6,9 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.13.1 - 2026-11-26 - "Forgot your password?" removed for now
+- We've taken out **Forgot your password?** from the sign-in screen for now, because the reset emails couldn't be sent yet. If you forget your password and your email is a Google (Gmail) account, use **Continue with Google**: it opens your same account.
+
 ## 0.13.0 - 2026-11-26 - Photos on your sightings
 - Add a photo when you log a dog: take one with your phone's camera or pick one from your photos. It's optional, so you can still log a sighting without one.
 - Your photos show on your sightings in Profile. Only you can see them.

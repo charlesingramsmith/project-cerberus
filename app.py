@@ -10,7 +10,6 @@ import sys
 import time
 import uuid
 from pathlib import Path
-from urllib.parse import parse_qsl, urlparse
 
 import pandas as pd
 import streamlit as st
@@ -261,7 +260,6 @@ backend = st.session_state.backend
 def end_session(message: str | None = None):
     st.session_state.pop("user", None)
     st.session_state.pop("remember", None)
-    st.session_state.pop("choose_password", None)
     if message:
         st.session_state.auth_notice = message
     st.rerun()
@@ -348,83 +346,6 @@ def finish_google_sign_in():
         st.session_state.remember = remember
 
 
-# --- Forgot your password? ---------------------------------------------------------------
-# 1. On the sign-in screen, "Forgot your password?" asks Supabase to email a reset link.
-# 2. The link (shaped by the "Reset Password" email template, see docs/password-reset.md)
-#    opens this app with `?token_hash=...&type=recovery`. That signs the user in, and
-#    they must choose a new password before the rest of the app opens.
-def finish_password_reset():
-    """If the user just opened a password reset link, sign them in to choose a new one."""
-    params = st.query_params
-    token_hash = params.get("token_hash")
-    if not token_hash or params.get("type") != "recovery":
-        return
-    st.query_params.clear()  # so a refresh doesn't try to reuse the one-time link
-    try:
-        st.session_state.user = backend.finish_password_reset(token_hash)
-    except AuthError as err:
-        st.session_state.auth_notice = str(err)
-    else:
-        st.session_state.choose_password = True
-        st.session_state.remember = False  # they may be on a borrowed device
-
-
-def forgot_password_form():
-    with st.expander("Forgot your password?"):
-        with st.form("forgot_password", border=False):
-            email = st.text_input("Email", key="reset_email", type="email",
-                                  autocomplete="email")
-            sent = st.form_submit_button("Email me a reset link", width="stretch")
-        if sent:
-            try:
-                backend.send_password_reset(email, app_url())
-            except AuthError as err:
-                st.error(str(err))
-            else:
-                # Same message whether or not there's an account, so nobody can use this
-                # to find out who's a member.
-                st.success("If there's an account with that email, we've sent it a link "
-                           "to choose a new password. The link works once. "
-                           "Check your spam folder too.")
-                if backend.demo and backend.sent_emails:
-                    st.session_state.demo_reset_link = backend.sent_emails[-1][1]
-        # Demo mode can't send emails (and a new tab would be a new demo with no accounts),
-        # so it offers a button that opens the link right here instead.
-        link = st.session_state.get("demo_reset_link") if backend.demo else None
-        if link:
-            st.caption("Demo mode can't send emails, so here's the link it would contain.")
-            if st.button("Open the reset link", key="demo_open_reset_link", width="stretch"):
-                del st.session_state.demo_reset_link
-                st.query_params.from_dict(dict(parse_qsl(urlparse(link).query)))
-                st.rerun()
-
-
-def choose_password_screen(user):
-    st.title("🐕 Choose a new password")
-    st.write("You opened a password reset link. Pick a new password to finish.")
-    st.caption(f"Account: {user.email}")
-    with st.form("new_password"):
-        password = st.text_input("New password", type="password", key="new_password",
-                                 autocomplete="new-password", help="At least 8 characters.")
-        confirm = st.text_input("Confirm new password", type="password",
-                                key="new_password_confirm", autocomplete="new-password")
-        if st.form_submit_button("Save new password", type="primary", width="stretch"):
-            if password != confirm:
-                st.error("Passwords don't match.")
-            else:
-                try:
-                    backend.change_password(password)
-                except AuthError as err:
-                    st.error(str(err))
-                else:
-                    st.session_state.pop("choose_password", None)
-                    st.session_state.password_changed = True
-                    st.rerun()
-    if st.button("Cancel and sign out", key="cancel_new_password", width="stretch"):
-        backend.sign_out()
-        end_session("Your password wasn't changed.")
-
-
 # --- Keep me signed in ----------------------------------------------------------------
 # See cerberus/remember.py. An invisible component keeps the browser's saved sign-in (a
 # single-use refresh token) in step with this visit, and reports what was saved.
@@ -502,7 +423,6 @@ def auth_screen():
                 else:
                     st.session_state.remember = remember
                     st.rerun()
-        forgot_password_form()
 
     with sign_up_tab:
         with st.form("sign_up"):
@@ -536,16 +456,12 @@ def auth_screen():
 
 if "user" not in st.session_state:
     finish_google_sign_in()
-    finish_password_reset()
 resume_saved_sign_in(sync_saved_sign_in())
 if "user" not in st.session_state:
     auth_screen()
     st.stop()
 
 user = st.session_state.user
-if st.session_state.get("choose_password"):  # came from a password reset link
-    choose_password_screen(user)
-    st.stop()
 
 if backend.demo:
     st.caption("⚠️ Demo mode: accounts and sightings vanish when you close this tab.")
@@ -635,9 +551,6 @@ life = logic.life_list(breeds, sightings)
 seen = life["times_seen"] > 0
 collected, total = int(seen.sum()), len(life)
 badges = logic.badge_progress(sightings)
-
-if st.session_state.pop("password_changed", False):
-    st.success("Your password has been changed.")
 
 flash = st.session_state.pop("flash", None)
 if flash:

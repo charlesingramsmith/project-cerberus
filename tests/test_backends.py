@@ -154,57 +154,6 @@ def test_unknown_token_is_rejected(backend):
         backend.resume_session("made-up")
 
 
-# --- Password reset -------------------------------------------------------------------
-
-def reset_link_token(link: str) -> str:
-    from urllib.parse import parse_qs, urlparse
-    params = parse_qs(urlparse(link).query)
-    assert params["type"] == ["recovery"]
-    return params["token_hash"][0]
-
-
-def test_password_reset_lets_you_sign_in_with_a_new_password(backend):
-    user = backend.sign_up("a@example.com", "old-password", "alice")
-    backend.sign_out()
-
-    backend.send_password_reset(" A@Example.com ", "https://app.example/")
-    (to, link), = backend.sent_emails
-    assert to == "a@example.com" and link.startswith("https://app.example/?")
-
-    assert backend.finish_password_reset(reset_link_token(link)) == user  # signed in
-    backend.change_password("new-password")
-    backend.sign_out()
-    with pytest.raises(AuthError):
-        backend.sign_in("a@example.com", "old-password")
-    assert backend.sign_in("a@example.com", "new-password") == user
-
-
-def test_reset_links_work_once(backend):
-    backend.sign_up("a@example.com", "old-password", "alice")
-    backend.send_password_reset("a@example.com", "https://app.example/")
-    token = reset_link_token(backend.sent_emails[0][1])
-    backend.finish_password_reset(token)
-    with pytest.raises(AuthError, match="expired or was already used"):
-        backend.finish_password_reset(token)
-
-
-def test_reset_for_an_unknown_email_sends_nothing_and_says_nothing(backend):
-    backend.send_password_reset("nobody@example.com", "https://app.example/")  # no error
-    assert backend.sent_emails == []
-
-
-def test_reset_rejects_a_bad_email(backend):
-    with pytest.raises(AuthError, match="valid email"):
-        backend.send_password_reset("not-an-email", "https://app.example/")
-
-
-def test_new_password_must_be_long_enough_and_needs_a_sign_in(backend):
-    with pytest.raises(AuthError, match="at least 8"):
-        backend.change_password("short")
-    with pytest.raises(AuthError, match="sign in"):
-        backend.change_password("long-enough")
-
-
 # --- Feature votes and suggestions ----------------------------------------------------
 
 def test_feature_votes_count_everyone_but_track_your_own(backend):
