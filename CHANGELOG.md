@@ -6,9 +6,15 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
-## 0.16.0 - 2026-11-26 - Say hello to Spotted!
-- The **Post** tab is now **Spotted!** (👀), the one place to log a dog you've seen and, soon, to work out what it is.
+## 0.17.0 - 2026-11-26 - Say hello to Spotted!
+- The **Post** tab is now **Spotted!** (👀), the one place to log every dog you see, whether you know the breed or still need to identify it.
 - The button to log a dog now says **Spotted!**, and the life list counts your **Spotted** dogs.
+
+## 0.16.0 - 2026-11-26 - Not sure what breed it is?
+- You can now post a dog even if you don't know its breed. Pick **Not sure: help me identify it** at the top of the breed list.
+- Once you find out, tap **Identify** on that sighting in Profile and pick the breed. If it's a new one for you, it counts as a lifer.
+- Mixed breeds and crosses have their own option, and if a breed isn't on our list you can type it in.
+- Mixed breeds and breeds we don't list yet show under **Other dogs** at the bottom of your life list. They don't count towards your 100 breeds or badges (for now).
 
 ## 0.15.1 - 2026-11-26 - Tagged dogs fill in their name
 - When you tag a dog in a post and leave **Dog's name** empty, the tagged dog's name is filled in for you, just like its breed. Tag several dogs and you get "Rex and Bella".
