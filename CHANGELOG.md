@@ -6,6 +6,9 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.19.1 - 2026-11-26 - Fix for Your sightings
+- Fixed an error at the bottom of **Profile** when some of your sightings had a place ("Where") filled in and others didn't.
+
 ## 0.19.0 - 2026-11-26 - A proper photo button
 - Adding a photo on **Spotted!** is now one **📷 Add photo** button at the top. On your phone it opens the usual choice: take a photo or pick one from your library.
 - Your photo shows straight away as a preview, with **Change** and **Remove** buttons.

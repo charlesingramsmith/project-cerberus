@@ -1185,7 +1185,7 @@ with tab_profile:
                 st.markdown(f"**{md_text(s.breed)}**"
                             + ("" if s.breed in listed else " :orange-badge[Unverified breed]")
                             + f"  \n{s.seen_on}"
-                            + (f" · {md_text(s.location)}" if s.location else ""))
+                            + (f" · {md_text(s.location)}" if md_text(s.location) else ""))
                 with st.popover("🗑", help="Delete this sighting"):
                     st.write("Delete this sighting? This can't be undone.")
                     if st.button("Delete", key=f"delete_{s.id}", type="primary"):

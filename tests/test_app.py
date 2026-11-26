@@ -565,6 +565,19 @@ def test_photo_pickers_are_one_button_outside_the_forms(at):
     assert 'st-key-photo_pick_' in Path(APP).read_text(encoding="utf-8")
 
 
+def test_sightings_without_a_location_show_in_profile(at):
+    """A missing location is None; next to sightings that have one, pandas makes it NaN."""
+    from datetime import date
+
+    sign_up(at)
+    backend = at.session_state["backend"]
+    backend.add_sighting("Pug", date(2026, 11, 1), None)
+    backend.add_sighting("Beagle", date(2026, 11, 2), "Hyde Park")  # mixed: None becomes NaN
+    open_tab(at, "Profile")
+    assert not at.exception
+    assert any("**Pug**" in m.value and "nan" not in m.value for m in at.markdown)
+
+
 # --- Dog profiles and tags ----------------------------------------------------------------
 
 def add_dog(at: AppTest, name: str, username: str = "", breed: str | None = None) -> AppTest:

@@ -178,10 +178,13 @@ def clean_breed(text: str | None, known: Iterable[str] = ()) -> str:
 _MARKDOWN_SPECIAL = re.compile(r"([\\`*_{}\[\]()#+\-.!|<>~:$])")
 
 
-def escape_markdown(text: str) -> str:
+def escape_markdown(text: str | None) -> str:
     """Text members typed, made safe to put inside st.markdown: every character Markdown
-    (or Streamlit's extras, like :red[...] and $maths$) could act on gets a backslash."""
-    return _MARKDOWN_SPECIAL.sub(r"\\\1", text)
+    (or Streamlit's extras, like :red[...] and $maths$) could act on gets a backslash.
+    A missing value (None, or pandas' NaN for an empty optional field) gives ""."""
+    if text is None or (isinstance(text, float) and text != text):  # NaN != NaN
+        return ""
+    return _MARKDOWN_SPECIAL.sub(r"\\\1", str(text))
 
 
 def unverified_breeds(sightings: pd.DataFrame, listed: set[str]) -> pd.DataFrame:
