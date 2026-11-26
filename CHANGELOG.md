@@ -11,6 +11,10 @@ Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed b
 - See them in Profile > Badges, with the date you earned each one, or how many breeds you still need.
 - The life list shows how many breeds until your next badge, and you get a message the moment you earn one.
 
+## 0.10.2 - 2026-11-26 - "Keep me signed in" really keeps you signed in
+- Ticking **Keep me signed in** now keeps you signed in for 30 days. Before, you were often signed out after about an hour away, even with the box ticked.
+- Coming back to a tab you left open on your phone or computer no longer signs you out.
+
 ## 0.10.1 - 2026-11-24 - Breed pictures show the dog's face
 - The small breed photos on your life list, profile pictures and Social now zoom in on each dog's face, instead of showing whatever was in the middle of the photo.
 
