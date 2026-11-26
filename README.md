@@ -10,7 +10,7 @@ It's inspired by bird-watching life lists, but for the dogs you pass in the park
 
 - **Mobile first**: designed to be used one-handed on a phone while you're out walking, with a bottom tab bar (Dog ID, Life list, Profile, Social, Settings), big tap targets and phone-sized stat cards. On a desktop it shows the same layout in a centred column. Follows your device's light or dark mode.
 - **Accounts**: one tap with **Continue with Google**, or sign up with email and password. **Keep me signed in** remembers you for 30 days. Your email is never shown to other members.
-- **Dog ID**: log a sighting by picking the breed (searchable, and breeds you haven't collected yet are marked ✨ new), the date, where you saw it, the dog's name and notes, plus an optional photo (take one with your phone's camera or upload one). Photos are private to you, saved smaller and without the GPS location phones store in them.
+- **Dog ID**: log a sighting by picking the breed (searchable, and breeds you haven't collected yet are marked ✨ new), the date, where you saw it, the dog's name and notes, plus an optional photo (take one with your phone's camera or upload one). Not sure what it is? Post it as **Not sure: help me identify it** and identify it later from Profile. Mixed breeds and breeds that aren't listed (type them in) go under **Other dogs** on the life list. Photos are private to you, saved smaller and without the GPS location phones store in them.
 - **Lifer celebrations**: a new breed gets balloons 🎉.
 - **Badges**: earn milestone badges for your first lifer and for 10, 25, 50 and all 100 breeds. Your profile shows each one, with the date you earned it or how far there is to go, and the life list tells you how many breeds until the next one.
 - **Life list**: progress towards 100 breeds, the date you first saw each one and how many times, with a small photo of each breed zoomed in on its face (in colour once you've spotted it), filterable by collected or still to find, and searchable. Tap any breed to open its profile: a photo, a short intro, where it's from, its temperament and a fun fact.
@@ -98,6 +98,7 @@ Run the tests with `pytest`.
 - [x] 🖼️ Breed photos on the life list, and a breed photo as your profile picture
 - [x] 🏅 Badges for milestones (first lifer, 10/25/50/100 breeds), shown on your profile
 - [x] 📸 Your own photo on a sighting (private, stored in Supabase Storage): the first step to Photo ID
+- [x] 🔍 Post a dog you can't identify yet (or a mix, or an unlisted breed) and identify it later
 - [ ] 📷 Photo ID: snap a photo and an ML model suggests the breed (you confirm, or just pick it yourself)
 - [ ] 🧠 Opt-in: share your confirmed photos to help train the model
 - [ ] 🔊 Sound ID: get a hint from a recorded bark (experimental)

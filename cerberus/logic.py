@@ -149,8 +149,57 @@ def photo_path(user_id: str, photo_id: str) -> str:
     return f"{user_id}/{photo_id}.jpg"
 
 
-def is_lifer(sightings: pd.DataFrame, breed: str) -> bool:
-    """True if this breed isn't in the spotter's sightings yet."""
+# --- Dogs that aren't on the list (yet) --------------------------------------------
+# A sighting's breed is usually one of the listed breeds (data/breeds.csv), but a post can
+# also be a dog nobody has identified yet, a mixed breed, or a breed the app doesn't list.
+# Only listed breeds count towards the life list, lifers and badges.
+
+UNIDENTIFIED = "Unidentified"  # "Not sure: help me identify it". Identify it later in Profile.
+MIXED = "Mixed breed"
+MAX_BREED_LENGTH = 100  # matches the check on sightings.breed in supabase/schema.sql
+
+
+def clean_breed(text: str | None, listed: set[str]) -> str:
+    """Tidy a breed picked or typed on the post form. A listed breed, "Unidentified" or
+    "Mixed breed" typed in any capitals becomes its usual spelling; anything else is kept
+    as typed (a breed that isn't listed yet). Raises ValueError if it's empty or too long."""
+    text = " ".join((text or "").split())
+    if not text:
+        raise ValueError("Pick a breed first, or choose “Not sure”.")
+    if len(text) > MAX_BREED_LENGTH:
+        raise ValueError(f"Please keep the breed under {MAX_BREED_LENGTH} characters.")
+    known = {name.lower(): name for name in (*listed, UNIDENTIFIED, MIXED)}
+    return known.get(text.lower(), text)
+
+
+def breed_kind(breed: str, listed: set[str]) -> str:
+    """"listed", "unidentified", "mixed" or "other" (a breed the app doesn't list yet)."""
+    if breed in listed:
+        return "listed"
+    return {UNIDENTIFIED: "unidentified", MIXED: "mixed"}.get(breed, "other")
+
+
+def to_identify(sightings: pd.DataFrame) -> pd.DataFrame:
+    """Sightings still waiting for someone to say what breed the dog is, newest first."""
+    return recent_first(sightings[sightings["breed"] == UNIDENTIFIED])
+
+
+def other_dogs(sightings: pd.DataFrame, listed: set[str]) -> pd.DataFrame:
+    """Identified dogs that aren't on the life list: mixed breeds and breeds the app
+    doesn't list yet. Columns breed, first_seen, times_seen; most seen first."""
+    rest = sightings[~sightings["breed"].isin(listed | {UNIDENTIFIED})]
+    return (rest.groupby("breed")
+            .agg(first_seen=("seen_on", "min"), times_seen=("seen_on", "size"))
+            .reset_index()
+            .sort_values(["times_seen", "breed"], ascending=[False, True])
+            .reset_index(drop=True))
+
+
+def is_lifer(sightings: pd.DataFrame, breed: str, listed: set[str] | None = None) -> bool:
+    """True if this breed isn't in the spotter's sightings yet. If `listed` is given, only
+    those breeds can be lifers (not unidentified, mixed or unlisted dogs)."""
+    if listed is not None and breed not in listed:
+        return False
     return breed not in set(sightings["breed"])
 
 
@@ -413,13 +462,17 @@ class BadgeProgress:
         return self.badge.goal - self.have
 
 
-def badge_progress(sightings: pd.DataFrame, badges: tuple[Badge, ...] = BADGES) -> list[BadgeProgress]:
+def badge_progress(sightings: pd.DataFrame, badges: tuple[Badge, ...] = BADGES,
+                   listed: set[str] | None = None) -> list[BadgeProgress]:
     """Every badge with whether it's earned, and when.
 
     A badge for N breeds is earned on the day the Nth different breed was first seen.
     It's worked out from your sightings each time (no table to keep in step), so dates are
     right even for sightings logged out of order, and deleting a sighting can undo a badge.
+    If `listed` is given, only those breeds count (not unidentified, mixed or unlisted dogs).
     """
+    if listed is not None:
+        sightings = sightings[sightings["breed"].isin(listed)]
     first_seen = sorted(sightings.groupby("breed")["seen_on"].min().astype(str))
     count = len(first_seen)
     return [BadgeProgress(badge, first_seen[badge.goal - 1] if count >= badge.goal else None,

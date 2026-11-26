@@ -86,6 +86,8 @@ button { min-height: 2.75rem; }
 .cerb-row .thumb .tick {
     position: absolute; right: .1rem; bottom: .1rem; font-size: .75rem; line-height: 1;
 }
+.cerb-row .thumb.icon { display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem; }  /* a dog that isn't on the list: an emoji, no photo */
 .cerb-row .main { flex: 1; min-width: 0; }
 .cerb-row .name { font-weight: 600; }
 .cerb-row .sub { font-size: .85rem; opacity: .7; }
@@ -547,10 +549,11 @@ if backend.profile_is_new:  # first visit: their profile (sharing on) was just m
 if st.session_state.get("sharing_notice"):
     sharing_notice()
 
+listed = set(breeds["breed"])  # only these count towards the life list, lifers and badges
 life = logic.life_list(breeds, sightings)
 seen = life["times_seen"] > 0
 collected, total = int(seen.sum()), len(life)
-badges = logic.badge_progress(sightings)
+badges = logic.badge_progress(sightings, listed=listed)
 
 flash = st.session_state.pop("flash", None)
 if flash:
@@ -562,6 +565,12 @@ if flash:
         if badge:
             st.success(f"{badge.emoji} Badge earned: **{badge.name}**! "
                        f"{badge.description}. See it in Profile.")
+    elif kind == "unidentified":
+        st.info("🔍 Logged a dog to identify. When you find out the breed, tap **Identify** "
+                "on it in Profile.")
+    elif kind == "other":
+        st.info(f"Logged a **{breed_name}**. It isn't one of the breeds on the life list "
+                "yet, so it's under **Other dogs** at the bottom of your life list.")
     else:
         st.info(f"Logged another **{breed_name}**.")
 photo_problem = st.session_state.pop("photo_problem", None)
@@ -623,15 +632,24 @@ with tab_id:
     seen_breeds = set(life.loc[seen, "breed"])
 
     def breed_label(name: str) -> str:
-        return name if name in seen_breeds else f"{name}  ✨ new"
+        if name == logic.UNIDENTIFIED:
+            return "🔍 Not sure: help me identify it"
+        if name == logic.MIXED:
+            return "🧬 Mixed breed or cross"
+        return name if name in seen_breeds or name not in listed else f"{name}  ✨ new"
 
     with st.form("log_sighting", clear_on_submit=True, border=False):
+        # "Not sure" and "Mixed" come first; a breed that isn't listed can be typed in.
         breed = st.selectbox(
             "Breed",
-            breeds["breed"].tolist(),
+            [logic.UNIDENTIFIED, logic.MIXED, *breeds["breed"]],
             index=None,
             format_func=breed_label,
             placeholder="Start typing a breed…",
+            accept_new_options=True,
+            key="sighting_breed",
+            help="Not sure what it is? Pick **Not sure** and identify it later in Profile. "
+                 "If the breed isn't listed, type it in.",
         )
         seen_on = st.date_input("Date seen", value=dt.date.today(), max_value=dt.date.today())
         dog_name = st.text_input("Dog's name (if you found out)")
@@ -652,10 +670,13 @@ with tab_id:
                "For now, pick the breed yourself.")
 
     if submitted:
-        if breed is None:
-            st.warning("Pick a breed first.")
-        else:
-            lifer = logic.is_lifer(sightings, breed)
+        try:
+            breed = logic.clean_breed(breed, listed)
+        except ValueError as err:
+            st.warning(str(err))
+            breed = None
+        if breed is not None:
+            lifer = logic.is_lifer(sightings, breed, listed)
             photo_path = None
             if photo is not None:
                 try:
@@ -671,7 +692,11 @@ with tab_id:
                 backend.add_sighting(breed, seen_on, location, dog_name, notes, photo_path)
             except AuthError as err:
                 end_session(str(err))
-            st.session_state.flash = ("lifer" if lifer else "repeat", breed)
+            kind = logic.breed_kind(breed, listed)
+            st.session_state.flash = ("lifer" if lifer else
+                                      "repeat" if kind == "listed" else
+                                      "unidentified" if kind == "unidentified" else "other",
+                                      breed)
             st.rerun()
 
 # --- Life list ----------------------------------------------------------------------------------
@@ -719,6 +744,14 @@ def life_row(row, profile: logic.BreedProfile | None) -> str:
     )
 
 
+def other_row(row) -> str:
+    """A dog that isn't on the life list, as a plain row (its name was typed by the user)."""
+    return (f'<div class="cerb-row"><span class="thumb icon">{"🧬" if row.breed == logic.MIXED else "🐕"}</span><div class="main">'
+            f'<div class="name">{html.escape(row.breed)}</div>'
+            f'<div class="sub">First seen {row.first_seen} · seen {row.times_seen}×</div>'
+            f'</div></div>')
+
+
 with tab_life:
     st.header(f"{user.username}'s life list")
     # Three small stat cards side by side, even on a narrow phone (st.columns would stack them).
@@ -731,6 +764,10 @@ with tab_life:
     if coming:
         st.caption(f"Next badge: {coming.badge.emoji} **{coming.badge.name}**, "
                    f"{coming.to_go} more breed{'' if coming.to_go == 1 else 's'} to go.")
+    waiting = len(logic.to_identify(sightings))
+    if waiting:
+        st.info(f"🔍 {waiting} dog{' is' if waiting == 1 else 's are'} waiting to be "
+                "identified. Tap **Identify** on it in Profile once you know the breed.")
 
     show = st.segmented_control(
         "Show", logic.LIFE_LIST_FILTERS, default="All", required=True,
@@ -746,6 +783,13 @@ with tab_life:
                     unsafe_allow_html=True)
     st.caption("Tap a breed to see a photo and a short intro. "
                "Breeds ranked by AKC 2025 popularity. Photos from Wikimedia Commons.")
+
+    others = logic.other_dogs(sightings, listed)
+    if not others.empty:
+        st.subheader("Other dogs")
+        st.caption("Mixed breeds and breeds that aren't on the life list yet. "
+                   "They don't count as lifers (for now).")
+        st.markdown("".join(other_row(r) for r in others.itertuples()), unsafe_allow_html=True)
 
 # --- Your profile: who you are, plus every sighting you've logged ------------------------------
 def badge_html(p: logic.BadgeProgress) -> str:
@@ -829,6 +873,33 @@ def sighting_photo_links() -> dict[str, str]:
     return {p: link for p, (link, _) in links.items()}
 
 
+def identify_form(s):
+    """Say what breed an "Unidentified" sighting turned out to be."""
+    with st.popover("Identify", icon="🔍", width="stretch"):
+        found = st.selectbox(
+            "What breed was it?", [logic.MIXED, *breeds["breed"]], index=None,
+            key=f"identify_breed_{s.id}", accept_new_options=True,
+            format_func=lambda b: "🧬 Mixed breed or cross" if b == logic.MIXED else b,
+            placeholder="Start typing a breed…")
+        if st.button("Save breed", key=f"identify_{s.id}", type="primary", width="stretch"):
+            try:
+                found = logic.clean_breed(found, listed)
+                if found == logic.UNIDENTIFIED:
+                    raise ValueError("Pick the breed it turned out to be.")
+            except ValueError as err:
+                st.warning(str(err))
+                return
+            lifer = logic.is_lifer(sightings, found, listed)
+            try:
+                backend.set_sighting_breed(int(s.id), found)
+            except AuthError as err:
+                end_session(str(err))
+            kind = logic.breed_kind(found, listed)
+            st.session_state.flash = ("lifer" if lifer else
+                                      "repeat" if kind == "listed" else "other", found)
+            st.rerun()
+
+
 with tab_profile:
     st.header("Your profile")
     if st.session_state.pop("profile_saved", False):
@@ -863,10 +934,12 @@ with tab_profile:
         st.info("No sightings yet. Go find a dog!")
     photo_links = sighting_photo_links() if tab_profile.open else {}
     for s in logic.recent_first(sightings).itertuples():
+        unidentified = s.breed == logic.UNIDENTIFIED
         with st.container(border=True):
             with st.container(horizontal=True, vertical_alignment="top",
                               horizontal_alignment="distribute"):
-                st.markdown(f"**{s.breed}**  \n{s.seen_on}"
+                title = "🔍 Not identified yet" if unidentified else s.breed
+                st.markdown(f"**{title}**  \n{s.seen_on}"
                             + (f" · {s.location}" if s.location else ""))
                 with st.popover("🗑", help="Delete this sighting"):
                     st.write("Delete this sighting? This can't be undone.")
@@ -884,6 +957,8 @@ with tab_profile:
                 st.caption(f"🐶 {s.dog_name}")
             if s.notes:
                 st.caption(s.notes)
+            if unidentified:
+                identify_form(s)
 
 # --- Social: recent sightings from everyone who shares -------------------------------------
 def feed_post(post: dict) -> str:
@@ -893,10 +968,12 @@ def feed_post(post: dict) -> str:
     details = [f"📍 {html.escape(post['location'])}" if post.get("location") else "",
                f"🐶 {html.escape(post['dog_name'])}" if post.get("dog_name") else ""]
     lines = [" · ".join(d for d in details if d), html.escape(post.get("notes") or "")]
+    breed_html = ("🔍 Not identified yet" if post["breed"] == logic.UNIDENTIFIED
+                  else html.escape(post["breed"]))
     return (
         f'<div class="cerb-post">{avatar_html(post["avatar"], "avatar")}'
         f'<div class="main"><div class="who">{who} · {seen_on.day} {seen_on:%b %Y}</div>'
-        f'<div class="breed">{html.escape(post["breed"])}</div>'
+        f'<div class="breed">{breed_html}</div>'
         + "".join(f'<div class="sub">{line}</div>' for line in lines if line)
         + "</div></div>"
     )

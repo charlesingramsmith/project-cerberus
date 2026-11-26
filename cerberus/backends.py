@@ -81,6 +81,10 @@ class Backend(Protocol):
                      photo_path: str | None = None) -> None:
         """Log a sighting. `photo_path` is what add_photo() returned, if there's a photo."""
 
+    def set_sighting_breed(self, sighting_id: int, breed: str) -> None:
+        """Change the breed on one of your sightings, e.g. once an "Unidentified" dog is
+        identified. Other people's sightings are left alone."""
+
     def delete_sighting(self, sighting_id: int) -> None:
         """Delete one of your sightings, and its photo if it has one."""
 
@@ -152,7 +156,7 @@ def _clean(value: str | None) -> str | None:
 def _sighting_row(breed: str, seen_on: date, location, dog_name, notes,
                   photo_path=None) -> dict:
     row = {
-        "breed": breed,
+        "breed": _checked_breed(breed),
         "seen_on": seen_on.isoformat(),
         "location": _clean(location),
         "dog_name": _clean(dog_name),
@@ -161,6 +165,14 @@ def _sighting_row(breed: str, seen_on: date, location, dog_name, notes,
     if photo_path:  # only sent when there is one, so photo-less logging never needs the column
         row["photo_path"] = photo_path
     return row
+
+
+def _checked_breed(breed: str) -> str:
+    """Breeds are 1 to 100 characters (the app tidies them first with logic.clean_breed)."""
+    breed = (breed or "").strip()
+    if not 1 <= len(breed) <= logic.MAX_BREED_LENGTH:
+        raise ValueError("A breed must be 1 to 100 characters.")
+    return breed
 
 
 def _check_photo_path(user: User, path: str) -> None:
@@ -302,6 +314,11 @@ class SupabaseBackend:
             _check_photo_path(user, photo_path)
         row = _sighting_row(breed, seen_on, location, dog_name, notes, photo_path)
         self.client.table("sightings").insert({**row, "user_id": user.id}).execute()
+
+    def set_sighting_breed(self, sighting_id, breed):
+        user = self._require_user()
+        (self.client.table("sightings").update({"breed": _checked_breed(breed)})
+         .eq("id", sighting_id).eq("user_id", user.id).execute())
 
     def delete_sighting(self, sighting_id):
         user = self._require_user()
@@ -514,6 +531,13 @@ class MemoryBackend:
         row = _sighting_row(breed, seen_on, location, dog_name, notes, photo_path)
         self._sightings.append({"id": next(self._ids), "user_id": user.id,
                                 "photo_path": None, **row})
+
+    def set_sighting_breed(self, sighting_id, breed):
+        user = self._require_user()
+        breed = _checked_breed(breed)
+        for s in self._sightings:
+            if s["id"] == sighting_id and s["user_id"] == user.id:
+                s["breed"] = breed
 
     def delete_sighting(self, sighting_id):
         user = self._require_user()
