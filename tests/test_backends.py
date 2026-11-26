@@ -258,6 +258,17 @@ def test_social_feed_shows_sharers_but_life_lists_stay_private(backend):
     assert [p["username"] for p in backend.social_feed()] == ["bobby"]  # alice hidden, even to herself
 
 
+def test_feed_marks_the_sighting_that_earned_a_badge(backend):
+    backend.sign_up("a@example.com", "correct-horse", "alice")
+    backend.my_profile()
+    backend.add_sighting("Pug", date(2026, 11, 1))
+    backend.add_sighting("Pug", date(2026, 11, 2))
+    backend.add_sighting("Cavapoo", date(2026, 10, 1))  # unverified: no badge
+    feed = backend.social_feed()
+    assert [(p["breed"], p["badge"]) for p in feed] == [
+        ("Pug", None), ("Pug", "first-lifer"), ("Cavapoo", None)]
+
+
 def test_profiles_and_feed_need_a_sign_in(backend):
     for call in (backend.my_profile, backend.social_feed,
                  lambda: backend.save_profile(logic.new_profile("charlie"))):

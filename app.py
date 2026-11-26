@@ -159,6 +159,11 @@ button { min-height: 2.75rem; }
 .cerb-post .who { font-size: .85rem; opacity: .75; }
 .cerb-post .breed { font-weight: 600; }
 .cerb-post .sub { font-size: .85rem; opacity: .75; }
+/* A post that earned its spotter a milestone badge */
+.cerb-post .earned {
+    display: inline-block; margin: .15rem 0 .25rem; padding: .2rem .5rem; border-radius: .5rem;
+    font-size: .85rem; background: rgba(232, 131, 58, .15);  /* primaryColor, faint */
+}
 
 /* "Verified breed" and "Unverified breed" labels next to a breed's name */
 .cerb-chip {
@@ -1217,11 +1222,15 @@ def feed_post(post: dict, links: dict[str, str]) -> str:
              f'alt="A {html.escape(post["breed"])}" loading="lazy">'
              if post.get("photo_path") in links else "")
     tags = dog_tags_html(post.get("dog_ids"))
+    badge = logic.BADGES_BY_KEY.get(post.get("badge") or "")
+    earned = (f'<div class="earned">{badge.emoji} Earned the <b>{html.escape(badge.name)}</b> '
+              f'badge: {"first breed" if badge.goal == 1 else f"{badge.goal} breeds"}!</div>'
+              if badge else "")
     return (
         f'<div class="cerb-post">{avatar_html(post["avatar"], "avatar")}'
         f'<div class="main"><div class="who">{who} · {seen_on.day} {seen_on:%b %Y}</div>'
         f'<div class="breed">{html.escape(post["breed"])}{unverified_chip(post["breed"])}</div>'
-        + (f"<div>{tags}</div>" if tags else "")
+        + earned + (f"<div>{tags}</div>" if tags else "")
         + "".join(f'<div class="sub">{line}</div>' for line in lines if line)
         + photo + "</div></div>"
     )
@@ -1229,8 +1238,8 @@ def feed_post(post: dict, links: dict[str, str]) -> str:
 
 with tab_social:
     st.header("Social")
-    st.caption("The latest sightings from everyone who shares them. "
-               "You can stop sharing yours in Settings > Privacy.")
+    st.caption("The latest sightings from everyone who shares them, and the badges they "
+               "earn. You can stop sharing yours in Settings > Privacy.")
     if tab_social.open:  # only fetch the feed when someone is looking at it
         try:
             feed = backend.social_feed() if profiles_ready else None

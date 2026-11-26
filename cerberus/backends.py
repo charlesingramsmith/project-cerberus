@@ -154,7 +154,14 @@ class Backend(Protocol):
 
     def social_feed(self, limit: int = FEED_LIMIT) -> list[dict]:
         """Recent sightings from everyone who shares (including you), newest first,
-        each with the spotter's username and avatar, its photo_path and its dog_ids."""
+        each with the spotter's username and avatar, its photo_path, its dog_ids and
+        "badge": the milestone badge that sighting earned (a key in logic.BADGES_BY_KEY)
+        or None."""
+
+
+def _listed_breeds() -> set[str]:
+    """The verified breeds: only these count towards badges."""
+    return set(logic.load_breeds()["breed"])
 
 
 def _is_duplicate(err: Exception) -> bool:
@@ -555,7 +562,13 @@ class SupabaseBackend:
         profiles = (self.client.table("profiles")
                     .select("user_id, username, avatar, share_sightings")
                     .in_("user_id", ids).execute().data) if ids else []
-        return logic.social_feed(rows, {p["user_id"]: p for p in profiles})
+        # Which posts earned a badge needs each spotter's earlier sightings too (oldest
+        # first, so if the server caps the rows it's the newest that are left off).
+        history = (self.client.table("sightings").select("id, user_id, breed, seen_on")
+                   .in_("user_id", ids).order("seen_on").order("id")
+                   .execute().data) if ids else []
+        milestones = logic.milestone_sightings(history, _listed_breeds())
+        return logic.social_feed(rows, {p["user_id"]: p for p in profiles}, milestones)
 
 
 # --- In-memory (tests and demo mode) ---------------------------------------------
@@ -835,4 +848,6 @@ class MemoryBackend:
         # Like RLS: your own, plus anyone who shares.
         visible = [s for s in self._sightings if self._can_see(user, s)]
         newest = sorted(visible, key=lambda s: (s["seen_on"], s["id"]), reverse=True)[:limit]
-        return logic.social_feed(_with_tags(newest, self._tags_by_sighting()), self._profiles)
+        milestones = logic.milestone_sightings(visible, _listed_breeds())
+        return logic.social_feed(_with_tags(newest, self._tags_by_sighting()), self._profiles,
+                                 milestones)

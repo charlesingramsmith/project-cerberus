@@ -453,6 +453,15 @@ def test_social_shows_everyones_shared_sightings(at):
     assert "bobby</b> (you)" in feed
 
 
+def test_badges_show_in_the_social_feed(at):
+    sign_up(at)
+    log_breed(at, "Beagle")  # first lifer: earns a badge
+    log_breed(at, "Beagle")  # a repeat: no badge
+    open_tab(at, "Social")
+    feed = feed_html(at)
+    assert feed.count("Earned the <b>First lifer</b> badge") == 1
+
+
 def test_switching_sharing_off_hides_your_sightings(at):
     sign_up(at)
     log_breed(at, "Beagle")

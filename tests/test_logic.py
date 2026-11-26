@@ -258,6 +258,25 @@ def test_social_feed_adds_names_and_skips_people_who_dont_share():
                 "b": {"username": "bobby", "avatar": "🐩", "share_sightings": False}}
     feed = logic.social_feed(sightings, profiles)
     assert [(p["breed"], p["username"], p["avatar"]) for p in feed] == [("Pug", "alice", "🐶")]
+    assert feed[0]["badge"] is None
+    assert logic.social_feed(sightings, profiles, {1: "first-lifer"})[0]["badge"] == "first-lifer"
+
+
+def test_milestone_sightings_find_the_post_that_earned_each_badge():
+    listed = set(logic.load_breeds()["breed"])
+    ten = sorted(listed)[:10]
+    rows = [{"id": i, "user_id": "a", "breed": b, "seen_on": f"2026-01-{i:02d}"}
+            for i, b in enumerate(ten, 1)]
+    rows += [
+        {"id": 11, "user_id": "a", "breed": ten[0], "seen_on": "2026-02-01"},  # a repeat
+        {"id": 12, "user_id": "a", "breed": "Cavapoo", "seen_on": "2026-01-05"},  # unverified
+        # b logged a Pug later but dated it earlier: that one is b's first lifer
+        {"id": 20, "user_id": "b", "breed": "Beagle", "seen_on": "2026-03-02"},
+        {"id": 21, "user_id": "b", "breed": "Pug", "seen_on": "2026-03-01"},
+    ]
+    assert logic.milestone_sightings(rows, listed) == {
+        1: "first-lifer", 10: "breeds-10", 21: "first-lifer"}
+    assert logic.milestone_sightings([], listed) == {}
 
 # --- Breed thumbnails and photo profile pictures -------------------------------------
 
