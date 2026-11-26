@@ -519,11 +519,29 @@ class Badge:
         return "Spot your first breed" if self.goal == 1 else f"Spot {self.goal} different breeds"
 
 
+# A badge for your first breed, then one every 5 breeds up to all 100. Keys are stable ids
+# ("breeds-<goal>"), so names and emoji can change without anyone losing a badge.
 BADGES = (
     Badge("first-lifer", "🐾", "First lifer", 1),
+    Badge("breeds-5", "🐶", "Puppy steps", 5),
     Badge("breeds-10", "🦴", "Pack of 10", 10),
+    Badge("breeds-15", "🐕", "Walkies regular", 15),
+    Badge("breeds-20", "🥏", "Frisbee fetcher", 20),
     Badge("breeds-25", "🎾", "Quarter century", 25),
+    Badge("breeds-30", "🌞", "Dog days", 30),
+    Badge("breeds-35", "👃", "Super sniffer", 35),
+    Badge("breeds-40", "🦮", "Trail tracker", 40),
+    Badge("breeds-45", "💨", "Zoomies", 45),
     Badge("breeds-50", "🏅", "Halfway hound", 50),
+    Badge("breeds-55", "🐩", "Prize poodle", 55),
+    Badge("breeds-60", "🐺", "Howl of fame", 60),
+    Badge("breeds-65", "🧭", "Pathfinder", 65),
+    Badge("breeds-70", "🏠", "Kennel club", 70),
+    Badge("breeds-75", "🎖️", "Three-quarter tail", 75),
+    Badge("breeds-80", "🌟", "Star spotter", 80),
+    Badge("breeds-85", "🎯", "Sharp eye", 85),
+    Badge("breeds-90", "🌌", "Dog star", 90),
+    Badge("breeds-95", "🥇", "Best in show", 95),
     Badge("breeds-100", "🏆", "Top dog", 100),
 )
 

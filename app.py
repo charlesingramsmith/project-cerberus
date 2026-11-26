@@ -122,7 +122,7 @@ button { min-height: 2.75rem; }
 
 /* Badges on the profile: earned ones in colour, locked ones faded grey */
 .cerb-badges {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(4.5rem, 1fr));
     gap: .5rem; margin: 0 0 1rem;
 }
 .cerb-badge {
