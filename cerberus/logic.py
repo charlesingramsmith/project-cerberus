@@ -431,6 +431,13 @@ def dog_label(dog: dict) -> str:
     return f"@{dog['username']} · {dog['name']}{breed}"
 
 
+def tagged_names(dogs: list[dict]) -> str:
+    """The "dog's name" to log when the spotter tagged dogs but left the name empty:
+    "Rex", or "Rex and Bella", or "Rex, Bella and Max"."""
+    names = [d["name"] for d in dogs]
+    return " and ".join([", ".join(names[:-1]), names[-1]]) if len(names) > 1 else "".join(names)
+
+
 def tagged_breed(dogs: list[dict]) -> str | None:
     """The breed to log when the spotter tagged dogs but didn't pick a breed: the tagged
     dogs' breed if they all share one known breed (not "Mixed breed / other"), else None."""
