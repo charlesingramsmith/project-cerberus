@@ -691,7 +691,10 @@ with tab_post:
                 placeholder="Type a dog's @username",
                 help="Tag dogs that have a profile, like your own. If you tag a dog and "
                      "leave Breed empty, its breed is used.")
-        dog_name = st.text_input("Dog's name (if you found out)")
+        dog_name = st.text_input(
+            "Dog's name (if you found out)",
+            help="Tagged a dog? Leave this empty and its name is filled in for you."
+            if all_dogs else None)
         location = st.text_input(
             "Where", placeholder="e.g. Hyde Park",
             help="Other members can see this in Social if you share your sightings "
@@ -712,6 +715,7 @@ with tab_post:
     if submitted:
         tagged_dogs = [dogs_by_id[d] for d in tagged if d in dogs_by_id]
         breed = breed or logic.tagged_breed(tagged_dogs)
+        dog_name = dog_name.strip() or logic.tagged_names(tagged_dogs)
         if breed is None:
             st.warning("Pick a breed first." if not tagged_dogs else
                        "Pick a breed first (the dogs you tagged don't have one breed listed).")
