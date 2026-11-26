@@ -7,7 +7,8 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
 ## 0.15.1 - 2026-11-26 - Tagged dogs fill in their name
-- When you tag a dog in a post and leave **Dog's name** empty, the tagged dog's name is filled in for you, just like its breed.
+- When you tag a dog in a post and leave **Dog's name** empty, the tagged dog's name is filled in for you, just like its breed. Tag several dogs and you get "Rex and Bella".
+- You can tag as many dogs as you like in one post.
 
 ## 0.15.0 - 2026-11-26 - Dog ID is now Post
 - The **Dog ID** tab is now called **Post**, with a ➕ icon. It works just the same: pick the breed, tag dogs, add the details and an optional photo, then log it.

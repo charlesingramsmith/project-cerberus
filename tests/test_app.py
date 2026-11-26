@@ -593,6 +593,18 @@ def test_tagging_a_dog_fills_in_its_breed_and_shows_in_social(at):
     assert "Pug" in feed_html(at)
 
 
+def test_several_dogs_can_be_tagged_in_one_post(at):
+    sign_up(at)
+    add_dog(at, "Rex", username="rex", breed="Pug")
+    add_dog(at, "Bella", username="bella", breed="Pug")
+    backend = at.session_state["backend"]
+    at.multiselect(key="sighting_dogs").set_value([d["id"] for d in backend.list_dogs()])
+    click(at, "Log sighting")
+    sighting = backend.list_sightings()[0]
+    assert len(sighting["dog_ids"]) == 2
+    assert sighting["breed"] == "Pug" and sighting["dog_name"] == "Bella and Rex"
+
+
 def test_dogs_listed_on_an_old_profile_get_dog_profiles(at):
     sign_up(at)
     backend = at.session_state["backend"]

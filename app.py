@@ -688,7 +688,7 @@ with tab_post:
             tagged = st.multiselect(
                 "Tag dogs", list(dogs_by_id), key="sighting_dogs",
                 format_func=lambda dog_id: logic.dog_label(dogs_by_id[dog_id]),
-                placeholder="Type a dog's @username",
+                placeholder="Tag one or more dogs by @username",
                 help="Tag dogs that have a profile, like your own. If you tag a dog and "
                      "leave Breed empty, its breed is used.")
         dog_name = st.text_input(
