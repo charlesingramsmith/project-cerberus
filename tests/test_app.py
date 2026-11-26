@@ -552,6 +552,19 @@ def test_sighting_photos_show_on_their_card_in_profile(at):
     assert 'alt="Your photo of a Pug"' in photos[0]
 
 
+def test_photo_pickers_are_one_button_outside_the_forms(at):
+    sign_up(at)
+    uploaders = at.get("file_uploader")
+    # Spotted! and "Add a dog": each is one "Add photo" button (styled in MOBILE_CSS) ...
+    ids = " ".join(u.proto.id for u in uploaders)
+    assert "sighting_photo" in ids and "dog_new_photo" in ids
+    for u in uploaders:
+        assert u.proto.label_visibility.value == u.proto.label_visibility.COLLAPSED
+        # ... outside the form, so a picked photo shows a preview straight away
+        assert not u.proto.form_id
+    assert 'st-key-photo_pick_' in Path(APP).read_text(encoding="utf-8")
+
+
 # --- Dog profiles and tags ----------------------------------------------------------------
 
 def add_dog(at: AppTest, name: str, username: str = "", breed: str | None = None) -> AppTest:

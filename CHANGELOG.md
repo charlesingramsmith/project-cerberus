@@ -6,6 +6,11 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.19.0 - 2026-11-26 - A proper photo button
+- Adding a photo on **Spotted!** is now one **📷 Add photo** button at the top. On your phone it opens the usual choice: take a photo or pick one from your library.
+- Your photo shows straight away as a preview, with **Change** and **Remove** buttons.
+- Your dog's profile photo works the same way.
+
 ## 0.18.0 - 2026-11-26 - Add your own breeds
 - Every breed on the life list is now a **verified breed** (tap one to see the label).
 - Can't find the breed you spotted? Type it into **Breed** on **Spotted!** and pick "Add". It's logged with an **Unverified breed** badge.

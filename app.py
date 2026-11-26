@@ -2,6 +2,7 @@
 
 Run with:  streamlit run app.py
 """
+import base64
 import dataclasses
 import datetime as dt
 import html
@@ -173,6 +174,28 @@ button { min-height: 2.75rem; }
     display: block; width: 100%; max-height: 20rem; object-fit: cover; border-radius: .5rem;
 }
 .cerb-post .sighting-photo { margin-top: .4rem; }
+/* The photo picker (photo_picker): Streamlit's file uploader restyled as one phone-style
+   button. Phones open their usual Take photo / Photo library choice when it's tapped. */
+[class*="st-key-photo_pick_"] [data-testid="stFileUploaderDropzone"] {
+    border: none; background: none; padding: 0; min-height: 0; display: block;
+}
+[class*="st-key-photo_pick_"] [data-testid="stFileUploaderDropzoneInstructions"],
+[class*="st-key-photo_pick_"] [data-testid="stFileChips"] > div:first-child { display: none; }
+[class*="st-key-photo_pick_"] [data-testid="stFileChips"] { display: block; padding: 0; }
+[class*="st-key-photo_pick_"] [data-testid="stFileUploaderDropzone"] button {
+    width: 100%; min-height: 2.75rem; border-radius: .5rem;
+    border: 1px solid rgba(128, 128, 128, .35); background: rgba(128, 128, 128, .06);
+    color: inherit;
+}
+[class*="st-key-photo_pick_"] [data-testid="stButton"] button { min-height: 2.75rem; }
+[class*="st-key-photo_pick_"] [data-testid="stFileUploaderDropzone"] button > * { display: none; }
+[class*="st-key-photo_pick_"] [data-testid="stFileUploaderDropzone"] button::after {
+    content: "📷  Add photo"; font-size: 1rem; font-weight: 600;
+}
+[class*="st-key-photo_pick_"] button[aria-label="Add files"]::after { content: "🔄  Change"; }
+.photo-preview {
+    display: block; width: 100%; max-height: 16rem; object-fit: cover; border-radius: .75rem;
+}
 /* Tagged dogs on a post: @username chips */
 .dog-tag {
     display: inline-block; padding: 0 .45rem; margin: .15rem .25rem 0 0; border-radius: 1rem;
@@ -537,6 +560,48 @@ md_text = logic.escape_markdown
 UNVERIFIED_CHIP = f'<span class="cerb-chip unverified">{logic.UNVERIFIED}</span>'
 
 
+
+def clear_photo(key: str):
+    """Empty a photo_picker (after saving, or when Remove is tapped)."""
+    st.session_state[f"{key}_n"] = st.session_state.get(f"{key}_n", 0) + 1
+    st.session_state.pop(f"{key}_prepared", None)
+
+
+def photo_picker(key: str, note: str, max_side: int = logic.PHOTO_MAX_SIDE) -> bytes | None:
+    """A phone-style "📷 Add photo" button: tapping it on a phone offers Take photo or the
+    photo library. Once picked, it shows a preview with Change and Remove.
+
+    Returns the photo made small and safe to store (`logic.prepare_photo`: resized, no GPS),
+    or None. Keep it outside `st.form`: form widgets only send their value on submit, so
+    there'd be no preview. Call `clear_photo(key)` once the photo is saved.
+    """
+    n = st.session_state.get(f"{key}_n", 0)  # a new number makes a new, empty uploader
+    with st.container(key=f"photo_pick_{key}"):
+        preview = st.container()
+        with st.container(horizontal=True, gap="small"):
+            photo = st.file_uploader(
+                "Photo (optional)", type=logic.PHOTO_TYPES, key=f"{key}_{n}",
+                max_upload_size=logic.MAX_PHOTO_UPLOAD_MB, label_visibility="collapsed")
+            if photo is not None:
+                st.button("Remove", key=f"{key}_remove_{n}", icon=":material/delete:",
+                          on_click=clear_photo, args=(key,))
+    if photo is None:
+        return None
+    prepared = st.session_state.get(f"{key}_prepared")
+    if prepared is None or prepared[0] != photo.file_id:  # shrink each new photo once
+        try:
+            prepared = photo.file_id, logic.prepare_photo(photo.getvalue(), max_side)
+        except ValueError as err:  # not an image
+            preview.warning(str(err))
+            return None
+        st.session_state[f"{key}_prepared"] = prepared
+    src = "data:image/jpeg;base64," + base64.b64encode(prepared[1]).decode()
+    preview.markdown(f'<img class="photo-preview" src="{src}" alt="Your photo">',
+                     unsafe_allow_html=True)
+    preview.caption(note)
+    return prepared[1]
+
+
 def unverified_chip(breed: str) -> str:
     """The "Unverified breed" label, for a breed that isn't on the verified list."""
     return "" if breed in listed else UNVERIFIED_CHIP
@@ -721,6 +786,10 @@ with tab_spotted:
     if st.session_state.pop("clear_tags", False):  # the last sighting was just logged
         st.session_state.sighting_dogs = []
         st.session_state.pop("tag_filled", None)
+    photo = photo_picker(
+        "sighting_photo", "Shown with your sighting in Social if you share your sightings "
+        "(Settings > Privacy). Saved smaller, without the location your phone may have "
+        "stored in it.")
     tagged = []
     if all_dogs:  # dogs with a profile (anyone's) can be tagged by their @username
         # Outside the form below, so picking a dog can fill in its name and breed at once
@@ -751,13 +820,6 @@ with tab_spotted:
             help="Other members can see this in Social if you share your sightings "
                  "(Settings > Privacy).")
         notes = st.text_area("Notes", placeholder="Good boy. Very fluffy.", height=80)
-        # On a phone this offers the camera as well as the photo library.
-        photo = st.file_uploader(
-            "Photo (optional)", type=logic.PHOTO_TYPES, key="sighting_photo",
-            max_upload_size=logic.MAX_PHOTO_UPLOAD_MB,
-            help="Shown with your sighting in Social if you share your sightings "
-                 "(Settings > Privacy). Photos are saved smaller, without the location "
-                 "your phone may have stored in them.")
         submitted = st.form_submit_button("Spotted!", type="primary", width="stretch")
 
     st.caption("📷 Photo ID (identify a dog from a photo) is on the roadmap. "
@@ -778,11 +840,9 @@ with tab_spotted:
             photo_path = None
             if photo is not None:
                 try:
-                    photo_path = backend.add_photo(logic.prepare_photo(photo.getvalue()))
+                    photo_path = backend.add_photo(photo)  # already made small, no GPS
                 except AuthError as err:
                     end_session(str(err))
-                except ValueError as err:  # not an image
-                    st.session_state.photo_problem = f"{err} The sighting was logged without it."
                 except Exception:  # storage not set up or unreachable: still log the dog
                     st.session_state.photo_problem = ("Your photo couldn't be saved, so the "
                                                       "sighting was logged without it.")
@@ -799,6 +859,7 @@ with tab_spotted:
                 except Exception:
                     pass  # not set up yet: the sighting is logged all the same
             st.session_state.clear_tags = True
+            clear_photo("sighting_photo")
             st.session_state.flash = ("lifer" if lifer else
                                       "repeat" if breed in listed else "unverified", breed)
             st.rerun()
@@ -1015,6 +1076,8 @@ def dog_form(key: str, dog: dict | None = None):
     """Add a dog (dog=None) or edit one of yours. Saves on submit."""
     dog = dog or {}
     own_breeds = breeds["breed"].tolist() + [logic.MIXED_BREED]
+    photo = photo_picker(f"dog_{key}_photo", "Other members can see your dog's photo.",
+                         logic.DOG_PHOTO_MAX_SIDE)
     with st.form(f"dog_form_{key}", clear_on_submit=not dog, border=False):
         name = st.text_input("Name", value=dog.get("name", ""), key=f"dog_{key}_name",
                              max_chars=logic.MAX_DOG_NAME_LENGTH)
@@ -1030,9 +1093,6 @@ def dog_form(key: str, dog: dict | None = None):
         bio = st.text_area("Bio", value=dog.get("bio") or "", key=f"dog_{key}_bio",
                            max_chars=logic.MAX_DOG_BIO_LENGTH, height=80,
                            placeholder="Loves tennis balls, scared of cats.")
-        photo = st.file_uploader("Photo (optional)", type=logic.PHOTO_TYPES,
-                                 key=f"dog_{key}_photo", max_upload_size=logic.MAX_PHOTO_UPLOAD_MB,
-                                 help="Other members can see your dog's photo.")
         saved = st.form_submit_button("Save dog" if dog else "Add dog", type="primary",
                                       width="stretch")
     if not saved:
@@ -1043,8 +1103,7 @@ def dog_form(key: str, dog: dict | None = None):
     try:
         photo_path = dog.get("photo_path")
         if photo is not None:
-            photo_path = backend.add_dog_photo(
-                logic.prepare_photo(photo.getvalue(), logic.DOG_PHOTO_MAX_SIDE))
+            photo_path = backend.add_dog_photo(photo)  # already made small, no GPS
         new = {"username": username, "name": name, "breed": breed, "bio": bio,
                "photo_path": photo_path}
         if dog:
@@ -1059,6 +1118,7 @@ def dog_form(key: str, dog: dict | None = None):
         st.error("Your dog didn't save. Please try again.")
     else:
         st.session_state.dog_saved = f"@{username.strip().lstrip('@')} saved."
+        clear_photo(f"dog_{key}_photo")
         st.rerun()
 
 
