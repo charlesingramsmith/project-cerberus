@@ -258,6 +258,25 @@ def test_social_feed_adds_names_and_skips_people_who_dont_share():
                 "b": {"username": "bobby", "avatar": "🐩", "share_sightings": False}}
     feed = logic.social_feed(sightings, profiles)
     assert [(p["breed"], p["username"], p["avatar"]) for p in feed] == [("Pug", "alice", "🐶")]
+    assert feed[0]["badge"] is None
+    assert logic.social_feed(sightings, profiles, {1: "first-lifer"})[0]["badge"] == "first-lifer"
+
+
+def test_milestone_sightings_find_the_post_that_earned_each_badge():
+    listed = set(logic.load_breeds()["breed"])
+    ten = sorted(listed)[:10]
+    rows = [{"id": i, "user_id": "a", "breed": b, "seen_on": f"2026-01-{i:02d}"}
+            for i, b in enumerate(ten, 1)]
+    rows += [
+        {"id": 11, "user_id": "a", "breed": ten[0], "seen_on": "2026-02-01"},  # a repeat
+        {"id": 12, "user_id": "a", "breed": "Cavapoo", "seen_on": "2026-01-05"},  # unverified
+        # b logged a Pug later but dated it earlier: that one is b's first lifer
+        {"id": 20, "user_id": "b", "breed": "Beagle", "seen_on": "2026-03-02"},
+        {"id": 21, "user_id": "b", "breed": "Pug", "seen_on": "2026-03-01"},
+    ]
+    assert logic.milestone_sightings(rows, listed) == {
+        1: "first-lifer", 5: "breeds-5", 10: "breeds-10", 21: "first-lifer"}
+    assert logic.milestone_sightings([], listed) == {}
 
 # --- Breed thumbnails and photo profile pictures -------------------------------------
 
@@ -302,7 +321,7 @@ def sightings_of(*rows: tuple[str, str]):
 
 def test_no_sightings_means_no_badges():
     progress = logic.badge_progress(sightings_of())
-    assert [p.badge.goal for p in progress] == [1, 10, 25, 50, 100]
+    assert [p.badge.goal for p in progress] == [1, *range(5, 101, 5)]
     assert not any(p.earned for p in progress)
     assert logic.next_badge(progress).badge.name == "First lifer"
     assert logic.next_badge(progress).to_go == 1
@@ -312,7 +331,7 @@ def test_first_lifer_badge_is_earned_on_the_first_sighting_date():
     progress = logic.badge_progress(sightings_of(("Pug", "2026-03-02"), ("Pug", "2026-01-05")))
     first = progress[0]
     assert first.earned and first.earned_on == "2026-01-05"  # earliest, not first logged
-    assert not progress[1].earned and progress[1].have == 1 and progress[1].to_go == 9
+    assert not progress[1].earned and progress[1].have == 1 and progress[1].to_go == 4
 
 
 def test_breed_count_badges_date_from_the_nth_new_breed():
@@ -321,8 +340,8 @@ def test_breed_count_badges_date_from_the_nth_new_breed():
     rows += [(breeds[0], "2026-02-01")] * 5  # repeats don't count towards badges
     progress = {p.badge.key: p for p in logic.badge_progress(sightings_of(*rows))}
     assert progress["breeds-10"].earned_on == "2026-01-10"
-    assert not progress["breeds-25"].earned and progress["breeds-25"].to_go == 13
-    assert logic.next_badge(list(progress.values())).badge.key == "breeds-25"
+    assert not progress["breeds-15"].earned and progress["breeds-15"].to_go == 3
+    assert logic.next_badge(list(progress.values())).badge.key == "breeds-15"
 
 
 def test_collecting_every_breed_earns_every_badge():
@@ -332,9 +351,10 @@ def test_collecting_every_breed_earns_every_badge():
     assert logic.next_badge(progress) is None
 
 
-@pytest.mark.parametrize("count, key", [(1, "first-lifer"), (10, "breeds-10"), (25, "breeds-25"),
+@pytest.mark.parametrize("count, key", [(1, "first-lifer"), (5, "breeds-5"), (10, "breeds-10"),
+                                        (25, "breeds-25"), (95, "breeds-95"),
                                         (50, "breeds-50"), (100, "breeds-100"),
-                                        (0, None), (2, None), (11, None)])
+                                        (0, None), (2, None), (11, None), (101, None)])
 def test_badge_for_count_only_matches_a_milestone(count, key):
     badge = logic.badge_for_count(count)
     assert (badge.key if badge else None) == key
@@ -344,8 +364,11 @@ def test_badges_have_unique_keys_and_rising_goals():
     goals = [b.goal for b in logic.BADGES]
     assert goals == sorted(set(goals))
     assert len({b.key for b in logic.BADGES}) == len(logic.BADGES)
+    assert len({b.name for b in logic.BADGES}) == len(logic.BADGES)
+    assert len({b.emoji for b in logic.BADGES}) == len(logic.BADGES)
+    assert all(b.key == f"breeds-{b.goal}" for b in logic.BADGES[1:])  # stable ids
     assert logic.BADGES[0].description == "Spot your first breed"
-    assert logic.BADGES[1].description == "Spot 10 different breeds"
+    assert logic.BADGES[1].description == "Spot 5 different breeds"
 
 
 # --- Sighting photos ---------------------------------------------------------------

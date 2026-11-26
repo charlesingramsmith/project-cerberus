@@ -414,17 +414,22 @@ def username_candidates(base: str, tries: int = 50):
         yield f"{base}{n}"
 
 
-def social_feed(sightings: list[dict], profiles: dict[str, dict]) -> list[dict]:
-    """Sightings for the Social tab, each with its spotter's username and avatar.
+def social_feed(sightings: list[dict], profiles: dict[str, dict],
+                milestones: dict[int, str] | None = None) -> list[dict]:
+    """Sightings for the Social tab, each with its spotter's username and avatar, and
+    "badge": the key of the milestone badge that sighting earned, or None.
 
-    `profiles` maps user id -> profile. Sightings from members without a profile, or who
-    have switched sharing off, are left out. Order is kept (newest first from the backend).
+    `profiles` maps user id -> profile; `milestones` maps sighting id -> badge key (from
+    `milestone_sightings`). Sightings from members without a profile, or who have switched
+    sharing off, are left out. Order is kept (newest first from the backend).
     """
+    milestones = milestones or {}
     feed = []
     for s in sightings:
         who = profiles.get(s["user_id"])
         if who and who.get("share_sightings", True):
-            feed.append({**s, "username": who["username"], "avatar": who["avatar"]})
+            feed.append({**s, "username": who["username"], "avatar": who["avatar"],
+                         "badge": milestones.get(s["id"])})
     return feed
 
 # --- Dog profiles: members' own dogs, taggable in posts by @username ------------------
@@ -514,11 +519,29 @@ class Badge:
         return "Spot your first breed" if self.goal == 1 else f"Spot {self.goal} different breeds"
 
 
+# A badge for your first breed, then one every 5 breeds up to all 100. Keys are stable ids
+# ("breeds-<goal>"), so names and emoji can change without anyone losing a badge.
 BADGES = (
     Badge("first-lifer", "🐾", "First lifer", 1),
+    Badge("breeds-5", "🐶", "Puppy steps", 5),
     Badge("breeds-10", "🦴", "Pack of 10", 10),
+    Badge("breeds-15", "🐕", "Walkies regular", 15),
+    Badge("breeds-20", "🥏", "Frisbee fetcher", 20),
     Badge("breeds-25", "🎾", "Quarter century", 25),
+    Badge("breeds-30", "🌞", "Dog days", 30),
+    Badge("breeds-35", "👃", "Super sniffer", 35),
+    Badge("breeds-40", "🦮", "Trail tracker", 40),
+    Badge("breeds-45", "💨", "Zoomies", 45),
     Badge("breeds-50", "🏅", "Halfway hound", 50),
+    Badge("breeds-55", "🐩", "Prize poodle", 55),
+    Badge("breeds-60", "🐺", "Howl of fame", 60),
+    Badge("breeds-65", "🧭", "Pathfinder", 65),
+    Badge("breeds-70", "🏠", "Kennel club", 70),
+    Badge("breeds-75", "🎖️", "Three-quarter tail", 75),
+    Badge("breeds-80", "🌟", "Star spotter", 80),
+    Badge("breeds-85", "🎯", "Sharp eye", 85),
+    Badge("breeds-90", "🌌", "Dog star", 90),
+    Badge("breeds-95", "🥇", "Best in show", 95),
     Badge("breeds-100", "🏆", "Top dog", 100),
 )
 
@@ -559,6 +582,34 @@ def badge_progress(sightings: pd.DataFrame, badges: tuple[Badge, ...] = BADGES,
 def badge_for_count(count: int, badges: tuple[Badge, ...] = BADGES) -> Badge | None:
     """The badge earned by reaching exactly `count` breeds (to celebrate a new lifer)."""
     return next((b for b in badges if b.goal == count), None)
+
+
+BADGES_BY_KEY = {b.key: b for b in BADGES}
+
+
+def milestone_sightings(sightings: Iterable[dict], listed: set[str],
+                        badges: tuple[Badge, ...] = BADGES) -> dict[int, str]:
+    """{sighting id: badge key} for each sighting that earned its spotter a badge.
+
+    Works per member, by the same rule as `badge_progress`: a member's badge for N breeds
+    goes with the first sighting of their Nth different verified breed (in date order, then
+    the order they were logged). Sightings need id, user_id, breed and seen_on.
+    """
+    firsts: dict[str, dict[str, tuple]] = {}  # user id -> breed -> (seen_on, id)
+    for s in sightings:
+        if s["breed"] not in listed:
+            continue
+        key = (str(s["seen_on"]), s["id"])
+        mine = firsts.setdefault(s["user_id"], {})
+        if s["breed"] not in mine or key < mine[s["breed"]]:
+            mine[s["breed"]] = key
+    out = {}
+    for mine in firsts.values():
+        order = sorted(mine.values())
+        for badge in badges:
+            if len(order) >= badge.goal:
+                out[order[badge.goal - 1][1]] = badge.key
+    return out
 
 
 def next_badge(progress: list[BadgeProgress]) -> BadgeProgress | None:

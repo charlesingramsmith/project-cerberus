@@ -6,6 +6,11 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.20.0 - 2026-11-26 - More badges, now in Social
+- There's now a badge every 5 breeds, 21 in all: from 🐶 Puppy steps (5 breeds) and 🥏 Frisbee fetcher (20) to 🌌 Dog star (90) and 🥇 Best in show (95). See them all in **Profile > Badges**.
+- When a member earns a badge, the **Social** feed shows it on the sighting that earned it, like "🦴 Earned the Pack of 10 badge".
+- Only verified breeds count, as on your profile. If you've switched sharing off, your badges stay private too.
+
 ## 0.19.1 - 2026-11-26 - Fix for Your sightings
 - Fixed an error at the bottom of **Profile** when some of your sightings had a place ("Where") filled in and others didn't.
 

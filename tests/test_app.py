@@ -90,15 +90,15 @@ def badge_cards(at: AppTest) -> str:
 
 def test_first_lifer_earns_a_badge(at):
     sign_up(at)
-    assert "Badges (0/5)" in [h.value for h in at.subheader]
+    assert "Badges (0/21)" in [h.value for h in at.subheader]
     assert 'cerb-badge locked" title="Spot your first breed"' in badge_cards(at)
     assert any("Next badge" in c.value and "First lifer" in c.value for c in at.caption)
 
     log_breed(at, "Beagle")
     assert "Badge earned: **First lifer**" in at.success[1].value
-    assert "Badges (1/5)" in [h.value for h in at.subheader]
+    assert "Badges (1/21)" in [h.value for h in at.subheader]
     assert "Earned" in badge_cards(at) and "1/10 breeds" in badge_cards(at)
-    assert any("Pack of 10" in c.value and "9 more breeds" in c.value for c in at.caption)
+    assert any("Puppy steps" in c.value and "4 more breeds" in c.value for c in at.caption)
 
     log_breed(at, "Pug")  # a second lifer: no new badge to celebrate
     assert len(at.success) == 1
@@ -451,6 +451,15 @@ def test_social_shows_everyones_shared_sightings(at):
     assert "alice" in feed and "Pug" in feed
     assert "Hyde &lt;Park&gt;" in feed  # shown as typed, but safely escaped
     assert "bobby</b> (you)" in feed
+
+
+def test_badges_show_in_the_social_feed(at):
+    sign_up(at)
+    log_breed(at, "Beagle")  # first lifer: earns a badge
+    log_breed(at, "Beagle")  # a repeat: no badge
+    open_tab(at, "Social")
+    feed = feed_html(at)
+    assert feed.count("Earned the <b>First lifer</b> badge") == 1
 
 
 def test_switching_sharing_off_hides_your_sightings(at):
