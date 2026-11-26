@@ -7,6 +7,7 @@ import datetime as dt
 import html
 import os
 import sys
+import uuid
 from pathlib import Path
 
 import pandas as pd
@@ -332,14 +333,21 @@ saved_sign_in_store = st.components.v2.component("cerberus_saved_sign_in",
 
 def sync_saved_sign_in() -> str | None:
     """Mount the component. Returns what the browser had saved: a token, "" for nothing,
-    or None until it has reported. Once it has, it's told to save the current token
-    (or nothing), so a new token from a sign-in, return visit or hourly refresh is kept."""
-    data = {}
+    or None until it has reported to this session. Once it has, it's told to save the
+    current token (or nothing), so a new token from a sign-in, return visit or hourly
+    refresh is kept. This runs before anything else talks to Supabase, so if the hour is
+    up, refresh_token() swaps the token here and the new one is saved in this same run."""
+    if "browser_session" not in st.session_state:
+        st.session_state.browser_session = uuid.uuid4().hex
+    data = {"session": st.session_state.browser_session}
     if st.session_state.get("saved_read"):
         data["save"] = backend.refresh_token() if st.session_state.get("remember") else None
     result = saved_sign_in_store(key="saved_sign_in", data=data,
                                  on_saved_change=lambda: None)
-    return result.saved
+    report = result.saved
+    if not isinstance(report, dict) or report.get("session") != data["session"]:
+        return None  # not reported yet, or a leftover report from an earlier session
+    return report.get("token") or ""
 
 
 def resume_saved_sign_in(saved: str | None):
