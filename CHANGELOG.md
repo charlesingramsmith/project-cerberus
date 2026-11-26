@@ -6,6 +6,10 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.14.0 - 2026-11-26 - Dog ID is now Post
+- The **Dog ID** tab is now called **Post**, with a ➕ icon. It works just the same: pick the breed, add the details and an optional photo, then log it.
+- This is the first step towards making Post the place to share your dogs and spot new ones.
+
 ## 0.13.1 - 2026-11-26 - "Forgot your password?" removed for now
 - We've taken out **Forgot your password?** from the sign-in screen for now, because the reset emails couldn't be sent yet. If you forget your password and your email is a Google (Gmail) account, use **Continue with Google**: it opens your same account.
 

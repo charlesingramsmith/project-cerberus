@@ -80,8 +80,8 @@ def test_full_journey(at):
 def test_signed_in_app_has_five_main_tabs(at):
     sign_up(at)
     labels = [t.label.split("\n")[-1] for t in at.tabs]  # drop the icon line
-    assert labels == ["Dog ID", "Life list", "Profile", "Social", "Settings"]
-    assert headers(at) == ["Dog ID", "charlie's life list", "Your profile", "Social", "Settings"]
+    assert labels == ["Post", "Life list", "Profile", "Social", "Settings"]
+    assert headers(at) == ["Post", "charlie's life list", "Your profile", "Social", "Settings"]
 
 
 def badge_cards(at: AppTest) -> str:
@@ -405,7 +405,7 @@ def test_settings_dot_shows_until_settings_is_opened(at):
     assert not dot_shown(at)
     assert any(":orange-badge[New]" in m.value for m in at.markdown)  # the update is marked
 
-    open_tab(at, "Dog ID")
+    open_tab(at, "Post")
     assert not dot_shown(at)  # stays gone once seen
     assert at.session_state["backend"].seen_version() == latest_version()
 
@@ -542,7 +542,7 @@ def test_sighting_photos_show_on_their_card_in_profile(at):
     from datetime import date
 
     sign_up(at)
-    assert at.get("file_uploader")  # the optional photo on the Dog ID form
+    assert at.get("file_uploader")  # the optional photo on the Post form
     backend = at.session_state["backend"]
     path = backend.add_photo(b"jpeg-bytes")
     backend.add_sighting("Pug", date(2026, 11, 1), photo_path=path)

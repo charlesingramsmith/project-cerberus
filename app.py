@@ -570,7 +570,7 @@ if photo_problem:
 
 # The five main tabs. The "main_nav" key lets MOBILE_CSS pin them to the bottom of the
 # screen as a tab bar; the "\n" puts each icon above its label.
-NAV_TABS = ["🔍\nDog ID", "📋\nLife list", "👤\nProfile", "👥\nSocial", "⚙️\nSettings"]
+NAV_TABS = ["➕\nPost", "📋\nLife list", "👤\nProfile", "👥\nSocial", "⚙️\nSettings"]
 SETTINGS_TAB = NAV_TABS[-1]
 
 
@@ -614,12 +614,12 @@ if unseen:
     st.html(NEW_UPDATE_DOT_CSS)
 
 with st.container(key="main_nav"):
-    tab_id, tab_life, tab_profile, tab_social, tab_settings = st.tabs(
+    tab_post, tab_life, tab_profile, tab_social, tab_settings = st.tabs(
         NAV_TABS, key="main_tab", on_change="rerun")
 
-# --- Dog ID: identify a dog and log the sighting ---------------------------------------------
-with tab_id:
-    st.header("Dog ID")
+# --- Post: log a sighting (later, also identify the dog) --------------------------------------
+with tab_post:
+    st.header("Post")
     seen_breeds = set(life.loc[seen, "breed"])
 
     def breed_label(name: str) -> str:
