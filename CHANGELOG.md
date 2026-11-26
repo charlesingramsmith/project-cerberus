@@ -6,11 +6,22 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
-## 0.14.0 - 2026-11-26 - Not sure what breed it is?
+## 0.16.0 - 2026-11-26 - Not sure what breed it is?
 - You can now post a dog even if you don't know its breed. Pick **Not sure: help me identify it** at the top of the breed list.
 - Once you find out, tap **Identify** on that sighting in Profile and pick the breed. If it's a new one for you, it counts as a lifer.
 - Mixed breeds and crosses have their own option, and if a breed isn't on our list you can type it in.
 - Mixed breeds and breeds we don't list yet show under **Other dogs** at the bottom of your life list. They don't count towards your 100 breeds or badges (for now).
+
+## 0.15.0 - 2026-11-26 - Dog ID is now Post
+- The **Dog ID** tab is now called **Post**, with a ➕ icon. It works just the same: pick the breed, tag dogs, add the details and an optional photo, then log it.
+- This is the first step towards making Post the place to share your dogs and spot new ones.
+
+## 0.14.0 - 2026-11-26 - Dog profiles and tags
+- Give your own dogs a profile in **Profile > Your dogs**: a unique @username, their name, breed, a short bio and a photo.
+- Tag dogs in your sightings by their @username, on the Dog ID tab. Tag a dog and leave Breed empty, and we'll use that dog's breed.
+- The Social feed now shows the dogs tagged in each sighting, and photos on shared sightings. Switch sharing off in Settings > Privacy and your photos stay private.
+- **Find a dog** in Social shows any dog's profile and the latest posts it's tagged in.
+- If you'd listed your dogs on your profile before, they now have dog profiles of their own.
 
 ## 0.13.1 - 2026-11-26 - "Forgot your password?" removed for now
 - We've taken out **Forgot your password?** from the sign-in screen for now, because the reset emails couldn't be sent yet. If you forget your password and your email is a Google (Gmail) account, use **Continue with Google**: it opens your same account.

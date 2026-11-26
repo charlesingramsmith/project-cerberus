@@ -393,3 +393,90 @@ def test_identifying_a_sighting_only_updates_your_own_row():
     assert ("update", ({"breed": "Lurcher"},), {}) in log
     assert ("eq", ("id", 7), {}) in log
     assert ("eq", ("user_id", "uuid-1"), {}) in log
+
+
+# --- Dog profiles and tags ----------------------------------------------------------------
+
+def tables(backend, log, data):
+    """Table queries return data[table name] (empty if not given)."""
+    backend.client.table = lambda name: (log.append(("table", (name,), {}))
+                                         or FakeQuery(log, data.get(name)))
+
+
+def test_tagged_dogs_are_saved_with_the_new_sighting():
+    backend, log = make_backend()
+    backend.sign_in("charlie@example.com", "correct-horse")
+    tables(backend, log, {"sightings": [{"id": 42}]})
+    backend.add_sighting("Pug", date(2026, 11, 1), dog_ids=[3, 5, 3])
+    inserts = [args[0] for name, args, _ in log if name == "insert"]
+    assert inserts[1] == [{"sighting_id": 42, "dog_id": 3}, {"sighting_id": 42, "dog_id": 5}]
+    assert ("table", ("sighting_dogs",), {}) in log
+
+
+def test_sightings_come_with_their_tags():
+    backend, log = make_backend()
+    backend.sign_in("charlie@example.com", "correct-horse")
+    tables(backend, log, {"sightings": [{"id": 1}, {"id": 2}],
+                          "sighting_dogs": [{"sighting_id": 2, "dog_id": 7}]})
+    assert [s["dog_ids"] for s in backend.list_sightings()] == [[], [7]]
+
+
+def test_sightings_still_load_if_tags_cant_be_read():
+    backend, log = make_backend()
+    backend.sign_in("charlie@example.com", "correct-horse")
+
+    def table(name):
+        if name == "sighting_dogs":
+            raise RuntimeError("relation does not exist")
+        return FakeQuery(log, [{"id": 1}])
+    backend.client.table = table
+    assert backend.list_sightings() == [{"id": 1, "dog_ids": []}]
+
+
+def test_dogs_are_listed_with_their_owners_username():
+    backend, log = make_backend()
+    backend.sign_in("charlie@example.com", "correct-horse")
+    tables(backend, log, {"dogs": [{"id": 1, "owner_id": "uuid-9", "username": "rex"}],
+                          "profiles": [{"user_id": "uuid-9", "username": "pat"}]})
+    assert backend.list_dogs() == [{"id": 1, "owner_id": "uuid-9", "username": "rex",
+                                    "owner": "pat"}]
+
+
+class DuplicateError(Exception):
+    code = "23505"
+
+
+def test_a_taken_dog_username_is_a_friendly_error():
+    backend, log = make_backend()
+    backend.sign_in("charlie@example.com", "correct-horse")
+
+    class Taken(FakeQuery):
+        def execute(self):
+            raise DuplicateError("duplicate key value violates unique constraint")
+    backend.client.table = lambda name: Taken(log)
+    with pytest.raises(ValueError, match="taken"):
+        backend.add_dog({"username": "rex", "name": "Rex"})
+
+
+def test_editing_a_dog_only_touches_your_own_and_removes_a_replaced_photo():
+    backend, log = make_backend()
+    with_storage(backend, log, rows=[{"photo_path": "uuid-1/dogs/old.jpg"}])
+    backend.sign_in("charlie@example.com", "correct-horse")
+    backend.update_dog(4, {"username": "rex", "name": "Rex", "photo_path": "uuid-1/dogs/new.jpg"})
+    assert ("eq", ("owner_id", "uuid-1"), {}) in log
+    assert ("remove", (["uuid-1/dogs/old.jpg"],), {}) in log
+    with pytest.raises(ValueError):
+        backend.update_dog(4, {"username": "rex", "name": "Rex", "photo_path": "uuid-2/x.jpg"})
+
+
+def test_social_feed_includes_photos_and_tags():
+    backend, log = make_backend()
+    backend.sign_in("charlie@example.com", "correct-horse")
+    tables(backend, log, {
+        "sightings": [{"id": 2, "user_id": "uuid-9", "breed": "Pug", "seen_on": "2026-11-02",
+                       "photo_path": "uuid-9/p.jpg"}],
+        "profiles": [{"user_id": "uuid-9", "username": "pat", "avatar": "🐩",
+                      "share_sightings": True}],
+        "sighting_dogs": [{"sighting_id": 2, "dog_id": 7}]})
+    post = backend.social_feed()[0]
+    assert post["photo_path"] == "uuid-9/p.jpg" and post["dog_ids"] == [7]

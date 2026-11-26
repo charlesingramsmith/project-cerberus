@@ -80,8 +80,8 @@ def test_full_journey(at):
 def test_signed_in_app_has_five_main_tabs(at):
     sign_up(at)
     labels = [t.label.split("\n")[-1] for t in at.tabs]  # drop the icon line
-    assert labels == ["Dog ID", "Life list", "Profile", "Social", "Settings"]
-    assert headers(at) == ["Dog ID", "charlie's life list", "Your profile", "Social", "Settings"]
+    assert labels == ["Post", "Life list", "Profile", "Social", "Settings"]
+    assert headers(at) == ["Post", "charlie's life list", "Your profile", "Social", "Settings"]
 
 
 def badge_cards(at: AppTest) -> str:
@@ -405,7 +405,7 @@ def test_settings_dot_shows_until_settings_is_opened(at):
     assert not dot_shown(at)
     assert any(":orange-badge[New]" in m.value for m in at.markdown)  # the update is marked
 
-    open_tab(at, "Dog ID")
+    open_tab(at, "Post")
     assert not dot_shown(at)  # stays gone once seen
     assert at.session_state["backend"].seen_version() == latest_version()
 
@@ -416,13 +416,11 @@ def test_editing_your_profile(at):
     sign_up(at)
     at.text_input(key="profile_username").input("charlie_spotter")
     at.selectbox(key="profile_favourite").set_value("Beagle")
-    at.toggle(key="profile_has_dogs").set_value(True).run()
-    at.text_input(key="profile_dog_name_0").input("Biscuit")
     at.button(key="save_profile").click().run()
     assert not at.exception
     assert "Profile saved" in at.success[0].value
     assert "charlie_spotter's life list" in headers(at)
-    assert any("Biscuit" in m.value for m in at.markdown)
+    assert any("Beagle" in m.value for m in at.markdown)
 
 
 def test_a_taken_username_is_refused(at):
@@ -542,7 +540,7 @@ def test_sighting_photos_show_on_their_card_in_profile(at):
     from datetime import date
 
     sign_up(at)
-    assert at.get("file_uploader")  # the optional photo on the Dog ID form
+    assert at.get("file_uploader")  # the optional photo on the Post form
     backend = at.session_state["backend"]
     path = backend.add_photo(b"jpeg-bytes")
     backend.add_sighting("Pug", date(2026, 11, 1), photo_path=path)
@@ -594,3 +592,65 @@ def test_typed_breeds_are_escaped_in_the_social_feed(at):
     open_tab(at, "Social")
     post = next(m.value for m in at.markdown if "cerb-post" in m.value)
     assert "&lt;b&gt;Shiba&lt;/b&gt;" in post
+
+
+# --- Dog profiles and tags ----------------------------------------------------------------
+
+def add_dog(at: AppTest, name: str, username: str = "", breed: str | None = None) -> AppTest:
+    at.text_input(key="dog_new_name").input(name)
+    at.text_input(key="dog_new_username").input(username)
+    if breed:
+        at.selectbox(key="dog_new_breed").set_value(breed)
+    return click(at, "Add dog")
+
+
+def test_adding_a_dog_profile(at):
+    sign_up(at)
+    add_dog(at, "Mr Biscuit", breed="Beagle")  # no username: one is made from the name
+    assert "@mr_biscuit saved." in at.success[0].value
+    text = " ".join(m.value for m in at.markdown)
+    assert "**@mr_biscuit**" in text and "My dog: @mr_biscuit" in text
+    assert at.expander  # and an "Edit @mr_biscuit" section
+
+    add_dog(at, "Other", username="MR_BISCUIT")
+    assert "taken" in at.error[0].value
+
+
+def test_tagging_a_dog_fills_in_its_breed_and_shows_in_social(at):
+    sign_up(at, username="alice", email="alice@example.com")
+    add_dog(at, "Rex", username="rex", breed="Pug")
+    click(at, "Sign out")
+    sign_up(at, username="bobby", email="bobby@example.com")
+    rex_id = at.session_state["backend"].list_dogs()[0]["id"]
+    at.multiselect(key="sighting_dogs").set_value([rex_id])
+    click(at, "Log sighting")  # no breed picked: Rex's breed is used
+    assert "Pug" in at.success[0].value
+
+    open_tab(at, "Social")
+    assert '<span class="dog-tag" title="Rex">@rex</span>' in feed_html(at)
+    at.selectbox(key="social_dog").set_value(rex_id).run()
+    assert any("**@rex**" in m.value for m in at.markdown)
+    assert any("Owned by alice" in c.value for c in at.caption)
+    assert "Pug" in feed_html(at)
+
+
+def test_dogs_listed_on_an_old_profile_get_dog_profiles(at):
+    sign_up(at)
+    backend = at.session_state["backend"]
+    backend.save_profile({**backend.my_profile(), "dogs": [{"name": "Biscuit", "breed": "Pug"}]})
+    at.run()
+    assert not at.exception
+    assert [(d["username"], d["breed"]) for d in backend.list_dogs()] == [("biscuit", "Pug")]
+    assert backend.my_profile()["dogs"] == []
+
+
+def test_shared_sighting_photos_show_in_social(at):
+    from datetime import date
+
+    sign_up(at, username="alice", email="alice@example.com")
+    backend = at.session_state["backend"]
+    backend.add_sighting("Pug", date(2026, 11, 1), photo_path=backend.add_photo(b"jpeg"))
+    click(at, "Sign out")
+    sign_up(at, username="bobby", email="bobby@example.com")
+    open_tab(at, "Social")
+    assert 'class="sighting-photo" src="data:image/jpeg;base64,' in feed_html(at)

@@ -19,7 +19,8 @@ BREED_INFO_CSV = ROOT / "data" / "breed_info.csv"
 BREED_PHOTOS_CSV = ROOT / "data" / "breed_photos.csv"
 BREED_FACES_CSV = ROOT / "data" / "breed_faces.csv"
 
-SIGHTING_COLUMNS = ["id", "breed", "seen_on", "location", "dog_name", "notes", "photo_path"]
+SIGHTING_COLUMNS = ["id", "breed", "seen_on", "location", "dog_name", "notes", "photo_path",
+                    "dog_ids"]  # dog_ids: the dog profiles tagged in it
 
 
 def load_breeds(csv_path: Path = BREEDS_CSV) -> pd.DataFrame:
@@ -423,6 +424,72 @@ def social_feed(sightings: list[dict], profiles: dict[str, dict]) -> list[dict]:
         if who and who.get("share_sightings", True):
             feed.append({**s, "username": who["username"], "avatar": who["avatar"]})
     return feed
+
+# --- Dog profiles: members' own dogs, taggable in posts by @username ------------------
+
+DOG_USERNAME_RE = re.compile(r"^[A-Za-z0-9_.]{3,30}$")  # matches the check in schema.sql
+MAX_DOG_BIO_LENGTH = 300
+DOG_PHOTO_MAX_SIDE = 800  # px: a profile picture needs less than a sighting photo
+DOG_USERNAME_TAKEN = "That dog username is taken. Please choose another."
+BAD_DOG_USERNAME = ("Dog usernames are 3 to 30 letters, numbers, dots or underscores "
+                    "(no spaces), like rex_the_lab.")
+
+
+def clean_dog(dog: dict, breed_names: set[str] | None = None) -> dict:
+    """Check and tidy a dog profile before saving it. Raises ValueError with a friendly
+    message. `breed_names` are the allowed breeds (read from breeds.csv if not given);
+    "Mixed breed / other" is always allowed, and so is leaving the breed empty."""
+    username = (dog.get("username") or "").strip().lstrip("@")
+    if not DOG_USERNAME_RE.match(username):
+        raise ValueError(BAD_DOG_USERNAME)
+    name = (dog.get("name") or "").strip()
+    if not name:
+        raise ValueError("Give your dog a name.")
+    if len(name) > MAX_DOG_NAME_LENGTH:
+        raise ValueError(f"Dog names can be up to {MAX_DOG_NAME_LENGTH} characters.")
+    breed = dog.get("breed") or None
+    if breed_names is None:
+        breed_names = set(load_breeds()["breed"])
+    if breed is not None and breed not in breed_names and breed != MIXED_BREED:
+        raise ValueError("Pick your dog's breed from the list.")
+    bio = (dog.get("bio") or "").strip() or None
+    if bio and len(bio) > MAX_DOG_BIO_LENGTH:
+        raise ValueError(f"Keep the bio under {MAX_DOG_BIO_LENGTH} characters.")
+    return {"username": username, "name": name, "breed": breed, "bio": bio,
+            "photo_path": dog.get("photo_path") or None}
+
+
+def dog_username_candidates(name: str, tries: int = 50):
+    """Usernames to try for a dog called `name`: "rex", "rex2", ... (letters, numbers,
+    dots and underscores only, so "Mr Biscuit" -> "mr_biscuit")."""
+    base = re.sub(r"[^a-z0-9_.]", "", re.sub(r"\s+", "_", (name or "").strip().lower()))
+    base = (base or "dog")[:27].ljust(3, "_")
+    yield base
+    for n in range(2, tries + 1):
+        yield f"{base}{n}"
+
+
+def dog_photo_path(user_id: str, photo_id: str) -> str:
+    """Where a dog's profile photo lives: in its owner's folder, like sighting photos."""
+    return f"{user_id}/dogs/{photo_id}.jpg"
+
+
+def dog_label(dog: dict) -> str:
+    """How a dog appears in pickers: "@rex · Rex (Labrador Retriever)"."""
+    breed = f" ({dog['breed']})" if dog.get("breed") else ""
+    return f"@{dog['username']} · {dog['name']}{breed}"
+
+
+def tagged_breed(dogs: list[dict]) -> str | None:
+    """The breed to log when the spotter tagged dogs but didn't pick a breed: the tagged
+    dogs' breed if they all share one known breed (not "Mixed breed / other"), else None."""
+    known = {d.get("breed") for d in dogs}
+    if len(known) == 1:
+        (breed,) = known
+        if breed and breed != MIXED_BREED:
+            return breed
+    return None
+
 
 # --- Badges: milestones earned from how many breeds you've spotted ------------------------
 
