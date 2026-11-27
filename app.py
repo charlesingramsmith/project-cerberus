@@ -1413,7 +1413,7 @@ with tab_life:
 # --- Your profile: who you are, plus every sighting you've logged ------------------------------
 def badges_section():
     """Profile > Badges: one tab per kind of badge (Lifers, Purebreds, Crosses), each with
-    the next badge to earn up front, the ones you have, then the rest folded away."""
+    the next badge to earn up front, then all of them (earned ones in colour)."""
     tracks = logic.badges_by_track(badges)
     earned = sum(p.earned for p in badges)
     st.subheader(f"Badges ({earned}/{len(badges)})")
@@ -1441,16 +1441,9 @@ def badges_section():
         st.progress(up.have / up.badge.goal)
     else:
         st.success("You've earned every one of these!")
-    got = [p for p in mine if p.earned]
-    if got:
-        st.markdown(f'<div class="cerb-badges">{"".join(badge_html(p) for p in got)}</div>',
-                    unsafe_allow_html=True)
-    else:
-        st.caption("None earned yet.")
-    if coming:
-        with st.expander(f"Still to earn ({len(coming)})"):
-            st.markdown(f'<div class="cerb-badges">{"".join(badge_html(p) for p in coming)}'
-                        "</div>", unsafe_allow_html=True)
+    # All of them in order: earned ones in colour, the rest grey.
+    st.markdown(f'<div class="cerb-badges">{"".join(badge_html(p) for p in mine)}</div>',
+                unsafe_allow_html=True)
 
 
 def badge_html(p: logic.BadgeProgress) -> str:

@@ -6,6 +6,9 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.31.1 - 2026-11-27 - All badges in one place
+- Each kind of badge now shows all its badges together, in order. The ones you've earned are in colour and the rest are grey, with no separate **Still to earn** list.
+
 ## 0.31.0 - 2026-11-27 - Three kinds of badge
 - **Lifer badges** now count every lifer, crosses included, so spotting a new cross moves you up the badge ladder too.
 - New **Purebred badges**: five rarer ones for spotting 10, 25, 50 and 100 verified breeds, and all 141. They have a plum ring so they stand out.
