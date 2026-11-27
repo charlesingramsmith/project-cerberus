@@ -7,17 +7,31 @@ toolbarMode = "minimal"
 [theme]
 baseRadius = "0.75rem"
 buttonRadius = "0.75rem"
-# Default headings are sized for desktop; these suit a phone screen.
-headingFontSizes = ["2rem", "1.5rem", "1.25rem"]
+# Brand fonts (free Google Fonts): handwritten Caveat for headings, to match the
+# pencil-sketch logo, and soft rounded Nunito for everything else.
+font = "Nunito:https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap, sans-serif"
+headingFont = "Caveat:https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&display=swap, cursive"
+# Caveat runs small, so headings are a bit bigger than usual (still sized for a phone).
+headingFontSizes = ["2.6rem", "2rem", "1.6rem"]
+headingFontWeights = [700, 700, 700]
 metricValueFontSize = "1.6rem"
 
-# Defining both a light and a dark theme keeps "follow the phone's light/dark
-# setting" working. The background colours must match the bottom tab bar in
-# MOBILE_CSS in app.py.
+# Brand colours: pastel pistachio as the main colour, with the plum of a pistachio's
+# skin for highlights (lifers, badges, the logo's collar; see BRAND_CSS in app.py).
+# Pastel pistachio is too pale for white text, so BRAND_CSS gives primary buttons
+# dark text. Defining both a light and a dark theme keeps "follow the phone's
+# light/dark setting" working. The background colours must match the bottom tab
+# bar in MOBILE_CSS in app.py.
 [theme.light]
-primaryColor = "#E8833A"
-backgroundColor = "#FFFFFF"
+primaryColor = "#BFD99A"
+backgroundColor = "#FBFAF8"
+secondaryBackgroundColor = "#EFF2E8"
+textColor = "#2E2A30"
+linkColor = "#56763A"
 
 [theme.dark]
-primaryColor = "#E8833A"
-backgroundColor = "#171614"
+primaryColor = "#A9C985"
+backgroundColor = "#18171A"
+secondaryBackgroundColor = "#262429"
+textColor = "#ECE9EE"
+linkColor = "#B9D697"

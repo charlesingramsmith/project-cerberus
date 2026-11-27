@@ -43,6 +43,10 @@ A guided question flow ("help me identify": size, coat, ears) was considered and
   - Guesses made on 26 Nov 2026, easy to change: unverified breeds don't count as lifers or towards badges (`listed=` in `logic.is_lifer`/`badge_progress`), and an added breed is visible to every member straight away (the owner can tick `rejected` to hide one).
   - Not built: an admin page in the app to review and verify breeds. Verifying is a code change for now (add the breed to the four `data/` breed files).
 - [x] **Badges**: milestone badges for your first lifer and then every 5 breeds up to 100 (21 in all, each named), shown on your profile (earned date, or how many to go), a "next badge" hint on the life list, and a message when you earn one. Pure functions in `cerberus/logic.py` (`BADGES`, `badge_progress`), worked out from sightings each run, so no table. Badges also show in the Social feed on the sighting that earned them (`milestone_sightings`, from the spotters' shared sightings; members who don't share stay out). Show a member's full badge set once member profiles are viewable (More social).
+- [x] **Visual refresh**: a pencil-sketch dachshund logo, pastel pistachio green with plum highlights, handwritten Caveat headings and Nunito text, in light and dark. Layout and tabs unchanged.
+  - Picked by the owner on 27 Nov 2026 from a mood board (3 logos, 3 pistachio palettes, 3 font pairs). Colours and fonts live in `.streamlit/config.toml`; the matching CSS colour tokens (`--pistachio`, `--plum`, ...) are at the top of `MOBILE_CSS`. The logo is `assets/logo.svg` (pencil look from an SVG filter, light/dark built in) and `assets/icon.png` (the head on a pistachio tile: browser tab icon and the small header logo).
+  - Pastel pistachio is too pale for white text, so primary buttons get dark text in `MOBILE_CSS`, and links, the open tab and selected options use a deeper green.
+  - Later, once there's a brand name: a wordmark, illustrations (e.g. pencil sketches for badges or empty states), and maybe a layout refresh.
 
 - [x] **Photo ID** (first version, step 1 of **Dog identification**): add a photo on Spotted! and get up to 3 breed suggestions, each "Very likely" (score 0.7 or more), "Possible" (0.3 or more) or "Long shot"; tap one to fill in the breed. "Not sure" (best guess under 0.3) and "can't see a dog" (the dog classes add up to under 0.5) show a message instead.
   - Model: MobileNetV3Large trained on ImageNet (`models/dog_breeds.onnx`, 22 MB, made by `scripts/export_photo_id_model.py`), run in the app with `onnxruntime` (`cerberus/photo_id.py`, a few milliseconds per photo). `data/photo_id_breeds.csv` maps its 118 dog classes to 73 of our 100 breeds; `logic.breed_guesses` adds up classes per breed and scores them as a share of all dog classes.
@@ -80,8 +84,6 @@ _Nothing in progress. Pick the next item from below._
   - Telling *breeds* apart by bark isn't reliable with current public data, so a realistic first version is "dog detected" plus a rough size guess, used alongside Photo ID or the breed picker. A pretrained audio classifier (e.g. YAMNet, which recognises "dog bark") with `st.audio_input`.
 - [ ] **Streak badges**: badges for spotting dogs several days or weeks in a row.
   - Add to `logic.BADGES`/`badge_progress` (badges are worked out from sightings, no table). Decide what counts as a streak (days with any sighting?) and whether a streak badge stays once the streak ends.
-- [ ] **Visual redesign**: a proper look for Cerberus (logo, colours, fonts, illustration style).
-  - Starts with a brainstorming session on branding: mood boards, a few colour palettes for light and dark mode, logo ideas. Then update `.streamlit/config.toml`, `MOBILE_CSS` and the bottom tab bar together, and check at 375px in light and dark.
 - [ ] More breeds beyond the top 100 (add rows to `data/breeds.csv`)
 - [ ] **Location on a sighting** (optional): where the dog was seen.
   - Simplest start: a free-text place name (e.g. "Hyde Park"). Then add "Use my current location" on phones; Streamlit has no built-in GPS, so this needs a small component that asks the browser for location (with the user's permission). Could also pick a spot on a map.
@@ -105,8 +107,8 @@ _Nothing in progress. Pick the next item from below._
 - [ ] **A brand name**: a proper name for the app (it's called Project Cerberus for now).
   - Planning: shortlist names; check each is free as a domain, on the App Store and Google Play, and on social handles; do a quick trademark search (UK IPO, EUIPO, USPTO) for the pet/app classes; ask a few members which they like.
   - Decide whether "Cerberus" stays as the code/project name and only the app's display name changes.
-  - Do this before **Visual redesign** (the logo follows the name) and before buying a domain.
-  - Changing it touches the page title and text in `app.py`, `README.md`, the Google sign-in consent screen and Supabase email templates.
+  - The owner chose (27 Nov 2026) to do the visual refresh first under the current name and rework the name later. The dachshund logo can stay; a wordmark follows the name. Do the name before buying a domain.
+  - Changing it touches the page title and text in `app.py` (including the sign-in screen under the logo), `README.md`, the Google sign-in consent screen and Supabase email templates.
 - [ ] **Our own web address (domain)**: e.g. `<brand>.app` instead of `project-cerberus.streamlit.app`.
   - Planning: pick the name first; choose a registrar (cost per year, renewal price, WHOIS privacy); decide between `.com`, `.app` (HTTPS only, fine for us) or a country domain.
   - Streamlit Community Cloud can't use a custom domain, so a domain mostly pays off together with **Launch a real app** (new hosting). Until then it could redirect to the current address.
@@ -115,7 +117,7 @@ _Nothing in progress. Pick the next item from below._
 - [ ] **Launch a real app**: Cerberus on your phone's home screen, and later in the app stores.
   - First step: an installable "Add to Home Screen" web app. Needs hosting where we control the web app manifest and icons, so it means moving off Streamlit Community Cloud.
   - Then: a store app (iOS and Android). Options to compare: wrapping the web app (e.g. Capacitor) vs. rebuilding the UI natively; Supabase and the RLS rules can stay as they are.
-  - Planning: decide on hosting (another Python host such as Render or Fly.io, or a rebuild in a web framework), what it costs per month, and how a deploy works without breaking "Keep me signed in" (saved tokens are tied to the site's address, so members sign in once more after a move). Name, domain and visual redesign should be done first.
+  - Planning: decide on hosting (another Python host such as Render or Fly.io, or a rebuild in a web framework), what it costs per month, and how a deploy works without breaking "Keep me signed in" (saved tokens are tied to the site's address, so members sign in once more after a move). Name and domain should be done first (the visual refresh is done).
   - Store launch checklist: Apple Developer (yearly fee) and Google Play accounts, a privacy policy page (photos, location, sharing), store screenshots and description, an age rating, and account deletion inside the app (both stores require it).
   - Keep the daily user-suggestions check going through launch, and add a way to report problems.
   - **Fix the tab bar height when we move.** Today `MOBILE_CSS` in `app.py` lifts the bottom tab bar by 3rem on screens up to 840px wide so Streamlit Community Cloud's "Hosted with Streamlit" badge doesn't cover the last tabs. Off Community Cloud that badge is gone, so remove the lift (the `@media (max-width: 840px)` block) and the bar sits flush with the bottom again, keeping `env(safe-area-inset-bottom)` for phones with a home bar. Check it at 375px in light and dark.

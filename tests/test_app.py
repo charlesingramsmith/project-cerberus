@@ -40,7 +40,7 @@ def log_breed(at: AppTest, breed_name: str) -> AppTest:
 
 
 def test_signed_out_visitors_see_the_sign_in_screen(at):
-    assert at.title[0].value == "🐕 Project Cerberus"
+    assert at.title[0].value == "Project Cerberus"  # the logo (assets/logo.svg) sits above it
     assert any(b.label == "Sign in" for b in at.button)
     assert not at.header  # no life list until signed in
 
@@ -157,6 +157,24 @@ def test_page_styles_contain_no_html_tags():
     source = Path(APP).read_text(encoding="utf-8")
     for css in re.findall(r"<style>(.*?)</style>", source, flags=re.S):
         assert "<" not in css
+
+
+def test_tab_bar_matches_the_theme_backgrounds():
+    """The bottom tab bar paints its own background, so it must use the same colours as
+    [theme.light] and [theme.dark] in .streamlit/config.toml, or it shows as a stripe."""
+    import tomllib
+    root = Path(APP).parent
+    theme = tomllib.loads((root / ".streamlit" / "config.toml").read_text("utf-8"))["theme"]
+    source = Path(APP).read_text(encoding="utf-8")
+    light, dark = theme["light"]["backgroundColor"], theme["dark"]["backgroundColor"]
+    assert f"background: {light};  /* matches [theme.light]" in source
+    assert f"background: {dark}; }}  /* [theme.dark] */" in source
+
+
+def test_logo_files_exist():
+    root = Path(APP).parent
+    assert (root / "assets" / "logo.svg").is_file()  # header and sign-in screen
+    assert (root / "assets" / "icon.png").is_file()  # browser tab icon
 
 
 def google_link(at: AppTest) -> str:
@@ -403,7 +421,7 @@ def test_settings_dot_shows_until_settings_is_opened(at):
 
     open_tab(at, "Settings")
     assert not dot_shown(at)
-    assert any(":orange-badge[New]" in m.value for m in at.markdown)  # the update is marked
+    assert any(":violet-badge[New]" in m.value for m in at.markdown)  # the update is marked
 
     open_tab(at, "Spotted!")
     assert not dot_shown(at)  # stays gone once seen
