@@ -6,6 +6,11 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.33.1 - 2026-11-27 - Sharper drawings
+- The dachshund logo, the app icon and every hand-drawn icon (tab bar, badges and the rest) are redrawn as crisp lines, so they look sharp on any screen instead of fuzzy.
+- They still look pencil-drawn: each line is gone over twice, and the logo's ear and face have hand-drawn shading.
+- The little logo at the top is bolder, so the dog is easy to make out.
+
 ## 0.33.0 - 2026-11-27 - Cross breed dogs
 - When you add or edit one of your dogs, switch on **My dog is a cross breed** and pick its two breeds. It shows as **Breed A x Breed B** on your dog's profile.
 

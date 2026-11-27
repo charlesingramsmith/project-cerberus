@@ -177,7 +177,8 @@ def test_tab_bar_matches_the_theme_backgrounds():
 
 def test_logo_files_exist():
     root = Path(APP).parent
-    assert (root / "assets" / "logo.svg").is_file()  # header and sign-in screen
+    assert (root / "assets" / "logo.svg").is_file()  # sign-in screen
+    assert (root / "assets" / "icon.svg").is_file()  # header
     assert (root / "assets" / "icon.png").is_file()  # browser tab icon
 
 

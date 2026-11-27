@@ -53,7 +53,7 @@ from cerberus.remember import MAX_AGE_DAYS, SAVED_SIGN_IN_JS  # noqa: E402
 
 st.set_page_config(
     page_title="Project Cerberus",
-    page_icon="assets/icon.png",  # LOGO_ICON (defined below)
+    page_icon="assets/icon.png",  # a 512px copy of LOGO_ICON (browser tabs want a picture)
     layout="centered",
     initial_sidebar_state="collapsed",
 )
@@ -61,7 +61,7 @@ st.set_page_config(
 # The logo: a pencil-drawn dachshund head (assets/logo.svg; light and dark built in).
 # Shown big on the sign-in screen, then small at the top left.
 LOGO = "assets/logo.svg"
-LOGO_ICON = "assets/icon.png"  # the same head on a pistachio tile: clearer when small
+LOGO_ICON = "assets/icon.svg"  # the same head, bolder, on a pistachio tile: clearer when small
 
 
 def logo_html() -> str:
