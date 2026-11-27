@@ -238,6 +238,7 @@ class FakeBrowser:
         self.theme = "Light"
         self.carry = None  # a sign-in kept in the tab across a theme switch's reload
         self.reloads = 0
+        self.instant_switch = True  # False: Streamlit's switcher wasn't found, so it reloads
         self.reported = None  # the component's last report; None until it has made one
         self.last_session = None  # the session id the app passed on its latest run
 
@@ -249,9 +250,11 @@ class FakeBrowser:
 
         self.last_session = data["session"]
         if data.get("theme") and data["theme"] != self.theme:  # like useTheme()
-            self.theme, self.carry = data["theme"], data.get("carry")
-            self.reloads += 1
-            return SimpleNamespace(saved=self.reported)
+            self.theme = data["theme"]
+            if not self.instant_switch:
+                self.carry = data.get("carry")
+                self.reloads += 1
+                return SimpleNamespace(saved=self.reported)
         if "save" in data:
             self.saved = data["save"] or ""
         return SimpleNamespace(saved=self.reported)
@@ -360,12 +363,28 @@ def test_light_mode_is_the_default(browser):
     assert app.toggle(key="dark_mode").value is False
 
 
-def test_dark_mode_switch_reloads_in_dark_and_keeps_you_signed_in(browser):
+def open_settings(app: AppTest):
+    app.session_state["main_tab"] = "Settings"
+    app.run()
+
+
+def test_dark_mode_switch_changes_theme_straight_away(browser):
+    app = browser.open_app()
+    sign_up(app)
+    open_settings(app)
+    app.toggle(key="dark_mode").set_value(True).run()
+    assert browser.theme == "Dark" and browser.reloads == 0
+    assert dark_colours_on(app) and "Settings" in [t.label for t in app.tabs]
+    app.toggle(key="dark_mode").set_value(False).run()
+    assert browser.theme == "Light" and not dark_colours_on(app)
+
+
+def test_dark_mode_switch_falls_back_to_a_reload_and_keeps_you_signed_in(browser):
+    browser.instant_switch = False  # e.g. a Streamlit upgrade moved its theme switcher
     app = browser.open_app()
     app.checkbox(key="keep_signed_in").uncheck().run()  # even without "Keep me signed in"
     sign_up(app)
-    app.session_state["main_tab"] = "Settings"
-    app.run()
+    open_settings(app)
     app.toggle(key="dark_mode").set_value(True).run()
     assert browser.theme == "Dark" and browser.reloads == 1
     assert browser.saved == ""  # the sign-in only rides along with the reload
@@ -374,12 +393,8 @@ def test_dark_mode_switch_reloads_in_dark_and_keeps_you_signed_in(browser):
     assert "charlie's life list" in headers(reloaded)
     assert dark_colours_on(reloaded)
     assert browser.saved == ""  # still not remembered for next time
-
-    reloaded.session_state["main_tab"] = "Settings"
-    reloaded.run()
+    open_settings(reloaded)
     assert reloaded.toggle(key="dark_mode").value is True
-    reloaded.toggle(key="dark_mode").set_value(False).run()
-    assert browser.theme == "Light" and browser.reloads == 2
 
 
 def test_unticking_updates_the_google_link(at):

@@ -10,6 +10,9 @@ Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed b
 - Each **Photo ID** suggestion now shows a photo of that breed next to its name, so you can compare it with your own photo and judge whether the guess is right.
 - Tap **Pick** on the one that matches to fill in the breed.
 
+## 0.24.1 - 2026-11-27 - Smoother dark mode switch
+- The **Dark mode** switch now changes the colours straight away, without reloading the app. You stay right where you were in Settings.
+
 ## 0.24.0 - 2026-11-27 - Hand-drawn icons and a dark mode switch
 - The tabs at the bottom have new hand-drawn icons in the same pencil style as the logo.
 - Emoji are gone from the app: every badge has its own pencil sketch, and so do ticks, tips and places in Social.
