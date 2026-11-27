@@ -6,6 +6,9 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.33.0 - 2026-11-27 - Cross breed dogs
+- When you add or edit one of your dogs, switch on **My dog is a cross breed** and pick its two breeds. It shows as **Breed A x Breed B** on your dog's profile.
+
 ## 0.32.2 - 2026-11-27 - Tabs in a new order
 - The tabs at the bottom are now Spotted!, Social, Life list, Profile and Settings, with your life list right in the middle.
 

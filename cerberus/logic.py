@@ -722,7 +722,8 @@ BAD_DOG_USERNAME = ("Dog usernames are 3 to 30 letters, numbers, dots or undersc
 def clean_dog(dog: dict, breed_names: set[str] | None = None) -> dict:
     """Check and tidy a dog profile before saving it. Raises ValueError with a friendly
     message. `breed_names` are the allowed breeds (read from breeds.csv if not given);
-    "Mixed breed / other" is always allowed, and so is leaving the breed empty."""
+    "Mixed breed / other" is always allowed, and so is leaving the breed empty. A cross
+    ("Labrador Retriever x Poodle", see cross_name) is allowed if both its breeds are."""
     username = (dog.get("username") or "").strip().lstrip("@")
     if not DOG_USERNAME_RE.match(username):
         raise ValueError(BAD_DOG_USERNAME)
@@ -734,7 +735,12 @@ def clean_dog(dog: dict, breed_names: set[str] | None = None) -> dict:
     breed = dog.get("breed") or None
     if breed_names is None:
         breed_names = set(load_breeds()["breed"])
-    if breed is not None and breed not in breed_names and breed != MIXED_BREED:
+    parents = cross_parents(breed)
+    if parents:
+        if not all(p in breed_names for p in parents):
+            raise ValueError("Pick both of your dog's breeds from the list.")
+        breed = cross_name(*parents)  # the usual A to Z spelling
+    elif breed is not None and breed not in breed_names and breed != MIXED_BREED:
         raise ValueError("Pick your dog's breed from the list.")
     bio = (dog.get("bio") or "").strip() or None
     if bio and len(bio) > MAX_DOG_BIO_LENGTH:

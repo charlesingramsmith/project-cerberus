@@ -965,3 +965,30 @@ def test_a_cross_lifer_floats_both_parents_faces(at):
     log_cross(at, "Labrador Retriever", "Poodle")
     photos = set(re.findall(r"background-image:url\(&quot;(.*?)&quot;", face_balloons(at)))
     assert len(photos) == 2
+
+
+def test_a_dog_profile_can_be_a_cross(at):
+    sign_up(at)
+    at.toggle(key="dog_new_is_cross").set_value(True).run()
+    at.text_input(key="dog_new_name").input("Bonnie")
+    at.selectbox(key="dog_new_breed_a").set_value("Poodle")
+    at.selectbox(key="dog_new_breed_b").set_value("Labrador Retriever")
+    click(at, "Add dog")
+    assert not at.exception and "@bonnie saved." in at.success[0].value
+    dog = at.session_state["backend"].list_dogs()[0]
+    assert dog["breed"] == "Labrador Retriever x Poodle"
+    # Editing it starts with the cross switched on and both breeds filled in
+    dog_id = dog["id"]
+    assert at.toggle(key=f"dog_edit_{dog_id}_is_cross").value
+    assert at.selectbox(key=f"dog_edit_{dog_id}_breed_b").value == "Poodle"
+
+
+def test_a_cross_dog_needs_two_different_breeds(at):
+    sign_up(at)
+    at.toggle(key="dog_new_is_cross").set_value(True).run()
+    at.text_input(key="dog_new_name").input("Bo")
+    at.selectbox(key="dog_new_breed_a").set_value("Poodle")
+    click(at, "Add dog")
+    assert "both breeds" in at.error[0].value
+    assert at.session_state["backend"].list_dogs() == []
+

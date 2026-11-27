@@ -496,6 +496,13 @@ def test_clean_dog_tidies_input():
                            BREEDS)["breed"] == logic.MIXED_BREED
 
 
+def test_a_dog_can_be_a_cross_of_two_listed_breeds():
+    dog = {"username": "puggle", "name": "Bo", "breed": "Pug x Beagle"}
+    assert logic.clean_dog(dog, BREEDS)["breed"] == "Beagle x Pug"  # A to Z
+    with pytest.raises(ValueError, match="both"):
+        logic.clean_dog({**dog, "breed": "Pug x Unicorn"}, BREEDS)
+
+
 @pytest.mark.parametrize("dog, message", [
     ({"username": "re", "name": "Rex"}, "3 to 30"),
     ({"username": "rex the lab", "name": "Rex"}, "no spaces"),
