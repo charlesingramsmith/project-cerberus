@@ -54,3 +54,8 @@ def test_markdown_to_html_escapes_and_handles_lists():
     html = build_site.markdown_to_html("# Hi\n\nA <b> & **bold**\n\n- one\n- two\n\n1. first\n2. second")
     assert html == ("<h1>Hi</h1>\n<p>A &lt;b&gt; &amp; <strong>bold</strong></p>\n"
                     "<ul>\n<li>one</li>\n<li>two</li>\n</ul>\n<ol>\n<li>first</li>\n<li>second</li>\n</ol>")
+
+
+def test_every_page_links_to_instagram():
+    for page in PAGES.values():
+        assert 'href="https://www.instagram.com/derlin.app/"' in page
