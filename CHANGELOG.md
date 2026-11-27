@@ -6,6 +6,12 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.34.0 - 2026-11-27 - Dog profile pages
+- Tap a tagged **@dog** on a post in Social (or on your own sightings in Profile) to open that dog's page: its photo, name, breed (crosses shown as **Breed A x Breed B**), owner and bio.
+- The page lists every sighting the dog is tagged in, with a gallery of their photos. Tap a photo to see it bigger.
+- **Find a dog** in Social now opens the dog's page, and each of your own dogs has a **See profile page** button.
+- Only shared sightings show up: if a member has switched sharing off, their sightings and photos stay off the page.
+
 ## 0.33.1 - 2026-11-27 - Sharper drawings
 - The dachshund logo, the app icon and every hand-drawn icon (tab bar, badges and the rest) are redrawn as crisp lines, so they look sharp on any screen instead of fuzzy.
 - They still look pencil-drawn: each line is gone over twice, and the logo's ear and face have hand-drawn shading.
