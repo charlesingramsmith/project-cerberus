@@ -69,6 +69,7 @@ ARTICLE = {
 PHOTO = {
     "Belgian Malinois": "Malinois Shepherd3.JPG",
     "Akita": "Akita female.png",
+    "Belgian Sheepdog": "Belgian Groenendael portrait.jpg",
 }
 
 
