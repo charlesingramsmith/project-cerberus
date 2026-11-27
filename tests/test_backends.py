@@ -449,3 +449,22 @@ def test_sightings_can_be_of_a_typed_in_breed_but_not_an_empty_one(backend):
     assert backend.list_sightings()[0]["breed"] == "Cavapoo"
     with pytest.raises(ValueError):
         backend.add_sighting("  ", date(2026, 11, 1))
+
+
+def test_a_dogs_page_shows_only_sightings_social_would_show(backend):
+    add_member(backend, "alice")
+    rex = backend.add_dog({"username": "rex", "name": "Rex"})
+    backend.add_sighting("Pug", date(2026, 11, 1), dog_ids=[rex["id"]])
+    backend.add_sighting("Pug", date(2026, 11, 2))  # not tagged
+    backend.sign_out()
+    add_member(backend, "bobby")
+    backend.add_sighting("Pug", date(2026, 11, 3), dog_ids=[rex["id"]])
+    backend.save_profile({**backend.my_profile(), "share_sightings": False})
+    backend.sign_out()
+    add_member(backend, "carol")
+    backend.add_sighting("Pug", date(2026, 11, 4), dog_ids=[rex["id"]])
+
+    posts = backend.dog_sightings(rex["id"])
+    assert [p["username"] for p in posts] == ["carol", "alice"]  # newest first; bobby doesn't share
+    assert all(p["dog_ids"] == [rex["id"]] for p in posts)
+    assert backend.dog_sightings(999) == []

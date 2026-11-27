@@ -158,6 +158,11 @@ class Backend(Protocol):
         "badges": the badges that sighting earned (keys in logic.BADGES_BY_KEY), often
         none."""
 
+    def dog_sightings(self, dog_id: int) -> list[dict]:
+        """Every sighting the dog is tagged in that Social would show you (yours while
+        you share, and other members' shared ones), newest post first, shaped like
+        social_feed posts (without badges)."""
+
 
 def _listed_breeds() -> set[str]:
     """The verified breeds (logic.badge_progress says what counts towards badges)."""
@@ -572,6 +577,30 @@ class SupabaseBackend:
         milestones = logic.milestone_sightings(history, _listed_breeds())
         return logic.social_feed(rows, {p["user_id"]: p for p in profiles}, milestones)
 
+    def dog_sightings(self, dog_id):
+        self._require_user()
+        try:  # tags are extras: if they can't be read, the dog just has no sightings
+            ids = sorted({r["sighting_id"] for r in (
+                self.client.table("sighting_dogs").select("sighting_id")
+                .eq("dog_id", dog_id).execute().data)})
+        except Exception:
+            return []
+        if not ids:
+            return []
+        # RLS returns only the ones you can read: yours, plus those of members who share.
+        rows = (self.client.table("sightings")
+                .select("id, user_id, breed, seen_on, location, dog_name, notes, photo_path, "
+                        "created_at")
+                .in_("id", ids).order("created_at", desc=True).order("id", desc=True)
+                .execute().data)
+        rows = _with_tags(rows, self._tags([r["id"] for r in rows]))
+        users = sorted({r["user_id"] for r in rows})
+        profiles = (self.client.table("profiles")
+                    .select("user_id, username, avatar, share_sightings")
+                    .in_("user_id", users).execute().data) if users else []
+        # Same rule as Social: members who've switched sharing off are left out.
+        return logic.social_feed(rows, {p["user_id"]: p for p in profiles})
+
 
 # --- In-memory (tests and demo mode) ---------------------------------------------
 
@@ -855,3 +884,10 @@ class MemoryBackend:
         milestones = logic.milestone_sightings(visible, _listed_breeds())
         return logic.social_feed(_with_tags(newest, self._tags_by_sighting()), self._profiles,
                                  milestones)
+
+    def dog_sightings(self, dog_id):
+        user = self._require_user()
+        tagged = {sighting_id for sighting_id, tagged_dog in self._tags() if tagged_dog == dog_id}
+        visible = [s for s in self._sightings if s["id"] in tagged and self._can_see(user, s)]
+        newest = sorted(visible, key=lambda s: (s.get("created_at", ""), s["id"]), reverse=True)
+        return logic.social_feed(_with_tags(newest, self._tags_by_sighting()), self._profiles)

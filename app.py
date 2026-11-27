@@ -335,6 +335,38 @@ button { min-height: 2.75rem; }
     display: inline-block; padding: 0 .45rem; margin: .15rem .25rem 0 0; border-radius: 1rem;
     background: var(--pistachio-soft); font-size: .85rem;
 }
+/* ... and the tappable ones (dog_tag_buttons): the same chip, in plum, opens the dog's page */
+[class*="st-key-dogtag_"] button {
+    min-height: 0; padding: .05rem .55rem; border-radius: 1rem;
+    background: var(--pistachio-soft); color: var(--plum);
+}
+[class*="st-key-dogtag_"] button p { font-size: .85rem; font-weight: 600; }
+/* A Social post with tappable tags: the post's line moves from the post to its holder,
+   and the tags line up under the post's text (past the avatar) */
+[class*="st-key-feedpost_"] { border-bottom: 1px solid rgba(128, 128, 128, .2); padding-bottom: .5rem; }
+[class*="st-key-feedpost_"] .cerb-post { border-bottom: none; padding-bottom: 0; }
+[class*="st-key-feedpost_"] [data-testid="stMarkdownContainer"] { margin-bottom: 0; }
+[class*="st-key-feedpost_"] [class*="st-key-dogtags_"] {
+    padding: .5rem 0 0 3.25rem; column-gap: .4rem; row-gap: .3rem;
+}
+/* A dog's page (dog_page): a big picture, then a gallery of its photos. Tapping a photo
+   opens it full width (an HTML details, so no rerun). */
+.dog-avatar.pic, .dog-avatar.sketched {
+    display: flex; align-items: center; justify-content: center; width: 5.5rem; height: 5.5rem;
+    border-radius: 50%; overflow: hidden; background: var(--pistachio-soft);
+    border: 3px solid var(--pistachio);
+}
+.dog-avatar.pic img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; }
+.dog-avatar.sketched .sketch { width: 70%; height: 70%; }
+.dog-gallery { display: grid; grid-template-columns: repeat(3, 1fr); gap: .35rem; }
+.dog-gallery summary { list-style: none; cursor: pointer; }
+.dog-gallery summary::-webkit-details-marker { display: none; }
+.dog-gallery img {
+    display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: .5rem;
+}
+.dog-gallery details[open] { grid-column: 1 / -1; }
+.dog-gallery details[open] img { aspect-ratio: auto; max-height: 28rem; object-fit: contain; }
+.dog-stats { font-size: .9rem; opacity: .8; }
 
 /* Bottom tab bar: the main tabs, pinned to the bottom of the screen like a phone
    app. Five equal slots, each an icon above a short label. On wider screens the
@@ -1561,10 +1593,28 @@ def dog_pic_html(dog: dict, links: dict[str, str], css: str = "me-avatar") -> st
 
 
 def dog_tags_html(dog_ids) -> str:
-    """The dogs tagged in a sighting, as @username chips."""
+    """The dogs tagged in a sighting, as @username chips (not tappable: see
+    dog_tag_buttons)."""
     dogs = [dogs_by_id[d] for d in dog_ids or [] if d in dogs_by_id]
     return "".join(f'<span class="dog-tag" title="{html.escape(d["name"])}">'
                    f'@{html.escape(d["username"])}</span>' for d in dogs)
+
+
+def open_dog_page(dog_id: int):
+    """Open a dog's page (dog_page, a pop-up drawn at the end of the script)."""
+    st.session_state.dog_page = dog_id
+
+
+def dog_tag_buttons(dog_ids, where: str):
+    """The dogs tagged in a sighting as @username chips that open the dog's page.
+    `where` makes the widget keys unique (e.g. the sighting's id)."""
+    dogs = [dogs_by_id[d] for d in dict.fromkeys(dog_ids or []) if d in dogs_by_id]
+    if not dogs:
+        return
+    with st.container(horizontal=True, gap="small", key=f"dogtags_{where}"):
+        for dog in dogs:
+            st.button(f"@{dog['username']}", key=f"dogtag_{where}_{dog['id']}",
+                      type="tertiary", on_click=open_dog_page, args=(dog["id"],))
 
 
 def dog_card(dog: dict, links: dict[str, str]):
@@ -1582,6 +1632,8 @@ def dog_card(dog: dict, links: dict[str, str]):
             st.caption(f"Owned by {dog['owner']}")
         if dog.get("bio"):
             st.text(dog["bio"])  # plain text: members wrote it
+        st.button("See profile page", key=f"open_dog_{dog['id']}", type="tertiary",
+                  on_click=open_dog_page, args=(dog["id"],))
 
 
 def dog_form(key: str, dog: dict | None = None):
@@ -1727,16 +1779,16 @@ with tab_profile:
                 st.markdown(f'<img class="sighting-photo" src="{html.escape(my_photos[s.photo_path])}" '
                             f'alt="Your photo of a {html.escape(s.breed)}" loading="lazy">',
                             unsafe_allow_html=True)
-            if tags := dog_tags_html(s.dog_ids):
-                st.markdown(tags, unsafe_allow_html=True)
+            dog_tag_buttons(s.dog_ids, f"mine_{s.id}")
             if s.dog_name:
                 st.caption(f"Dog: {s.dog_name}")
             if s.notes:
                 st.caption(s.notes)
 
 # --- Social: recent sightings from everyone who shares -------------------------------------
-def feed_post(post: dict, links: dict[str, str]) -> str:
-    """One sighting in the feed as HTML. Everything members typed is escaped."""
+def feed_post(post: dict, links: dict[str, str], tags: bool = True) -> str:
+    """One sighting in the feed as HTML. Everything members typed is escaped. With
+    tags=False the tagged dogs are left out (Social shows them as buttons instead)."""
     seen_on = dt.date.fromisoformat(str(post["seen_on"]))
     # The feed is in posting order, so the header shows when it was posted; the date seen
     # gets its own quiet line only when it's a different day (e.g. an older photo).
@@ -1750,7 +1802,7 @@ def feed_post(post: dict, links: dict[str, str]) -> str:
     photo = (f'<img class="sighting-photo" src="{html.escape(links[post["photo_path"]])}" '
              f'alt="A {html.escape(post["breed"])}" loading="lazy">'
              if post.get("photo_path") in links else "")
-    tags = dog_tags_html(post.get("dog_ids"))
+    tags = dog_tags_html(post.get("dog_ids")) if tags else ""
     earned = "".join(
         f'<div class="earned {badge.track}">{sketches.svg(badge.icon)} Earned the '
         f'<b>{html.escape(badge.name)}</b> badge: {html.escape(badge.description.lower())}!</div>'
@@ -1763,6 +1815,13 @@ def feed_post(post: dict, links: dict[str, str]) -> str:
         + "".join(f'<div class="sub">{line}</div>' for line in lines if line)
         + photo + "</div></div>"
     )
+
+
+def find_dog():
+    """"Find a dog" in Social: open the picked dog's page, and empty the box again."""
+    if st.session_state.get("social_dog") is not None:
+        open_dog_page(st.session_state.social_dog)
+    st.session_state.social_dog = None
 
 
 with tab_social:
@@ -1779,22 +1838,19 @@ with tab_social:
         if feed is None:
             st.info("Social isn't available right now. Please try again later.")
         else:
-            if all_dogs:  # look up any member's dog, and the latest posts it's tagged in
-                dog_id = st.selectbox("Find a dog", list(dogs_by_id), index=None,
-                                      key="social_dog", placeholder="Find a dog by @username",
-                                      format_func=lambda i: logic.dog_label(dogs_by_id[i]))
-                if dog_id is not None:
-                    dog = dogs_by_id[dog_id]
-                    feed = [p for p in feed if dog_id in (p.get("dog_ids") or [])]
-                    dog_card(dog, photo_links([dog.get("photo_path")]))
-                    st.caption(f"Latest posts tagging @{dog['username']}")
+            if all_dogs:  # look up any member's dog: picking one opens its page
+                st.selectbox("Find a dog", list(dogs_by_id), index=None, key="social_dog",
+                             placeholder="Find a dog by @username",
+                             format_func=lambda i: logic.dog_label(dogs_by_id[i]),
+                             on_change=find_dog)
             links = photo_links(p.get("photo_path") for p in feed)
             if not feed:
-                st.info("No sightings yet. Log a dog and you'll be the first!"
-                        if st.session_state.get("social_dog") is None else
-                        "No recent posts tag this dog yet.")
-            else:
-                st.markdown("".join(feed_post(p, links) for p in feed), unsafe_allow_html=True)
+                st.info("No sightings yet. Log a dog and you'll be the first!")
+            for post in feed:
+                # Each post on its own, so its tagged dogs can be buttons that open their page.
+                with st.container(key=f"feedpost_{post['id']}", gap=None):
+                    st.markdown(feed_post(post, links, tags=False), unsafe_allow_html=True)
+                    dog_tag_buttons(post.get("dog_ids"), f"feed_{post['id']}")
 
 # --- Settings ------------------------------------------------------------------------------
 def release_card(release: logic.Release, border: bool = True):
@@ -1895,3 +1951,74 @@ with tab_settings:
     st.caption("Project Cerberus: spot dogs, collect breeds. Breeds are the AKC 2025 top 100, plus 41 "
                "more that Photo ID knows.")
     st.caption(f"Version {APP_VERSION}")
+
+
+# --- A dog's page: opened by tapping a tagged @dog (or "Find a dog", or "See profile page") --
+def close_dog_page():
+    st.session_state.pop("dog_page", None)
+
+
+def dog_page_html(dog: dict, posts: list[dict], links: dict[str, str]) -> str:
+    """The photo gallery: every photo from the sightings the dog is tagged in."""
+    photos = [links[p["photo_path"]] for p in posts if p.get("photo_path") in links]
+    return '<div class="dog-gallery">' + "".join(
+        f'<details><summary><img src="{html.escape(link)}" loading="lazy" '
+        f'alt="A photo of {html.escape(dog["name"])}"></summary></details>'
+        for link in photos) + "</div>" if photos else ""
+
+
+def dog_page():
+    """A dog's profile page: picture, name, breed, owner and bio, then the photos and
+    sightings it's tagged in. Only what Social would show: members who don't share
+    their sightings stay out of it."""
+    dog = dogs_by_id.get(st.session_state.get("dog_page"))
+    if dog is None:
+        st.info("This dog's profile isn't here any more.")
+        return
+    try:
+        posts = backend.dog_sightings(dog["id"])
+    except AuthError as err:
+        end_session(str(err))
+    except Exception:
+        posts = None
+    links = photo_links([dog.get("photo_path")] + [p.get("photo_path") for p in posts or []])
+    with st.container(horizontal=True, vertical_alignment="center", gap="small"):
+        st.markdown(dog_pic_html(dog, links, "dog-avatar"), unsafe_allow_html=True,
+                    width="content")
+        with st.container(gap=None):
+            # The @username is the pop-up's title. The name is typed by members, so it's
+            # escaped.
+            st.markdown(f"### {logic.escape_markdown(dog['name'])}")
+            if breed := dog.get("breed"):
+                st.markdown(html.escape(breed) + (CROSS_CHIP if logic.is_cross(breed) else ""),
+                            unsafe_allow_html=True)
+    st.caption("Your dog" if dog["owner_id"] == user.id else
+               f"Owned by {dog['owner']}" if dog.get("owner") else "")
+    if dog.get("bio"):
+        st.text(dog["bio"])
+    if posts is None:
+        st.info("Sightings aren't available right now. Please try again later.")
+        return
+    if not posts:
+        st.caption(f"Nobody has shared a sighting of @{dog['username']} yet.")
+        return
+    spotters = len({p["user_id"] for p in posts})
+    first = min(str(p["seen_on"]) for p in posts)
+    first = dt.date.fromisoformat(first)
+    st.markdown(
+        f'<div class="dog-stats">Spotted {len(posts)} time{"" if len(posts) == 1 else "s"} '
+        f'by {spotters} member{"" if spotters == 1 else "s"}, '
+        f'first on {first.day} {first:%b %Y}</div>', unsafe_allow_html=True)
+    if gallery := dog_page_html(dog, posts, links):
+        st.subheader("Photos")
+        st.markdown(gallery, unsafe_allow_html=True)
+    st.subheader("Sightings")
+    st.markdown("".join(feed_post(p, links) for p in posts), unsafe_allow_html=True)
+
+
+# Drawn last, so it can use everything above. One pop-up at a time: the new-member notice
+# comes first. The title is the dog's @username, so the pop-up is made here each run.
+if (st.session_state.get("dog_page") is not None and not st.session_state.get("sharing_notice")):
+    _dog = dogs_by_id.get(st.session_state.dog_page)
+    st.dialog(f"@{_dog['username']}" if _dog else "Dog profile", width="large",
+              on_dismiss=close_dog_page)(dog_page)()

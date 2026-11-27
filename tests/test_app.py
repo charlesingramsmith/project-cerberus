@@ -1,4 +1,5 @@
 """End-to-end check of the Streamlit app (in demo mode) using Streamlit's test runner."""
+import datetime as dt
 import re
 from pathlib import Path
 
@@ -718,11 +719,56 @@ def test_tagging_a_dog_fills_in_its_name_and_shows_in_social(at):
     assert at.multiselect(key="sighting_dogs").value == []  # ready for the next dog
 
     open_tab(at, "Social")
-    assert '<span class="dog-tag" title="Rex">@rex</span>' in feed_html(at)
-    at.selectbox(key="social_dog").set_value(rex_id).run()
-    assert any("**@rex**" in m.value for m in at.markdown)
-    assert any("Owned by alice" in c.value for c in at.caption)
-    assert "Pug" in feed_html(at)
+    sighting_id = at.session_state["backend"].list_sightings()[0]["id"]
+    assert at.button(key=f"dogtag_feed_{sighting_id}_{rex_id}").label == "@rex"
+
+
+def dog_page_text(at: AppTest) -> str:
+    return " ".join(e.value for e in [*at.markdown, *at.caption, *at.text]
+                    if isinstance(e.value, str))
+
+
+def test_tapping_a_tagged_dog_opens_its_page_with_shared_sightings_and_photos(at):
+    sign_up(at, username="alice", email="alice@example.com")
+    add_dog(at, "Rex", username="rex", breed="Pug")
+    backend = at.session_state["backend"]
+    rex_id = backend.list_dogs()[0]["id"]
+    photo = backend.add_photo(b"rex-photo")
+    backend.add_sighting("Pug", dt.date(2026, 11, 1), location="Hyde Park",
+                         photo_path=photo, dog_ids=[rex_id])
+    click(at, "Sign out")
+    sign_up(at, username="bobby", email="bobby@example.com")
+    backend.add_sighting("Pug", dt.date(2026, 11, 2), location="Secret garden",
+                         dog_ids=[rex_id])
+    backend.save_profile({**backend.my_profile(), "share_sightings": False})
+    click(at, "Sign out")
+    sign_up(at, username="carol", email="carol@example.com")
+    click(at, "Keep sharing")  # the new-member notice comes first
+
+    open_tab(at, "Social")
+    alice_post = backend.social_feed()[0]["id"]
+    at.button(key=f"dogtag_feed_{alice_post}_{rex_id}").click().run()
+    assert not at.exception
+    text = dog_page_text(at)
+    assert "### Rex" in text and "Owned by alice" in text
+    assert "Spotted 1 time by 1 member, first on 1 Nov 2026" in text
+    assert "Hyde Park" in text and 'class="dog-gallery"' in text
+    assert "Secret garden" not in text  # bobby doesn't share, so his sighting stays hidden
+
+
+def test_find_a_dog_opens_its_page(at):
+    sign_up(at)
+    click(at, "Keep sharing")  # the new-member notice comes first
+    add_dog(at, "Bonnie", username="bonnie")
+    dog_id = at.session_state["backend"].list_dogs()[0]["id"]
+    open_tab(at, "Social")
+    at.selectbox(key="social_dog").set_value(dog_id).run()
+    assert at.session_state["dog_page"] == dog_id
+    assert at.selectbox(key="social_dog").value is None  # ready for the next search
+    text = dog_page_text(at)
+    assert "### Bonnie" in text and "Your dog" in text
+    assert "Nobody has shared a sighting of @bonnie yet." in text
+    assert at.button(key=f"open_dog_{dog_id}").label == "See profile page"  # in Your dogs
 
 
 def test_several_dogs_can_be_tagged_in_one_post(at):

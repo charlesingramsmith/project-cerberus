@@ -501,3 +501,33 @@ def test_added_breeds_are_listed_a_to_z_and_missing_table_gives_none():
             raise RuntimeError("relation user_breeds does not exist")
     backend.client.table = lambda name: Missing(log)
     assert backend.list_user_breeds() == []
+
+
+def test_a_dogs_page_lists_the_shared_sightings_it_is_tagged_in():
+    backend, log = make_backend()
+    backend.sign_in("charlie@example.com", "correct-horse")
+    tables(backend, log, {
+        "sighting_dogs": [{"sighting_id": 2, "dog_id": 7}, {"sighting_id": 3, "dog_id": 7}],
+        "sightings": [{"id": 3, "user_id": "uuid-8", "breed": "Pug", "seen_on": "2026-11-03"},
+                      {"id": 2, "user_id": "uuid-9", "breed": "Pug", "seen_on": "2026-11-02",
+                       "photo_path": "uuid-9/p.jpg"}],
+        "profiles": [{"user_id": "uuid-9", "username": "pat", "avatar": "Pug",
+                      "share_sightings": True},
+                     {"user_id": "uuid-8", "username": "sam", "avatar": "Pug",
+                      "share_sightings": False}]})
+    posts = backend.dog_sightings(7)
+    assert [(p["id"], p["username"]) for p in posts] == [(2, "pat")]  # sam stopped sharing
+    assert ("eq", ("dog_id", 7), {}) in log
+    assert ("in_", ("id", [2, 3]), {}) in log
+    assert ("order", ("created_at",), {"desc": True}) in log
+
+
+def test_a_dogs_page_is_empty_if_tags_cant_be_read():
+    backend, log = make_backend()
+    backend.sign_in("charlie@example.com", "correct-horse")
+
+    class Missing(FakeQuery):
+        def execute(self):
+            raise RuntimeError("relation sighting_dogs does not exist")
+    backend.client.table = lambda name: Missing(log)
+    assert backend.dog_sightings(7) == []
