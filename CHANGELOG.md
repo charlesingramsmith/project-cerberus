@@ -6,6 +6,9 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.36.1 - 2026-11-27 - Clearer privacy policy
+- The privacy policy now says which details you must give (just an email address to sign in) and how Derlin uses what Google shares when you sign in with Google.
+
 ## 0.36.0 - 2026-11-27 - Say hello to Derlin
 - The app has a proper name: **Derlin**. You'll see it on the sign-in screen, on your browser tab and in Settings > About.
 - Nothing else changes: your account, sightings, life list and badges are all just where you left them, at the same web address for now.
