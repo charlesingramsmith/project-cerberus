@@ -262,6 +262,15 @@ button { min-height: 2.75rem; }
 .photo-preview {
     display: block; width: 100%; max-height: 16rem; object-fit: cover; border-radius: .75rem;
 }
+/* Spotted!'s two steps: "1 What breed?  2 About this sighting", the current one in plum */
+.spot-steps { display: flex; gap: 1rem; margin: -.5rem 0 .25rem; font-size: .9rem; }
+.spot-steps span { opacity: .55; }
+.spot-steps span.on { opacity: 1; color: var(--plum); font-weight: 600; }
+.spot-steps b {
+    display: inline-flex; align-items: center; justify-content: center; width: 1.4rem;
+    height: 1.4rem; margin-right: .2rem; border-radius: 50%; border: 1.5px solid currentColor;
+}
+.spot-breed { margin-top: .5rem; }
 /* Tagged dogs on a post: @username chips */
 .dog-tag {
     display: inline-block; padding: 0 .45rem; margin: .15rem .25rem 0 0; border-radius: 1rem;
@@ -957,7 +966,60 @@ with st.container(key="main_nav"):
     tab_spotted, tab_life, tab_profile, tab_social, tab_settings = st.tabs(
         NAV_TABS, key="main_tab", on_change="rerun")
 
-# --- Spotted!: log a sighting, with Photo ID suggestions from its photo ---------------------------
+# --- Spotted!: log a sighting in two steps --------------------------------------------------------
+# Step 1 is the dog ID: add a photo, let Photo ID suggest the breed (or pick it yourself), then
+# Continue. Step 2 shows your photo and breed, and asks for the rest: which dog it was, where,
+# when and your notes, then posts. Both steps are drawn on every run and the one not in use is
+# hidden with CSS, so nothing you've entered is lost when you go back and forth (Streamlit
+# forgets a widget's value, and an uploaded photo, as soon as it stops drawing it).
+SPOT_STEPS = {1: "What breed?", 2: "About this sighting"}
+
+
+def go_to_step(step: int):
+    st.session_state.spot_step = step
+
+
+def confirm_breed():
+    """Continue: check the breed picked in step 1 (a known one, or a typed-in one), then
+    move on to step 2. Typed names are tidied and matched to a known breed, ignoring case."""
+    try:
+        st.session_state.spot_breed = logic.clean_breed(
+            st.session_state.get("sighting_breed"), [*listed, *added_breeds])
+    except ValueError as err:
+        st.session_state.spot_problem = str(err)
+        return
+    go_to_step(2)
+
+
+def steps_html(step: int) -> str:
+    """A small "1 What breed? · 2 About this sighting" line, the current step highlighted."""
+    return '<p class="spot-steps">' + "".join(
+        f'<span class="{"on" if n == step else ""}"><b>{n}</b> {name}</span>'
+        for n, name in SPOT_STEPS.items()) + "</p>"
+
+
+def chosen_breed_html(breed: str, photo: bytes | None) -> str:
+    """Step 2's summary card: your photo, then the breed you confirmed with its own photo
+    and whether it's a new one for you."""
+    pic = ""
+    if photo is not None:
+        src = "data:image/jpeg;base64," + base64.b64encode(photo).decode()
+        pic = f'<img class="photo-preview" src="{src}" alt="Your photo">'
+    info = breed_profiles.get(breed)
+    thumb = (f'<span class="thumb">{breed_photo_html(info, breed)}</span>'
+             if info and info.image_url
+             else f'<span class="thumb icon">{sketches.svg("dog")}</span>')
+    if breed not in listed:
+        sub = unverified_chip(breed)
+    elif logic.is_lifer(sightings, breed, listed):
+        sub = f'{sketches.svg("sparkle")} New for your life list'
+    else:
+        sub = "Already on your life list"
+    return (f'{pic}<div class="cerb-row guess spot-breed">{thumb}<span class="main">'
+            f'<span class="name">{html.escape(breed)}</span><br>'
+            f'<span class="sub">{sub}</span></span></div>')
+
+
 with tab_spotted:
     st.header("Spotted a dog?")
     seen_breeds = set(life.loc[seen, "breed"])
@@ -968,39 +1030,38 @@ with tab_spotted:
         return name if name in seen_breeds else f"{name}  · new"
 
     def fill_from_tags():
-        """Tagging dogs fills in the dog's name and breed straight away (if they're empty,
-        or still hold what an earlier tag filled in), so you can see and change them."""
+        """Tagging dogs fills in the dog's name straight away (if it's empty, or still holds
+        what an earlier tag filled in), so you can see and change it."""
         dogs = [dogs_by_id[d] for d in st.session_state.get("sighting_dogs", [])
                 if d in dogs_by_id]
         filled = st.session_state.get("tag_filled", {})
         if (st.session_state.get("sighting_dog_name") or "") in ("", filled.get("name")):
             filled["name"] = st.session_state.sighting_dog_name = logic.tagged_names(dogs)
-        if st.session_state.get("sighting_breed") in (None, filled.get("breed")):
-            filled["breed"] = st.session_state.sighting_breed = logic.tagged_breed(dogs)
         st.session_state.tag_filled = filled
 
     if st.session_state.pop("clear_tags", False):  # the last sighting was just logged
         st.session_state.sighting_dogs = []
+        st.session_state.sighting_breed = None
         st.session_state.pop("tag_filled", None)
-    photo = photo_picker(
-        "sighting_photo", "Shown with your sighting in Social if you share your sightings "
-        "(Settings > Privacy). Saved smaller, without the location your phone may have "
-        "stored in it.")
-    if photo is not None:
-        photo_id_suggestions(photo)
-    tagged = []
-    if all_dogs:  # dogs with a profile (anyone's) can be tagged by their @username
-        # Outside the form below, so picking a dog can fill in its name and breed at once
-        # (widgets inside a form only send their values when the form is submitted).
-        tagged = st.multiselect(
-            "Tag dogs", list(dogs_by_id), key="sighting_dogs", on_change=fill_from_tags,
-            format_func=lambda dog_id: logic.dog_label(dogs_by_id[dog_id]),
-            placeholder="Tag one or more dogs by @username",
-            help="Tag dogs that have a profile, like your own. Their name and breed are "
-                 "filled in for you.")
+        st.session_state.pop("spot_breed", None)
+        go_to_step(1)
+    step = st.session_state.get("spot_step", 1)
+    if step == 2 and not st.session_state.get("spot_breed"):
+        step = 1  # e.g. a fresh session: there's no confirmed breed to show
+    st.html(f"<style>.st-key-spot_step_{3 - step} {{ display: none; }}</style>")
+    st.markdown(steps_html(step), unsafe_allow_html=True)
 
-    with st.form("log_sighting", clear_on_submit=True, border=False):
-        breed = st.selectbox(
+    # Step 1: the dog ID. A photo (optional) and Photo ID's suggestions, then the breed.
+    with st.container(key="spot_step_1"):
+        photo = photo_picker(
+            "sighting_photo", "Shown with your sighting in Social if you share your "
+            "sightings (Settings > Privacy). Saved smaller, without the location your phone "
+            "may have stored in it.")
+        if photo is not None:
+            photo_id_suggestions(photo)
+        else:
+            st.caption("Add a photo and Photo ID will suggest the breed.")
+        st.selectbox(
             "Breed",
             [*breeds["breed"], *added_breeds],
             index=None,
@@ -1011,56 +1072,71 @@ with tab_spotted:
             help="Can't find the breed? Type it in. It's logged as an **unverified breed** "
                  "and we'll look at adding it to the app.",
         )
-        seen_on = st.date_input("Date seen", value=dt.date.today(), max_value=dt.date.today())
-        dog_name = st.text_input("Dog's name (if you found out)", key="sighting_dog_name")
-        location = st.text_input(
-            "Where", placeholder="e.g. Hyde Park",
-            help="Other members can see this in Social if you share your sightings "
-                 "(Settings > Privacy).")
-        notes = st.text_area("Notes", placeholder="Good boy. Very fluffy.", height=80)
-        submitted = st.form_submit_button("Spotted!", type="primary", width="stretch")
+        problem = st.session_state.pop("spot_problem", None)
+        if problem:
+            st.warning(problem)
+        st.button("Continue", key="spot_continue", type="primary", width="stretch",
+                  on_click=confirm_breed)
 
-    if photo is None:
-        st.caption("Add a photo and Photo ID will suggest the breed.")
+    # Step 2: your photo and the breed, then the details of the sighting, then post.
+    with st.container(key="spot_step_2"):
+        breed = st.session_state.get("spot_breed")
+        if breed:
+            st.markdown(chosen_breed_html(breed, photo), unsafe_allow_html=True)
+        st.button("Change breed or photo", key="spot_back", icon=":material/arrow_back:",
+                  on_click=go_to_step, args=(1,))
+        tagged = []
+        if all_dogs:  # dogs with a profile (anyone's) can be tagged by their @username
+            # Outside the form below, so tagging a dog can fill in its name at once
+            # (widgets inside a form only send their values when the form is submitted).
+            tagged = st.multiselect(
+                "Tag dogs", list(dogs_by_id), key="sighting_dogs", on_change=fill_from_tags,
+                format_func=lambda dog_id: logic.dog_label(dogs_by_id[dog_id]),
+                placeholder="Tag one or more dogs by @username",
+                help="Tag dogs that have a profile, like your own. Their name is filled in "
+                     "for you.")
+        with st.form("log_sighting", clear_on_submit=True, border=False):
+            dog_name = st.text_input("Dog's name (if you found out)", key="sighting_dog_name")
+            location = st.text_input(
+                "Where", placeholder="e.g. Hyde Park",
+                help="Other members can see this in Social if you share your sightings "
+                     "(Settings > Privacy).")
+            seen_on = st.date_input("Date seen", value=dt.date.today(),
+                                    max_value=dt.date.today())
+            notes = st.text_area("Your post", placeholder="Good boy. Very fluffy.", height=80,
+                                 key="sighting_notes")
+            submitted = st.form_submit_button("Spotted!", type="primary", width="stretch")
 
-    if submitted:
+    if submitted and breed:
         tagged_dogs = [dogs_by_id[d] for d in tagged if d in dogs_by_id]
-        breed = breed or logic.tagged_breed(tagged_dogs)
         dog_name = dog_name.strip() or logic.tagged_names(tagged_dogs)
-        try:
-            breed = logic.clean_breed(breed, [*listed, *added_breeds])
-        except ValueError as err:
-            st.warning(str(err) if not tagged_dogs else
-                       "Pick a breed first (the dogs you tagged don't have one breed listed).")
-            breed = None
-        if breed is not None:
-            lifer = logic.is_lifer(sightings, breed, listed)
-            photo_path = None
-            if photo is not None:
-                try:
-                    photo_path = backend.add_photo(photo)  # already made small, no GPS
-                except AuthError as err:
-                    end_session(str(err))
-                except Exception:  # storage not set up or unreachable: still log the dog
-                    st.session_state.photo_problem = ("Your photo couldn't be saved, so the "
-                                                      "sighting was logged without it.")
+        lifer = logic.is_lifer(sightings, breed, listed)
+        photo_path = None
+        if photo is not None:
             try:
-                backend.add_sighting(breed, seen_on, location, dog_name, notes, photo_path,
-                                     [d["id"] for d in tagged_dogs])
+                photo_path = backend.add_photo(photo)  # already made small, no GPS
             except AuthError as err:
                 end_session(str(err))
-            if breed not in listed and breed not in added_breeds:
-                try:  # put it on the list of breeds to review (and for others to pick)
-                    backend.add_user_breed(breed)
-                except AuthError as err:
-                    end_session(str(err))
-                except Exception:
-                    pass  # not set up yet: the sighting is logged all the same
-            st.session_state.clear_tags = True
-            clear_photo("sighting_photo")
-            st.session_state.flash = ("lifer" if lifer else
-                                      "repeat" if breed in listed else "unverified", breed)
-            st.rerun()
+            except Exception:  # storage not set up or unreachable: still log the dog
+                st.session_state.photo_problem = ("Your photo couldn't be saved, so the "
+                                                  "sighting was logged without it.")
+        try:
+            backend.add_sighting(breed, seen_on, location, dog_name, notes, photo_path,
+                                 [d["id"] for d in tagged_dogs])
+        except AuthError as err:
+            end_session(str(err))
+        if breed not in listed and breed not in added_breeds:
+            try:  # put it on the list of breeds to review (and for others to pick)
+                backend.add_user_breed(breed)
+            except AuthError as err:
+                end_session(str(err))
+            except Exception:
+                pass  # not set up yet: the sighting is logged all the same
+        st.session_state.clear_tags = True  # back to step 1, empty, for the next dog
+        clear_photo("sighting_photo")
+        st.session_state.flash = ("lifer" if lifer else
+                                  "repeat" if breed in listed else "unverified", breed)
+        st.rerun()
 
 # --- Life list ----------------------------------------------------------------------------------
 def breed_profile_html(profile: logic.BreedProfile | None) -> str:

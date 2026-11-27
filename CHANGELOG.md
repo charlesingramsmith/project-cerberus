@@ -6,6 +6,11 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.26.0 - 2026-11-27 - Spotted! in two steps
+- **Spotted!** is now two short steps instead of one long form. First, add your photo and pick the breed: Photo ID's suggestions and the breed list are right there. Tap **Continue** when you're happy with it.
+- Then you see your photo and the breed (and whether it's new for your life list), and fill in the rest: tag the dog, its name, where and when you saw it, and your post. Tap **Spotted!** to post it.
+- Changed your mind? **Change breed or photo** takes you back without losing what you've typed.
+
 ## 0.25.0 - 2026-11-27 - Compare Photo ID's guesses
 - Each **Photo ID** suggestion now shows a photo of that breed next to its name, so you can compare it with your own photo and judge whether the guess is right.
 - Tap **Pick** on the one that matches to fill in the breed.
