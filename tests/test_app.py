@@ -34,8 +34,9 @@ def headers(at: AppTest) -> list[str]:
 
 
 def log_breed(at: AppTest, breed_name: str) -> AppTest:
-    breed = next(sb for sb in at.selectbox if sb.label == "Breed")
-    breed.set_value(breed_name)
+    """Spotted! in its two steps: pick the breed and Continue, then post."""
+    at.selectbox(key="sighting_breed").set_value(breed_name)
+    click(at, "Continue")
     return click(at, "Spotted!")
 
 
@@ -515,8 +516,8 @@ def feed_html(at: AppTest) -> str:
 
 def test_social_shows_everyones_shared_sightings(at):
     sign_up(at, username="alice", email="alice@example.com")
-    breed = next(sb for sb in at.selectbox if sb.label == "Breed")
-    breed.set_value("Pug")
+    at.selectbox(key="sighting_breed").set_value("Pug")
+    click(at, "Continue")
     next(t for t in at.text_input if t.label == "Where").input("Hyde <Park>")
     click(at, "Spotted!")
     click(at, "Sign out")
@@ -686,16 +687,17 @@ def test_adding_a_dog_profile(at):
     assert "taken" in at.error[0].value
 
 
-def test_tagging_a_dog_fills_in_its_breed_and_shows_in_social(at):
+def test_tagging_a_dog_fills_in_its_name_and_shows_in_social(at):
     sign_up(at, username="alice", email="alice@example.com")
     add_dog(at, "Rex", username="rex", breed="Pug")
     click(at, "Sign out")
     sign_up(at, username="bobby", email="bobby@example.com")
     rex_id = at.session_state["backend"].list_dogs()[0]["id"]
+    at.selectbox(key="sighting_breed").set_value("Pug")
+    click(at, "Continue")
     at.multiselect(key="sighting_dogs").set_value([rex_id]).run()
     assert at.text_input(key="sighting_dog_name").value == "Rex"  # filled in straight away
-    assert at.selectbox(key="sighting_breed").value == "Pug"
-    click(at, "Spotted!")  # no breed picked: Rex's breed is used
+    click(at, "Spotted!")
     assert "Pug" in at.success[0].value
     assert at.session_state["backend"].list_sightings()[0]["dog_name"] == "Rex"  # filled in too
     assert at.multiselect(key="sighting_dogs").value == []  # ready for the next dog
@@ -713,6 +715,8 @@ def test_several_dogs_can_be_tagged_in_one_post(at):
     add_dog(at, "Rex", username="rex", breed="Pug")
     add_dog(at, "Bella", username="bella", breed="Pug")
     backend = at.session_state["backend"]
+    at.selectbox(key="sighting_breed").set_value("Pug")
+    click(at, "Continue")
     at.multiselect(key="sighting_dogs").set_value([d["id"] for d in backend.list_dogs()])
     click(at, "Spotted!")
     sighting = backend.list_sightings()[0]
@@ -760,6 +764,7 @@ def typing(monkeypatch):
 
 def type_breed(at: AppTest, text: str) -> AppTest:
     at.selectbox(key="sighting_breed").set_value(text)
+    click(at, "Continue")
     return click(at, "Spotted!")
 
 
@@ -794,7 +799,8 @@ def log_cross(at: AppTest, first: str, second: str) -> AppTest:
     at.toggle(key="sighting_is_cross").set_value(True).run()
     at.selectbox(key="sighting_breed").set_value(first)
     at.selectbox(key="sighting_breed_2").set_value(second)
-    return click(at, "Spotted!")
+    click(at, "Continue")
+    return at if at.warning else click(at, "Spotted!")  # a warning stays on step 1
 
 
 def test_a_cross_is_logged_as_breed_a_x_breed_b_and_shown_in_social(at):
@@ -867,3 +873,38 @@ def test_photos_without_details_change_nothing(at):
     at.run()
     assert at.date_input(key="sighting_date").value == dt.date.today()
     assert at.text_input(key="sighting_where").value == ""
+
+
+# --- Spotted! in two steps ------------------------------------------------------------
+
+def spot_step(at: AppTest) -> int:
+    """Which Spotted! step is showing (the other one is hidden with CSS)."""
+    hidden = [h.proto.body for h in at.get("html") if "spot_step_" in h.proto.body]
+    return 1 if "spot_step_2" in hidden[-1] else 2
+
+
+def test_spotted_asks_for_the_breed_first_then_the_details(at):
+    sign_up(at)
+    assert spot_step(at) == 1
+    click(at, "Continue")  # no breed yet: stays on step 1 and says so
+    assert spot_step(at) == 1 and at.warning
+
+    at.selectbox(key="sighting_breed").set_value("Beagle")
+    click(at, "Continue")
+    assert spot_step(at) == 2
+    summary = "".join(m.value for m in at.markdown if "spot-breed" in m.value)
+    assert "Beagle" in summary and "New for your life list" in summary
+
+    click(at, "Change breed or photo")  # back to step 1, with the breed still picked
+    assert spot_step(at) == 1
+    assert at.selectbox(key="sighting_breed").value == "Beagle"
+    at.selectbox(key="sighting_breed").set_value("Pug")
+    click(at, "Continue")
+    at.text_area(key="sighting_notes").input("Snoring on a bench")
+    click(at, "Spotted!")
+
+    sighting = at.session_state["backend"].list_sightings()[0]
+    assert (sighting["breed"], sighting["notes"]) == ("Pug", "Snoring on a bench")
+    assert "Pug" in at.success[0].value
+    assert spot_step(at) == 1  # ready for the next dog
+    assert at.selectbox(key="sighting_breed").value is None

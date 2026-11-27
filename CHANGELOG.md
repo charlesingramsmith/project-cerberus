@@ -6,6 +6,11 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.28.0 - 2026-11-27 - Spotted! in two steps
+- **Spotted!** is now two short steps instead of one long form. First, add your photo and pick the breed (or the two breeds of a cross): Photo ID's suggestions and the breed list are right there. Tap **Continue** when you're happy with it.
+- Then you see your photo and the breed (and whether it's new for your life list), and fill in the rest: tag the dog, its name, where and when you saw it, and your post. Tap **Spotted!** to post it.
+- Changed your mind? **Change breed or photo** takes you back without losing what you've typed.
+
 ## 0.27.0 - 2026-11-27 - Log cross breeds
 - On **Spotted!**, switch on **It's a cross breed** and pick its two breeds, for dogs like a Labrador Retriever x Poodle.
 - Crosses show as **Breed A x Breed B** with a "Cross breed" label in Social and on your profile.
