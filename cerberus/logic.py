@@ -414,8 +414,8 @@ def celebration_layout(breed: str, count: int = FACE_BALLOONS) -> list[dict]:
         layout.append({
             "breed": faces[i % len(faces)],
             "left": round(4 + (i * 5 % count) / count * 80, 1),  # 4-84% across, shuffled
-            "delay": round(i * 0.2, 2),
-            "rise": round(4 + (i * 5 % 4) * 0.375, 2),  # 4-5.1 s
+            "delay": round(i * 0.1, 2),
+            "rise": round(2 + (i * 5 % 4) * 0.1875, 2),  # 2-2.6 s
             "size": (4.25, 3.5, 5.0)[i % 3],
         })
     return layout
