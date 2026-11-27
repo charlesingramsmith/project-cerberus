@@ -808,15 +808,18 @@ def test_a_cross_is_logged_as_breed_a_x_breed_b_and_shown_in_social(at):
     assert not [s for s in at.selectbox if s.key == "sighting_breed_2"]  # only for crosses
     log_cross(at, "Labrador Retriever", "Poodle")
     assert not at.exception
-    assert "Labrador Retriever x Poodle" in at.info[0].value
-    assert not at.success  # not a lifer
-    assert at.metric[0].value == "0/141" and at.metric[1].value == "1"
+    assert "New lifer! **Labrador Retriever x Poodle** is a new cross" in at.success[0].value
+    assert len(at.success) == 1  # crosses don't earn badges
+    assert at.metric[0].value == "0/141" and at.metric[1].value == "1"  # not a breed
     assert not at.toggle(key="sighting_is_cross").value  # ready for the next dog
-    assert "Crosses" in [h.value for h in at.subheader]
+    assert "Crosses (1)" in [h.value for h in at.subheader]
     assert "Unverified breeds" not in [h.value for h in at.subheader]
     backend = at.session_state["backend"]
     assert backend.list_sightings()[0]["breed"] == "Labrador Retriever x Poodle"
     assert backend.list_user_breeds() == []  # both breeds are verified: nothing to review
+
+    log_cross(at, "Poodle", "Labrador Retriever")  # the same cross, picked the other way
+    assert not at.success and "Logged another" in at.info[0].value
 
     open_tab(at, "Social")
     feed = feed_html(at)

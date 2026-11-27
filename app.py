@@ -962,9 +962,11 @@ if flash:
         if badge:
             st.success(f"Badge earned: **{badge.name}**! "
                        f"{badge.description}. See it in Profile.")
+    elif kind == "cross_lifer":
+        st.balloons()
+        st.success(f"New lifer! **{md_text(breed_name)}** is a new cross on your life list.")
     elif kind == "cross":
-        st.info(f"Logged a **{md_text(breed_name)}** cross. Crosses don't count as lifers, "
-                "so it's under **Crosses** on your life list.")
+        st.info(f"Logged another **{md_text(breed_name)}**.")
     elif kind == "unverified":
         st.info(f"Logged a **{md_text(breed_name)}**, an unverified breed. It's not on the "
                 "life list yet, so it's under **Unverified breeds** on your life list. "
@@ -1073,10 +1075,10 @@ def chosen_breed_html(breed: str, photo: bytes | None) -> str:
     thumb = (f'<span class="thumb">{breed_photo_html(info, breed)}</span>'
              if info and info.image_url
              else f'<span class="thumb icon">{sketches.svg("dog")}</span>')
-    if breed not in listed:
+    if logic.is_lifer(sightings, breed, listed):
+        sub = f'{sketches.svg("sparkle")} New for your life list{breed_chip(breed)}'
+    elif breed not in listed:
         sub = breed_chip(breed)
-    elif logic.is_lifer(sightings, breed, listed):
-        sub = f'{sketches.svg("sparkle")} New for your life list'
     else:
         sub = "Already on your life list"
     return (f'{pic}<div class="cerb-row guess spot-breed">{thumb}<span class="main">'
@@ -1093,7 +1095,7 @@ with tab_spotted:
             return f"{name}  · unverified"
         return name if name in seen_breeds else f"{name}  · new"
 
-    def parent_label(name: str) -> str:  # a cross is never a lifer, so no "new"
+    def parent_label(name: str) -> str:  # a parent breed isn't the lifer, so no "new"
         return name if name in listed else f"{name}  · unverified"
 
     def fill_from_tags():
@@ -1137,8 +1139,9 @@ with tab_spotted:
         is_cross = st.toggle(
             "It's a cross breed", key="sighting_is_cross",
             help="A dog whose parents are two different breeds, like a Labrador Retriever x "
-                 "Poodle. Crosses are logged as **Breed A x Breed B** and don't count as "
-                 "lifers.")
+                 "Poodle. Crosses are logged as **Breed A x Breed B**. "
+                 + ("Each new cross is a lifer, but only breeds count towards badges."
+                    if logic.CROSSES_ARE_LIFERS else "They don't count as lifers."))
         breed_options = [*breeds["breed"], *added_breeds]
         st.selectbox(
             "First breed" if is_cross else "Breed",
@@ -1228,7 +1231,8 @@ with tab_spotted:
         st.session_state.clear_tags = True  # back to step 1, empty, for the next dog
         st.session_state.pop("photo_filled", None)
         clear_photo("sighting_photo")
-        st.session_state.flash = ("lifer" if lifer else
+        st.session_state.flash = ("cross_lifer" if lifer and logic.is_cross(breed) else
+                                  "lifer" if lifer else
                                   "repeat" if breed in listed else
                                   "cross" if logic.is_cross(breed) else "unverified", breed)
         st.rerun()
@@ -1330,9 +1334,11 @@ with tab_life:
 
     crosses = logic.cross_breeds(sightings)
     if not crosses.empty:
-        st.subheader("Crosses")
-        st.caption("Cross breeds you've spotted. They don't count as lifers or towards "
-                   "badges, since the life list is for breeds.")
+        st.subheader(f"Crosses ({len(crosses)})")
+        st.caption("Cross breeds you've spotted. "
+                   + ("Each new cross is a lifer, but only breeds count towards badges and "
+                      "the breed total above." if logic.CROSSES_ARE_LIFERS else
+                      "They don't count as lifers or towards badges."))
         st.markdown("".join(unverified_row(r, CROSS_CHIP) for r in crosses.itertuples()),
                     unsafe_allow_html=True)
 
