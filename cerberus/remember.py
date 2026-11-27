@@ -22,16 +22,17 @@ It also looks after **light and dark mode**. Streamlit keeps the theme a visitor
 in local storage under THEME_KEY_PREFIX + the page's path + THEME_KEY_SUFFIX, holding
 "Light", "Dark" or "System". The app is light by default, so:
 
-3. On a first visit (nothing saved, or "System") it saves "Light", and reloads the page
-   if the phone is in dark mode so Streamlit picks it up.
+3. On a first visit (nothing saved, or "System") it switches to "Light".
 4. Its report also says which theme is saved (`theme`), so the app can match its own
    colours (DARK_CSS in app.py).
-5. When Python passes `data["theme"]` (the Settings switch) and it differs, it saves it
-   and reloads the page, the only way to make Streamlit change theme. A reload starts a
-   new Streamlit session, so Python can also pass `data["carry"]`: the current sign-in
+5. When Python passes `data["theme"]` (the Settings switch) and it differs, it switches.
+   Streamlit has no public way to change theme from code, so `streamlitThemes()` finds
+   the switcher Streamlit's own Settings menu uses (inside React's internals) and calls
+   it: instant, no reload, and Streamlit saves the choice itself. If a Streamlit upgrade
+   hides it, the fallback saves the theme and reloads the page. A reload starts a new
+   Streamlit session, so Python also passes `data["carry"]`, the current sign-in
    (`{"token", "remember"}`), kept in the tab's sessionStorage for the reload and handed
-   back once in the next report as `carry`. That way people who didn't tick "Keep me
-   signed in" stay signed in too, and nothing is kept once the tab closes.
+   back once in the next report as `carry`.
 
 (The first version used a cookie, but on Streamlit Community Cloud the cookie never
 reaches the app, so `st.context.cookies` came back empty.)
@@ -77,8 +78,33 @@ function readTheme() {{
   return null;
 }}
 
+function streamlitThemes() {{
+  // Streamlit's own theme switcher (what its Settings menu uses), found by walking up
+  // React's internal tree from the app's root element. Not a public API: if a Streamlit
+  // upgrade moves it, this returns null and useTheme falls back to a reload.
+  try {{
+    const root = document.querySelector('[data-testid="stApp"]');
+    const fiberKey = root && Object.keys(root).find(k => k.startsWith("__reactFiber"));
+    for (let fiber = fiberKey && root[fiberKey]; fiber; fiber = fiber.return) {{
+      const theme = fiber.memoizedProps && fiber.memoizedProps.theme;
+      if (theme && typeof theme.setTheme === "function" && theme.availableThemes) return theme;
+    }}
+  }} catch (err) {{}}
+  return null;
+}}
+
 function useTheme(theme, carry) {{
-  // Save the theme for Streamlit and reload so it's used. Returns false if it can't.
+  // Switch Streamlit's theme straight away (it saves the choice itself). Only if that
+  // isn't possible, save it and reload the page. Returns true if the page reloads.
+  const themes = streamlitThemes();
+  const wanted = themes && themes.availableThemes.find(t => t.name === "Custom Theme " + theme);
+  if (wanted) {{
+    try {{
+      themes.setTheme(wanted);
+      localStorage.setItem(THEME_KEY, JSON.stringify(theme));
+      return false;
+    }} catch (err) {{}}
+  }}
   try {{
     localStorage.setItem(THEME_KEY, JSON.stringify(theme));
     if (carry) sessionStorage.setItem(CARRY_KEY, JSON.stringify(carry));
@@ -100,16 +126,12 @@ function takeCarry() {{
 }}
 
 export default function ({{ data, setStateValue }}) {{
-  // Light is the default: a first visit saves it (and reloads if the phone is dark).
+  // Light is the default: a first visit switches to it (even on a dark phone).
   if (!window.cerberusThemeChecked) {{
     window.cerberusThemeChecked = true;
-    const darkPhone = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches;
-    if (!readTheme()) {{
-      try {{ localStorage.setItem(THEME_KEY, JSON.stringify("Light")); }} catch (err) {{}}
-      if (darkPhone && readTheme() === "Light") {{ window.location.reload(); return; }}
-    }}
+    if (!readTheme() && useTheme("Light")) return;
   }}
-  // The Settings switch: save the new theme and reload.
+  // The Settings switch: change theme (normally instantly; see useTheme).
   if (data && data.theme && data.theme !== readTheme() && useTheme(data.theme, data.carry)) {{
     return;
   }}

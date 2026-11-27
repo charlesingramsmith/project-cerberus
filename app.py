@@ -526,8 +526,9 @@ def sync_saved_sign_in() -> dict | None:
         data["save"] = backend.refresh_token() if st.session_state.get("remember") else None
     wanted = st.session_state.pop("theme_wanted", None)
     if wanted and wanted != st.session_state.get("theme"):
-        data["theme"] = wanted  # the browser saves it and reloads the page
-        if "user" in st.session_state:  # stay signed in across the reload
+        data["theme"] = wanted  # the browser switches Streamlit's theme
+        st.session_state.theme = wanted  # and our own colours follow in this same run
+        if "user" in st.session_state:  # in case the browser has to reload instead
             data["carry"] = {"token": backend.refresh_token(),
                              "remember": bool(st.session_state.get("remember"))}
     result = saved_sign_in_store(key="saved_sign_in", data=data,
@@ -535,7 +536,8 @@ def sync_saved_sign_in() -> dict | None:
     report = result.saved
     if not isinstance(report, dict) or report.get("session") != data["session"]:
         return None  # not reported yet, or a leftover report from an earlier session
-    st.session_state.theme = "Dark" if report.get("theme") == "Dark" else "Light"
+    if not st.session_state.get("saved_read"):  # the theme the page loaded with
+        st.session_state.theme = "Dark" if report.get("theme") == "Dark" else "Light"
     return report
 
 
@@ -1489,7 +1491,7 @@ with tab_settings:
     st.subheader("Appearance")
     st.toggle("Dark mode", value=st.session_state.get("theme") == "Dark", key="dark_mode",
               on_change=switch_theme)
-    st.caption("The app reloads to change the colours. Your choice is saved on this device.")
+    st.caption("Light mode is the default. Your choice is saved on this device.")
 
     # What's new: the latest release, with older ones folded away.
     st.subheader("What's new")

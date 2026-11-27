@@ -6,6 +6,9 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.24.1 - 2026-11-27 - Smoother dark mode switch
+- The **Dark mode** switch now changes the colours straight away, without reloading the app. You stay right where you were in Settings.
+
 ## 0.24.0 - 2026-11-27 - Hand-drawn icons and a dark mode switch
 - The tabs at the bottom have new hand-drawn icons in the same pencil style as the logo.
 - Emoji are gone from the app: every badge has its own pencil sketch, and so do ticks, tips and places in Social.
