@@ -540,6 +540,17 @@ def test_badges_show_in_the_social_feed(at):
     assert feed.count("Earned the <b>First lifer</b> badge") == 1
 
 
+def test_feed_shows_the_post_date_and_an_older_date_seen(at):
+    import datetime as dt
+    sign_up(at)
+    log_breed(at, "Beagle")
+    at.session_state["backend"].add_sighting("Pug", dt.date(2026, 3, 9))  # from an old photo
+    open_tab(at, "Social")
+    feed = feed_html(at)
+    assert feed.index("Pug") < feed.index("Beagle")  # posted last, so on top
+    assert feed.count("Seen ") == 1 and "Seen 9 Mar 2026" in feed
+
+
 def test_switching_sharing_off_hides_your_sightings(at):
     sign_up(at)
     log_breed(at, "Beagle")

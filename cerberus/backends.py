@@ -18,7 +18,7 @@ import secrets
 import uuid
 from collections import Counter
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Protocol
 
 from cerberus import logic
@@ -554,8 +554,10 @@ class SupabaseBackend:
         self._require_user()
         # RLS returns your own sightings plus those of members who share.
         rows = (self.client.table("sightings")
-                .select("id, user_id, breed, seen_on, location, dog_name, notes, photo_path")
-                .order("seen_on", desc=True).order("id", desc=True).limit(limit)
+                .select("id, user_id, breed, seen_on, location, dog_name, notes, photo_path, "
+                        "created_at")
+                # Newest post first: when it was posted, not the (maybe older) date seen.
+                .order("created_at", desc=True).order("id", desc=True).limit(limit)
                 .execute().data)
         rows = _with_tags(rows, self._tags([r["id"] for r in rows]))
         ids = sorted({r["user_id"] for r in rows})
@@ -686,8 +688,8 @@ class MemoryBackend:
             _check_photo_path(user, photo_path)
         row = _sighting_row(breed, seen_on, location, dog_name, notes, photo_path)
         sighting_id = next(self._ids)
-        self._sightings.append({"id": sighting_id, "user_id": user.id,
-                                "photo_path": None, **row})
+        self._sightings.append({"id": sighting_id, "user_id": user.id, "photo_path": None,
+                                "created_at": datetime.now(timezone.utc).isoformat(), **row})
         for dog_id in dog_ids or []:
             if dog_id not in self._dogs():  # like the database's foreign key
                 raise ValueError("That dog doesn't exist.")
@@ -847,7 +849,9 @@ class MemoryBackend:
         user = self._require_user()
         # Like RLS: your own, plus anyone who shares.
         visible = [s for s in self._sightings if self._can_see(user, s)]
-        newest = sorted(visible, key=lambda s: (s["seen_on"], s["id"]), reverse=True)[:limit]
+        # Newest post first, like Supabase's created_at order (ids go up as posts are added).
+        newest = sorted(visible, key=lambda s: (s.get("created_at", ""), s["id"]),
+                        reverse=True)[:limit]
         milestones = logic.milestone_sightings(visible, _listed_breeds())
         return logic.social_feed(_with_tags(newest, self._tags_by_sighting()), self._profiles,
                                  milestones)
