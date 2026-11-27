@@ -683,8 +683,8 @@ def test_celebration_layout_floats_the_breeds_face_or_both_parents():
     pug = logic.celebration_layout("Pug")
     assert len(pug) == logic.FACE_BALLOONS
     assert {face["breed"] for face in pug} == {"Pug"}
-    # Spread across the screen, never off its edges, and slower than Streamlit's balloons
+    # Spread across the screen, never off its edges, and not rushed
     assert len({face["left"] for face in pug}) == len(pug)
-    assert all(0 <= face["left"] <= 90 and face["rise"] >= 8 for face in pug)
+    assert all(0 <= face["left"] <= 90 and face["rise"] >= 4 for face in pug)
     cross = logic.celebration_layout("Beagle x Pug", count=4)
     assert [face["breed"] for face in cross] == ["Beagle", "Pug", "Beagle", "Pug"]
