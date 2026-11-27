@@ -6,6 +6,10 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.30.0 - 2026-11-27 - Dog faces float up for a lifer
+- A new lifer no longer gets balloons. Instead, the breed's face floats slowly up the screen in little circles on strings, like the faces on your life list.
+- For a new cross, both breeds' faces float up together, taking turns.
+
 ## 0.29.1 - 2026-11-27 - Social shows the newest posts first
 - The Social feed is now in the order sightings were posted, newest at the top, so a sighting from an older photo no longer gets buried further down.
 - Each post shows the day it was posted. If the dog was seen on a different day, that date shows underneath as "Seen".
