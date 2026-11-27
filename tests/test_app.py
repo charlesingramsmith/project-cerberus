@@ -1039,3 +1039,21 @@ def test_a_cross_dog_needs_two_different_breeds(at):
     assert "both breeds" in at.error[0].value
     assert at.session_state["backend"].list_dogs() == []
 
+
+
+# --- Privacy policy and terms ------------------------------------------------------------
+def legal_labels(at: AppTest) -> list[str]:
+    return [e.label for e in at.expander if e.label in ("Privacy policy", "Terms of use")]
+
+
+def test_sign_in_screen_links_the_privacy_policy_and_terms(at):
+    assert legal_labels(at) == ["Privacy policy", "Terms of use"]
+    assert any("you agree to the terms of use and privacy policy" in c.value for c in at.caption)
+
+
+def test_settings_shows_the_privacy_policy_and_terms(at):
+    sign_up(at)
+    open_tab(at, "Settings")
+    assert legal_labels(at) == ["Privacy policy", "Terms of use"]
+    shown = " ".join(m.value for m in at.markdown)
+    assert "GPS location" in shown and "13 or older" in shown

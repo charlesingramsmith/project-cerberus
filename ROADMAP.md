@@ -121,6 +121,8 @@ _Nothing in progress. Pick the next item from below._
 
 Nothing is bought or built yet.
 
+A **privacy policy and terms of use** are drafted in `legal/` (27 Nov 2026) and shown in the app; the landing page can show the same text. Update them at each step (new host, new services), and have them checked before the app stores.
+
 - [ ] **A brand name**: a proper name for the app (it's called Project Cerberus for now).
   - Planning: shortlist names; check each is free as a domain, on the App Store and Google Play, and on social handles; do a quick trademark search (UK IPO, EUIPO, USPTO) for the pet/app classes; ask a few members which they like.
   - Decide whether "Cerberus" stays as the code/project name and only the app's display name changes.
