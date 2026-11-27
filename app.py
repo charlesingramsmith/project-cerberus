@@ -482,7 +482,7 @@ def resume_saved_sign_in(saved: str | None):
 def auth_screen():
     st.image(LOGO, width=120)
     st.title("Project Cerberus")
-    st.write("Spot dogs. Collect breeds. Can you find all 100?")
+    st.write("Spot dogs. Collect breeds. Can you find all 141?")
     if backend.demo:
         st.warning(DEMO_NOTICE)
     notice = st.session_state.pop("auth_notice", None)
@@ -997,11 +997,13 @@ def life_row(row, profile: logic.BreedProfile | None) -> str:
         detail = f"First seen {row.first_seen} · seen {row.times_seen}×"
     else:
         css, seen, detail = "cerb-row missing", False, "Not spotted yet"
+    # Only the AKC top 100 have a popularity rank; the breeds added after them have none.
+    rank = "" if pd.isna(row.rank) else f'<span class="rank">#{row.rank}</span>'
     return (
         f'<details class="cerb-breed"><summary class="{css}">{breed_thumb(profile, tick=seen)}'
         f'<div class="main"><div class="name">{html.escape(row.breed)}</div>'
         f'<div class="sub">{detail}</div></div>'
-        f'<span class="rank">#{row.rank}</span><span class="chev">›</span></summary>'
+        f'{rank}<span class="chev">›</span></summary>'
         f'{breed_profile_html(profile)}</details>'
     )
 
@@ -1040,7 +1042,8 @@ with tab_life:
         st.markdown("".join(life_row(r, breed_profiles.get(r.breed)) for r in view.itertuples()),
                     unsafe_allow_html=True)
     st.caption("Tap a breed to see a photo and a short intro. "
-               "Breeds ranked by AKC 2025 popularity. Photos from Wikimedia Commons.")
+               "Numbers are AKC 2025 popularity ranks for the top 100; the other "
+               "breeds follow A to Z. Photos from Wikimedia Commons.")
 
     unverified = logic.unverified_breeds(sightings, listed)
     if not unverified.empty:
@@ -1451,5 +1454,6 @@ with tab_settings:
                 st.error("Your idea couldn't be sent right now. Please try again later.")
 
     st.subheader("About")
-    st.caption("Project Cerberus: spot dogs, collect breeds. Breeds are the AKC 2025 top 100.")
+    st.caption("Project Cerberus: spot dogs, collect breeds. Breeds are the AKC 2025 top 100, plus 41 "
+               "more that Photo ID knows.")
     st.caption(f"Version {APP_VERSION}")

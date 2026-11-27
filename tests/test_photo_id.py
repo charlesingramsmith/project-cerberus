@@ -73,7 +73,7 @@ def test_the_breed_list_maps_the_models_dog_classes_to_our_breed_names():
     assert list(class_breeds) == list(range(151, 269))  # the model's 118 dog breeds
     named = {b for b in class_breeds.values() if b}
     assert named <= set(logic.load_breeds()["breed"])  # same spelling as breeds.csv
-    assert len(named) == 73
+    assert len(named) == 114
     assert [i for i, b in class_breeds.items() if b == "Poodle"] == [265, 266, 267]
 
 

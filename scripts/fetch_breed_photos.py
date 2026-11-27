@@ -2,7 +2,11 @@
 
 Run once by hand when breeds change (the app never runs this; it only reads the CSV):
 
-    .venv/Scripts/python.exe scripts/fetch_breed_photos.py
+    .venv/Scripts/python.exe scripts/fetch_breed_photos.py            # only breeds with no photo yet
+    .venv/Scripts/python.exe scripts/fetch_breed_photos.py --refresh  # look up every breed again
+
+Breeds that already have a photo keep it, because data/breed_faces.csv holds a hand-made face
+crop for that exact photo. If --refresh changes a breed's photo, recrop it in face_cropper.py.
 
 For each breed it asks Wikipedia for the article's main picture (only freely licensed
 images), then asks Wikimedia Commons for a 640px-wide copy plus the photographer and
@@ -57,12 +61,15 @@ ARTICLE = {
     "Chihuahua": "Chihuahua (dog)",
     "Dalmatian": "Dalmatian dog",
     "Saint Bernard": "St. Bernard (dog)",
+    "Belgian Sheepdog": "Groenendael dog",
+    "Silky Terrier": "Australian Silky Terrier",
 }
 
 # Hand-picked photos where the article's main picture shows several dogs.
 PHOTO = {
     "Belgian Malinois": "Malinois Shepherd3.JPG",
     "Akita": "Akita female.png",
+    "Belgian Sheepdog": "Belgian Groenendael portrait.jpg",
 }
 
 
@@ -147,24 +154,30 @@ def image_details(file_names: list[str]) -> dict[str, dict]:
     return details
 
 
-def main() -> None:
-    breeds = list(load_breeds()["breed"])
+def main(refresh: bool = False) -> None:
+    all_breeds = list(load_breeds()["breed"])
+    kept = {}
+    if not refresh and BREED_PHOTOS_CSV.exists():
+        with BREED_PHOTOS_CSV.open(encoding="utf-8") as f:
+            kept = {row["breed"]: row for row in csv.DictReader(f) if row["breed"] in all_breeds}
+    breeds = [b for b in all_breeds if b not in kept]
     titles = [ARTICLE.get(b, b) for b in breeds]
     files = page_images(titles)
-    files.update({ARTICLE.get(b, b): name for b, name in PHOTO.items()})
+    files.update({ARTICLE.get(b, b): name for b, name in PHOTO.items() if b in breeds})
     details = image_details(sorted(set(files.values())))
-    rows = []
     for breed, title in zip(breeds, titles):
         name = files[title]
         found = details.get(name) or details.get(name.replace("_", " "))
-        rows.append({"breed": breed, **found})
+        kept[breed] = {"breed": breed, **found}
         print(f"{breed:36} {found['licence']:16} {name}")
+    rows = [kept[b] for b in all_breeds]  # in breed order
     with BREED_PHOTOS_CSV.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=["breed", "image_url", "credit", "licence", "source"])
         writer.writeheader()
         writer.writerows(rows)
-    print(f"Saved {len(rows)} photos to {BREED_PHOTOS_CSV.relative_to(ROOT)}")
+    print(f"Saved {len(rows)} photos ({len(breeds)} new) to {BREED_PHOTOS_CSV.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":
-    main()
+    sys.stdout.reconfigure(encoding="utf-8")  # Windows can't print some photo names otherwise
+    main(refresh="--refresh" in sys.argv[1:])
