@@ -10,6 +10,9 @@ Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed b
 - See something that shouldn't be there? Tap **Report** under someone's post in Social, or on a dog's profile page, and pick why: an inappropriate photo, not a dog, spam or something else.
 - It disappears for you straight away, and we review every report. Nobody is told who reported them.
 
+## 0.36.1 - 2026-11-27 - Clearer privacy policy
+- The privacy policy now says which details you must give (just an email address to sign in) and how Derlin uses what Google shares when you sign in with Google.
+
 ## 0.36.0 - 2026-11-27 - Say hello to Derlin
 - The app has a proper name: **Derlin**. You'll see it on the sign-in screen, on your browser tab and in Settings > About.
 - Nothing else changes: your account, sightings, life list and badges are all just where you left them, at the same web address for now.
