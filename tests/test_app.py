@@ -58,16 +58,16 @@ def test_mismatched_passwords_are_rejected(at):
 def test_full_journey(at):
     sign_up(at)
     assert "charlie's life list" in headers(at)
-    assert at.metric[0].value == "0/141"
+    assert at.metric[1].value == "0/141"
 
     log_breed(at, "Beagle")
     assert "New lifer" in at.success[0].value
-    assert at.metric[0].value == "1/141"
+    assert at.metric[1].value == "1/141"
 
     log_breed(at, "Beagle")
     assert "another" in at.info[0].value
-    assert at.metric[0].value == "1/141"
-    assert at.metric[1].value == "2"
+    assert at.metric[1].value == "1/141"
+    assert at.metric[2].value == "2"
 
     # Sign out, then back in: sightings are still there
     click(at, "Sign out")
@@ -75,7 +75,7 @@ def test_full_journey(at):
     at.text_input(key="sign_in_email").input("charlie@example.com")
     at.text_input(key="sign_in_password").input("correct-horse")
     click(at, "Sign in")
-    assert at.metric[1].value == "2"
+    assert at.metric[2].value == "2"
 
 
 def test_signed_in_app_has_five_main_tabs(at):
@@ -91,15 +91,15 @@ def badge_cards(at: AppTest) -> str:
 
 def test_first_lifer_earns_a_badge(at):
     sign_up(at)
-    assert "Badges (0/26)" in [h.value for h in at.subheader]
-    assert 'cerb-badge locked" title="Spot your first breed"' in badge_cards(at)
+    assert "Badges (0/34)" in [h.value for h in at.subheader]
+    assert "Next up</div><b>First lifer</b>" in "".join(m.value for m in at.markdown)
     assert any("Next badge" in c.value and "First lifer" in c.value for c in at.caption)
 
     log_breed(at, "Beagle")
     assert "Badge earned: **First lifer**" in at.success[1].value
-    assert "Badges (1/26)" in [h.value for h in at.subheader]
-    assert "Earned" in badge_cards(at) and "1/10 breeds" in badge_cards(at)
-    assert any("Puppy steps" in c.value and "4 more breeds" in c.value for c in at.caption)
+    assert "Badges (1/34)" in [h.value for h in at.subheader]
+    assert "Earned" in badge_cards(at)
+    assert any("Puppy steps" in c.value and "4 more lifers" in c.value for c in at.caption)
 
     log_breed(at, "Pug")  # a second lifer: no new badge to celebrate
     assert len(at.success) == 1
@@ -123,13 +123,13 @@ def test_wrong_password_shows_an_error(at):
 def test_sightings_can_be_deleted_from_their_card(at):
     sign_up(at)
     log_breed(at, "Beagle")
-    assert at.metric[1].value == "1"
+    assert at.metric[2].value == "1"
 
     delete = next(b for b in at.button if b.key and b.key.startswith("delete_"))
     delete.click().run()
     assert not at.exception
-    assert at.metric[1].value == "0"
-    assert at.metric[0].value == "0/141"
+    assert at.metric[2].value == "0"
+    assert at.metric[1].value == "0/141"
 
 
 def test_life_list_search(at):
@@ -587,7 +587,7 @@ def test_changed_helper_files_are_reloaded_without_signing_anyone_out(at):
         assert type(backend) is not type(old_backend)  # rebuilt from the new class...
         assert type(backend).__module__ == "cerberus.backends"
         assert "charlie's life list" in headers(at)  # ...and still signed in
-        assert at.metric[1].value == "1"  # with the sighting kept
+        assert at.metric[2].value == "1"  # with the sighting kept
     finally:
         os.utime(path, (before.st_atime, before.st_mtime))
 
@@ -773,7 +773,7 @@ def test_a_typed_in_breed_is_logged_as_unverified_and_shared_for_review(at, typi
     type_breed(at, "Sprocker   Spaniel")
     assert "unverified breed" in at.info[0].value
     assert not at.success  # not a lifer
-    assert at.metric[0].value == "0/141" and at.metric[1].value == "1"
+    assert at.metric[1].value == "0/141" and at.metric[2].value == "1"
     assert "Unverified breeds" in [h.value for h in at.subheader]
     life = "".join(m.value for m in at.markdown)
     assert "Sprocker Spaniel" in life and "Unverified breed" in life
@@ -809,8 +809,9 @@ def test_a_cross_is_logged_as_breed_a_x_breed_b_and_shown_in_social(at):
     log_cross(at, "Labrador Retriever", "Poodle")
     assert not at.exception
     assert "New lifer! **Labrador Retriever x Poodle** is a new cross" in at.success[0].value
-    assert len(at.success) == 1  # crosses don't earn badges
-    assert at.metric[0].value == "0/141" and at.metric[1].value == "1"  # not a breed
+    assert [s.value.split("**")[1] for s in at.success[1:]] == ["First lifer", "Matchmaker"]
+    assert at.metric[0].value == "1"  # a lifer...
+    assert at.metric[1].value == "0/141" and at.metric[2].value == "1"  # ...but not a breed
     assert not at.toggle(key="sighting_is_cross").value  # ready for the next dog
     assert "Crosses (1)" in [h.value for h in at.subheader]
     assert "Unverified breeds" not in [h.value for h in at.subheader]
@@ -911,3 +912,15 @@ def test_spotted_asks_for_the_breed_first_then_the_details(at):
     assert "Pug" in at.success[0].value
     assert spot_step(at) == 1  # ready for the next dog
     assert at.selectbox(key="sighting_breed").value is None
+
+
+def test_badges_are_grouped_by_type(at):
+    sign_up(at)
+    track = at.segmented_control(key="badge_track")
+    assert track.value == "lifer"
+    at.session_state["badge_track"] = "purebred"
+    at.run()
+    page = "".join(m.value for m in at.markdown)
+    assert "Next up</div><b>Pedigree pal</b>" in page and "0/10 breeds" in page
+    assert any(e.label == "Still to earn (5)" for e in at.expander)
+

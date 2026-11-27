@@ -648,11 +648,11 @@ def username_candidates(base: str, tries: int = 50):
 
 
 def social_feed(sightings: list[dict], profiles: dict[str, dict],
-                milestones: dict[int, str] | None = None) -> list[dict]:
+                milestones: dict[int, list[str]] | None = None) -> list[dict]:
     """Sightings for the Social tab, each with its spotter's username and avatar, and
-    "badge": the key of the milestone badge that sighting earned, or None.
+    "badges": the keys of the badges that sighting earned (often none).
 
-    `profiles` maps user id -> profile; `milestones` maps sighting id -> badge key (from
+    `profiles` maps user id -> profile; `milestones` maps sighting id -> badge keys (from
     `milestone_sightings`). Sightings from members without a profile, or who have switched
     sharing off, are left out. Order is kept (newest first from the backend).
     """
@@ -662,7 +662,7 @@ def social_feed(sightings: list[dict], profiles: dict[str, dict],
         who = profiles.get(s["user_id"])
         if who and who.get("share_sightings", True):
             feed.append({**s, "username": who["username"], "avatar": who["avatar"],
-                         "badge": milestones.get(s["id"])})
+                         "badges": milestones.get(s["id"], [])})
     return feed
 
 # --- Dog profiles: members' own dogs, taggable in posts by @username ------------------
@@ -738,23 +738,53 @@ def tagged_breed(dogs: list[dict]) -> str | None:
     return None
 
 
-# --- Badges: milestones earned from how many breeds you've spotted ------------------------
+# --- Badges: milestones earned from what you've spotted ----------------------------------
+# Three kinds ("tracks") of badge, each worked out from your sightings every time (there's
+# no badges table), so dates are right even for sightings logged out of order, and
+# deleting a sighting can undo a badge:
+#   lifer:    the main ladder. Counts lifers: verified breeds, and crosses while
+#             CROSSES_ARE_LIFERS is on.
+#   purebred: fewer, rarer badges. Counts verified breeds only.
+#   cross:    a few fun ones for cross breeds (first cross, Poodle crosses, a cross
+#             spotted along with both of its parent breeds).
+
+LIFER, PUREBRED, CROSS_TRACK = "lifer", "purebred", "cross"
+BADGE_TRACKS = {  # track -> (heading, what's counted, short intro), in the order shown
+    LIFER: ("Lifers", "lifers", "Every new breed or cross you spot moves you up."),
+    PUREBRED: ("Purebreds", "breeds", "Fewer and rarer: only verified breeds count."),
+    CROSS_TRACK: ("Crosses", "", "Just for fun, for spotting cross breeds."),
+}
+
 
 @dataclass(frozen=True)
 class Badge:
     key: str            # stable id, e.g. "breeds-10"
     icon: str           # a hand-drawn icon's name in cerberus/sketches.py SKETCHES
     name: str           # "Pack of 10"
-    goal: int           # how many different breeds earn it
+    goal: int           # how many earn it (lifers, breeds, crosses...)
+    track: str = LIFER  # which kind of badge: a key of BADGE_TRACKS
+    counts: str = ""    # cross track only: which count, a key of CROSS_COUNTS
+    about: str = ""     # cross track only: its description
 
     @property
     def description(self) -> str:
-        return "Spot your first breed" if self.goal == 1 else f"Spot {self.goal} different breeds"
+        if self.about:
+            return self.about
+        if self.track == PUREBRED:
+            return f"Spot {self.goal} different purebreds"
+        return "Spot your first lifer" if self.goal == 1 else f"Spot {self.goal} lifers"
+
+    @property
+    def unit(self) -> str:
+        """What its progress counts, for "3/10 lifers"."""
+        if self.track == CROSS_TRACK:
+            return CROSS_COUNTS[self.counts]
+        return BADGE_TRACKS[self.track][1]
 
 
-# A badge for your first breed, one every 5 breeds up to 100, then every 10, and a last one
-# for every verified breed (141; a test checks it matches data/breeds.csv). Keys are stable ids
-# ("breeds-<goal>"), so names and icons can change without anyone losing a badge.
+# The lifer ladder: your first lifer, one every 5 up to 100, then every 10 to 141. Keys are
+# stable ids ("breeds-<goal>", from when it counted breeds), so names and icons can change
+# without anyone losing a badge.
 BADGES = (
     Badge("first-lifer", "paw", "First lifer", 1),
     Badge("breeds-5", "dog", "Puppy steps", 5),
@@ -784,12 +814,36 @@ BADGES = (
     Badge("breeds-141", "crown", "Leader of the pack", 141),
 )
 
+# Purebreds: fewer and rarer. The last one is for every verified breed (141; a test checks
+# it matches data/breeds.csv). Shown with a plum ring so they stand out.
+PUREBRED_BADGES = (
+    Badge("pure-10", "rosette", "Pedigree pal", 10, PUREBRED),
+    Badge("pure-25", "medal", "Best of breed", 25, PUREBRED),
+    Badge("pure-50", "first", "Show champion", 50, PUREBRED),
+    Badge("pure-100", "trophy", "Purebred century", 100, PUREBRED),
+    Badge("pure-141", "crown", "Breed master", 141, PUREBRED),
+)
+
+# Crosses: each counts something different (see _badge_events).
+CROSS_COUNTS = {"crosses": "crosses", "poodle": "Poodle crosses", "family": "families"}
+CROSS_BADGES = (
+    Badge("cross-1", "heart", "Matchmaker", 1, CROSS_TRACK, "crosses",
+          "Spot your first cross breed"),
+    Badge("cross-poodle-3", "swap", "Doodle collector", 3, CROSS_TRACK, "poodle",
+          "Spot 3 different Poodle crosses"),
+    Badge("cross-family", "people", "Family reunion", 1, CROSS_TRACK, "family",
+          "Spot a cross and both of its parent breeds"),
+)
+
+ALL_BADGES = BADGES + PUREBRED_BADGES + CROSS_BADGES
+BADGES_BY_KEY = {b.key: b for b in ALL_BADGES}
+
 
 @dataclass(frozen=True)
 class BadgeProgress:
     badge: Badge
-    earned_on: str | None   # ISO date the milestone breed was first seen, or None
-    have: int               # breeds spotted so far (capped at the goal)
+    earned_on: str | None   # ISO date it was earned, or None
+    have: int               # how many so far (capped at the goal)
 
     @property
     def earned(self) -> bool:
@@ -800,57 +854,92 @@ class BadgeProgress:
         return self.badge.goal - self.have
 
 
+def _badge_events(sightings: Iterable[dict], listed: set[str] | None) -> dict[str, list]:
+    """For one member: each count a badge can need, as the sorted list of (seen_on, id)
+    of the sightings that added one to it. A badge for N is earned by the Nth.
+
+    Keys: "lifer", "purebred", and the CROSS_COUNTS. If `listed` is None, every breed that
+    isn't a cross counts as verified (handy in tests)."""
+    firsts: dict[str, tuple] = {}  # breed -> (seen_on, id) of its first sighting
+    for s in sightings:
+        key = (str(s["seen_on"]), s["id"])
+        if s["breed"] not in firsts or key < firsts[s["breed"]]:
+            firsts[s["breed"]] = key
+
+    def verified(breed: str) -> bool:
+        return not is_cross(breed) if listed is None else breed in listed
+
+    crosses = {b: k for b, k in firsts.items() if is_cross(b)}
+    families = []  # a cross and both its parents seen: earned by the last of the three
+    for cross, key in crosses.items():
+        parents = cross_parents(cross)
+        if all(p in firsts for p in parents):
+            families.append(max(key, *(firsts[p] for p in parents)))
+    return {
+        LIFER: sorted(k for b, k in firsts.items()
+                      if verified(b) or (CROSSES_ARE_LIFERS and is_cross(b))),
+        PUREBRED: sorted(k for b, k in firsts.items() if verified(b)),
+        "crosses": sorted(crosses.values()),
+        "poodle": sorted(k for b, k in crosses.items() if "Poodle" in cross_parents(b)),
+        "family": sorted(families),
+    }
+
+
+def _events_for(badge: Badge, events: dict[str, list]) -> list:
+    return events[badge.counts if badge.track == CROSS_TRACK else badge.track]
+
+
 def badge_progress(sightings: pd.DataFrame, badges: tuple[Badge, ...] = BADGES,
                    listed: set[str] | None = None) -> list[BadgeProgress]:
-    """Every badge with whether it's earned, and when.
-
-    A badge for N breeds is earned on the day the Nth different breed was first seen.
-    It's worked out from your sightings each time (no table to keep in step), so dates are
-    right even for sightings logged out of order, and deleting a sighting can undo a badge.
-    If `listed` is given, only those (verified) breeds count.
-    """
-    if listed is not None:
-        sightings = sightings[sightings["breed"].isin(listed)]
-    first_seen = sorted(sightings.groupby("breed")["seen_on"].min().astype(str))
-    count = len(first_seen)
-    return [BadgeProgress(badge, first_seen[badge.goal - 1] if count >= badge.goal else None,
-                          min(count, badge.goal))
-            for badge in badges]
-
-
-def badge_for_count(count: int, badges: tuple[Badge, ...] = BADGES) -> Badge | None:
-    """The badge earned by reaching exactly `count` breeds (to celebrate a new lifer)."""
-    return next((b for b in badges if b.goal == count), None)
-
-
-BADGES_BY_KEY = {b.key: b for b in BADGES}
+    """Every badge with whether it's earned, and when: a badge for N is earned on the date
+    of the sighting that made it N (the Nth new lifer, purebred, cross...). If `listed` is
+    None, every breed that isn't a cross counts as verified."""
+    events = _badge_events(sightings.to_dict("records"), listed)
+    out = []
+    for badge in badges:
+        mine = _events_for(badge, events)
+        earned = mine[badge.goal - 1][0] if len(mine) >= badge.goal else None
+        out.append(BadgeProgress(badge, earned, min(len(mine), badge.goal)))
+    return out
 
 
 def milestone_sightings(sightings: Iterable[dict], listed: set[str],
-                        badges: tuple[Badge, ...] = BADGES) -> dict[int, str]:
-    """{sighting id: badge key} for each sighting that earned its spotter a badge.
+                        badges: tuple[Badge, ...] = ALL_BADGES) -> dict[int, list[str]]:
+    """{sighting id: [badge keys]} for each sighting that earned its spotter a badge.
 
-    Works per member, by the same rule as `badge_progress`: a member's badge for N breeds
-    goes with the first sighting of their Nth different verified breed (in date order, then
-    the order they were logged). Sightings need id, user_id, breed and seen_on.
+    Works per member, by the same rule as `badge_progress` (in date order, then the order
+    they were logged). Sightings need id, user_id, breed and seen_on.
     """
-    firsts: dict[str, dict[str, tuple]] = {}  # user id -> breed -> (seen_on, id)
+    by_user: dict[str, list[dict]] = {}
     for s in sightings:
-        if s["breed"] not in listed:
-            continue
-        key = (str(s["seen_on"]), s["id"])
-        mine = firsts.setdefault(s["user_id"], {})
-        if s["breed"] not in mine or key < mine[s["breed"]]:
-            mine[s["breed"]] = key
-    out = {}
-    for mine in firsts.values():
-        order = sorted(mine.values())
+        by_user.setdefault(s["user_id"], []).append(s)
+    out: dict[int, list[str]] = {}
+    for mine in by_user.values():
+        events = _badge_events(mine, listed)
         for badge in badges:
-            if len(order) >= badge.goal:
-                out[order[badge.goal - 1][1]] = badge.key
+            got = _events_for(badge, events)
+            if len(got) >= badge.goal:
+                out.setdefault(got[badge.goal - 1][1], []).append(badge.key)
     return out
+
+
+def newly_earned(before: Iterable[str], progress: list[BadgeProgress]) -> list[Badge]:
+    """Badges earned now that weren't in `before` (keys), to celebrate after a sighting."""
+    before = set(before)
+    return [p.badge for p in progress if p.earned and p.badge.key not in before]
 
 
 def next_badge(progress: list[BadgeProgress]) -> BadgeProgress | None:
     """The first badge not yet earned, or None once they're all earned."""
     return next((p for p in progress if not p.earned), None)
+
+
+def lifer_count(sightings: pd.DataFrame, listed: set[str]) -> int:
+    """How many lifers you have: different verified breeds, plus crosses while
+    CROSSES_ARE_LIFERS is on."""
+    return len(_badge_events(sightings.to_dict("records"), listed)[LIFER])
+
+
+def badges_by_track(progress: list[BadgeProgress]) -> dict[str, list[BadgeProgress]]:
+    """Badge progress grouped by track, in BADGE_TRACKS order."""
+    return {track: [p for p in progress if p.badge.track == track] for track in BADGE_TRACKS}
