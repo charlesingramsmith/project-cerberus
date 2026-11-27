@@ -11,10 +11,10 @@ You'll need your Supabase project's **callback URL**. It looks like
 ## 1. Google Cloud: get a Client ID and Client Secret
 
 1. Go to [console.cloud.google.com](https://console.cloud.google.com) and create a
-   project (any name, e.g. "Project Cerberus").
+   project (any name, e.g. "Derlin").
 2. **APIs & Services > OAuth consent screen** (Google may call it **Google Auth
    Platform > Branding**). This is the screen people see when they sign in.
-   - App name: Project Cerberus. Support email: yours.
+   - App name: Derlin. Support email: yours.
    - Audience: **External**.
    - Under **Data access**, add only these scopes: `openid`, `.../auth/userinfo.email` and
      `.../auth/userinfo.profile`. These scopes don't need Google to review the app.

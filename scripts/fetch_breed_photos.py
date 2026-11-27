@@ -29,7 +29,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from cerberus.logic import BREED_PHOTOS_CSV, load_breeds  # noqa: E402
 
-USER_AGENT = "ProjectCerberus/1.0 (breed photo lookup script)"
+USER_AGENT = "Derlin/1.0 (breed photo lookup script)"
 WIDTH = 640
 
 # Wikipedia article titles that differ from the AKC breed name.

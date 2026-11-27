@@ -1,6 +1,6 @@
-# Project Cerberus
+# Derlin (repo: project-cerberus)
 
-A Streamlit app where users log dog sightings and build a "life list" of breeds (like a birding life list). The first sighting of a breed is a **lifer**. Live at https://project-cerberus.streamlit.app. This is a portfolio project, so readable code, tests and the README matter as much as features.
+A Streamlit app where users log dog sightings and build a "life list" of breeds (like a birding life list). The first sighting of a breed is a **lifer**. Live at https://project-cerberus.streamlit.app. The app's name is **Derlin** (domain `derlin.app`); use it in anything users see. "Cerberus" stays only in code and infrastructure (the `cerberus/` package, `CERBERUS_DEMO`, the repo, the Supabase project, the Streamlit address) until the hosting move. This is a portfolio project, so readable code, tests and the README matter as much as features.
 
 The owner is new to Git and coding. Explain git/deploy steps in plain language and say what each command does.
 

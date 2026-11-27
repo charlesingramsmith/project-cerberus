@@ -1,4 +1,4 @@
-# 🐕 Project Cerberus
+# 🐕 Derlin
 
 **[▶ Try it live](https://project-cerberus.streamlit.app)**
 
@@ -119,7 +119,7 @@ Run the tests with `pytest`.
 - [ ] 👥 More social: comparing life lists, leaderboards
 - [ ] 🤝 Friends and private messaging (with blocking and reporting)
 - [ ] More breeds, a sightings map
-- [ ] 🏷️ A brand name and our own web address (domain)
+- [x] 🏷️ A brand name, **Derlin**, and our own web address, derlin.app (bought; the app moves there with the new hosting)
 - [ ] 📱 Launch a real app: a landing page on our domain, then the app on our own hosting, then the app stores
 
 Inspired by bird ID apps like Merlin, which identify birds from a photo or their song. The full plan, with notes on each item, is in [ROADMAP.md](ROADMAP.md).

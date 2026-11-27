@@ -1,10 +1,14 @@
 # Changelog
 
-What's new in Project Cerberus, newest first. The app shows this file in **Settings > What's new**, so write for users, not developers.
+What's new in Derlin, newest first. The app shows this file in **Settings > What's new**, so write for users, not developers.
 
 Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.6.0), a fix bumps PATCH (0.6.0 → 0.6.1). MAJOR stays 0 until the app is "finished enough" for a 1.0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
+
+## 0.35.0 - 2026-11-27 - Say hello to Derlin
+- The app has a proper name: **Derlin**. You'll see it on the sign-in screen, on your browser tab and in Settings > About.
+- Nothing else changes: your account, sightings, life list and badges are all just where you left them, at the same web address for now.
 
 ## 0.34.0 - 2026-11-27 - Dog profile pages
 - Tap a tagged **@dog** on a post in Social (or on your own sightings in Profile) to open that dog's page: its photo, name, breed (crosses shown as **Breed A x Breed B**), owner and bio.
