@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Derlin: a life list for dog spotters</title>
+<meta name="description" content="Spot dogs, name their breeds and collect them all, like birding but for the dogs you pass in the park. Free, in your phone's browser.">
+<meta property="og:title" content="Derlin: a life list for dog spotters">
+<meta property="og:description" content="Spot dogs, name their breeds and collect them all, like birding but for dogs.">
+<meta property="og:image" content="https://derlin.app/icon.png">
+<meta name="theme-color" content="#FBFAF8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#18171A" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="icon" href="icon.png" type="image/png">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* The app's brand colours (.streamlit/config.toml and MOBILE_CSS / DARK_CSS in app.py).
+   Unlike the app, this page simply follows the phone's light or dark setting. */
+:root {
+  --paper: #FBFAF8; --card: #EFF2E8; --ink: #2E2A30; --ink-soft: #5E5862;
+  --pistachio: #BFD99A; --pistachio-soft: rgba(191, 217, 154, .35);
+  --pistachio-text: #56763A; --plum: #8A5A83; --plum-soft: rgba(138, 90, 131, .12);
+  --on-pistachio: #26222A;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #18171A; --card: #262429; --ink: #ECE9EE; --ink-soft: #B5AFB9;
+    --pistachio: #A9C985; --pistachio-soft: rgba(169, 201, 133, .16);
+    --pistachio-text: #B9D697; --plum: #E3BEDD; --plum-soft: rgba(227, 190, 221, .14);
+    --on-pistachio: #18171A;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font: 400 1.05rem/1.6 Nunito, system-ui, sans-serif;
+}
+main { max-width: 40rem; margin: 0 auto; padding: 0 1rem 2rem; }
+h1, h2, h3 { font-family: Caveat, cursive; font-weight: 700; line-height: 1.1; margin: 0; }
+a { color: var(--pistachio-text); }
+.sketch { width: 1.2em; height: 1.2em; vertical-align: -.25em; }
+
+/* The top: logo, name, one line and the button */
+.hero { text-align: center; padding: 2.5rem 0 1.5rem; }
+.logo { width: 9rem; height: auto; display: block; margin: 0 auto .5rem; }
+.logo .ink { color: var(--ink); }
+.logo .collar { stroke: var(--plum); }
+.hero h1 { font-size: 4.2rem; }
+.hero .tagline { font-family: Caveat, cursive; font-size: 1.9rem; color: var(--plum); margin: .1rem 0 .8rem; }
+.hero p { margin: 0 auto 1.4rem; max-width: 30rem; color: var(--ink-soft); }
+.button {
+  display: inline-block; padding: .85rem 2rem; border-radius: .75rem;
+  background: var(--pistachio); color: var(--on-pistachio); font-weight: 800;
+  font-size: 1.15rem; text-decoration: none; box-shadow: 0 2px 0 var(--pistachio-text);
+}
+.button:hover, .button:focus-visible { filter: brightness(1.05); }
+.button:active { transform: translateY(1px); box-shadow: none; }
+.small { font-size: .9rem; color: var(--ink-soft); margin-top: .7rem; }
+
+section { margin-top: 2.5rem; }
+section > h2 { font-size: 2.4rem; text-align: center; margin-bottom: 1rem; }
+
+/* How it works: three numbered steps */
+.steps { list-style: none; padding: 0; margin: 0; display: grid; gap: .8rem; }
+.steps li {
+  display: flex; gap: .9rem; align-items: flex-start; background: var(--card);
+  border-radius: .9rem; padding: .9rem 1rem;
+}
+.steps .icon {
+  flex: none; width: 2.6rem; height: 2.6rem; border-radius: 50%; display: grid;
+  place-items: center; background: var(--pistachio-soft); color: var(--pistachio-text);
+}
+.steps .icon .sketch { width: 1.6rem; height: 1.6rem; }
+.steps h3, .features h3 { font-size: 1.6rem; }
+.steps p, .features p { margin: .1rem 0 0; }
+
+/* Feature highlights: small cards, two across on wider screens */
+.features { display: grid; gap: .8rem; grid-template-columns: 1fr; }
+@media (min-width: 34rem) { .features { grid-template-columns: 1fr 1fr; } }
+.features div { border: 1.5px solid var(--pistachio-soft); border-radius: .9rem; padding: .9rem 1rem; }
+.features .sketch { width: 1.7rem; height: 1.7rem; color: var(--plum); }
+
+/* Add to home screen */
+.howto { display: grid; gap: .8rem; }
+.howto div { background: var(--plum-soft); border-radius: .9rem; padding: .9rem 1rem; }
+.howto h3 { font-size: 1.6rem; color: var(--plum); }
+.howto ol { margin: .3rem 0 0; padding-left: 1.3rem; }
+
+.closing { text-align: center; }
+footer { text-align: center; color: var(--ink-soft); font-size: .9rem; margin-top: 3rem; }
+footer .sketch { color: var(--plum); }
+</style>
+</head>
+<body>
+<main>
+  <header class="hero">
+    <svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 200" role="img" aria-label="Cerberus logo: a pencil sketch of a dachshund's head">
+  <defs>
+    <clipPath id="ear">
+      <path d="M112 70 C128 66 142 78 144 98 C147 122 142 146 130 156 C120 164 106 158 104 146 C101 128 104 104 110 84 Z"/>
+    </clipPath>
+  </defs>
+  <g class="ink" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <g clip-path="url(#ear)" stroke-width="1.3" stroke-opacity=".5">
+      <path d="M104 96 L122 74"/><path d="M104 106 L130 74"/><path d="M104 116 L137 78"/>
+      <path d="M103 127 L141 84"/><path d="M104 138 L144 93"/><path d="M107 147 L145 103"/>
+      <path d="M112 154 L145 115"/><path d="M119 158 L144 128"/><path d="M127 158 L142 140"/>
+      <path d="M118 150 L143 122" stroke-opacity=".35"/><path d="M110 140 L144 101" stroke-opacity=".35"/>
+    </g>
+    <path stroke-width="3.4" d="M158 192 C160 160 168 128 160 100 C154 78 140 60 118 56 C100 53 86 60 78 72 C66 80 46 86 26 92 C16 95 12 104 18 110 C26 118 44 120 62 122 C76 124 88 132 96 142 C104 156 108 174 108 192"/>
+    <path stroke-width="3.1" d="M112 70 C128 66 142 78 144 98 C147 122 142 146 130 156 C120 164 106 158 104 146 C101 128 104 104 110 84"/>
+    <path stroke-width="2.3" d="M65 79 Q73 74 82 79"/>
+    <path stroke-width="2.3" d="M23 110 C34 114 46 115 58 113"/>
+    <g stroke-width="1.3" stroke-opacity=".5">
+      <path d="M157 188 C159 158 167 129 159 103 C153 81 139 61 118 58 C101 56 89 61 81 70"/>
+      <path d="M76 75 C64 82 46 87 29 93 C21 96 16 101 19 107"/>
+      <path d="M114 71 C130 69 141 82 142 101 C144 124 139 145 128 154"/>
+      <path d="M61 124 C76 126 87 134 95 145 C102 158 106 174 107 189"/>
+      <path d="M66 81 Q73 77 80 80"/>
+    </g>
+    <g stroke-width="1.2" stroke-opacity=".38">
+      <path d="M40 117 L48 119"/><path d="M50 118 L58 119"/>
+      <path d="M44 92 L52 89"/><path d="M56 88 L63 85"/>
+      <path d="M86 126 L92 131"/><path d="M90 136 L96 141"/>
+      <path d="M150 120 L156 126"/><path d="M151 132 L157 137"/>
+    </g>
+    <ellipse cx="74" cy="88" rx="4.4" ry="4" fill="currentColor" stroke="none"/>
+    <circle cx="75.6" cy="86.6" r="1.2" fill="#FAF8F5" stroke="none"/>
+    <ellipse cx="20" cy="100" rx="7.6" ry="6.3" fill="currentColor" stroke="none"/>
+    <path stroke-width="1.2" stroke-opacity=".5" d="M27 97 C30 101 30 104 27 107"/>
+  </g>
+  <path class="collar" d="M108 174 C122 181 146 181 160 172" fill="none" stroke="#8A5A83" stroke-width="7" stroke-linecap="round"/>
+  <path class="collar" d="M110 179 C124 185 145 185 158 177" fill="none" stroke="#8A5A83" stroke-width="1.4" stroke-opacity=".55" stroke-linecap="round"/>
+</svg>
+    <h1>Derlin</h1>
+    <div class="tagline">Spot dogs. Collect breeds.</div>
+    <p>A life list for dog spotters. Every time you see a dog, log its breed. The first time you
+      spot a breed, it's a <strong>lifer</strong>. It's like birdwatching, but for the dogs
+      you pass in the park.</p>
+    <a class="button" href="https://project-cerberus.streamlit.app">Open the app</a>
+    <div class="small">Free, and it runs in your phone's browser. Nothing to download.</div>
+  </header>
+
+  <section aria-labelledby="how">
+    <h2 id="how">How it works</h2>
+    <ol class="steps">
+      <li><span class="icon"><svg class="sketch" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g stroke-width="1.6"><path d="M3.5 8.5 a1.5 1.5 0 0 1 1.5-1.5 h2.6 l1.5-2.1 h5.8 l1.5 2.1 h2.6 a1.5 1.5 0 0 1 1.5 1.5 v9.2 a1.5 1.5 0 0 1 -1.5 1.5 h-14 a1.5 1.5 0 0 1 -1.5-1.5 z"/><circle cx="12" cy="12.8" r="3.4"/></g><g stroke-width=".7" opacity=".5" transform="translate(.5 -.4) rotate(-1.5 12 12)"><path d="M3.5 8.5 a1.5 1.5 0 0 1 1.5-1.5 h2.6 l1.5-2.1 h5.8 l1.5 2.1 h2.6 a1.5 1.5 0 0 1 1.5 1.5 v9.2 a1.5 1.5 0 0 1 -1.5 1.5 h-14 a1.5 1.5 0 0 1 -1.5-1.5 z"/><circle cx="12" cy="12.8" r="3.4"/></g></svg></span><div>
+        <h3>Spot a dog</h3>
+        <p>Out on a walk? Snap a photo, or just note what you saw.</p></div></li>
+      <li><span class="icon"><svg class="sketch" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g stroke-width="1.6"><circle cx="10.4" cy="10.4" r="5.8"/><path d="M14.7 14.7 L20.2 20.2"/></g><g stroke-width=".7" opacity=".5" transform="translate(.5 -.4) rotate(-1.5 12 12)"><circle cx="10.4" cy="10.4" r="5.8"/><path d="M14.7 14.7 L20.2 20.2"/></g></svg></span><div>
+        <h3>Name the breed</h3>
+        <p>Photo ID suggests up to three breeds, each with a picture to compare. Or pick it yourself.</p></div></li>
+      <li><span class="icon"><svg class="sketch" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g stroke-width="1.6"><path d="M6 3.5 h11 a1.5 1.5 0 0 1 1.5 1.5 v14 a1.5 1.5 0 0 1 -1.5 1.5 h-11 z"/><path d="M8.6 3.6 v16.8"/><path d="M11 8.2 l1.3 1.4 L15.4 6.4"/><path d="M11 13 h5"/><path d="M11 16.5 h3.8"/></g><g stroke-width=".7" opacity=".5" transform="translate(.5 -.4) rotate(-1.5 12 12)"><path d="M6 3.5 h11 a1.5 1.5 0 0 1 1.5 1.5 v14 a1.5 1.5 0 0 1 -1.5 1.5 h-11 z"/><path d="M8.6 3.6 v16.8"/><path d="M11 8.2 l1.3 1.4 L15.4 6.4"/><path d="M11 13 h5"/><path d="M11 16.5 h3.8"/></g></svg></span><div>
+        <h3>Grow your life list</h3>
+        <p>Each new breed is a lifer. There are 141 to find, from Labradors to Lagotto Romagnolos.</p></div></li>
+    </ol>
+  </section>
+
+  <section aria-labelledby="features">
+    <h2 id="features">What's inside</h2>
+    <div class="features">
+      <div><svg class="sketch" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g stroke-width="1.6"><path d="M8.4 3 l3 7"/><path d="M15.6 3 l-3 7"/><circle cx="12" cy="15.2" r="5"/><circle cx="12" cy="15.2" r="2.4"/></g><g stroke-width=".7" opacity=".5" transform="translate(.5 -.4) rotate(-1.5 12 12)"><path d="M8.4 3 l3 7"/><path d="M15.6 3 l-3 7"/><circle cx="12" cy="15.2" r="5"/><circle cx="12" cy="15.2" r="2.4"/></g></svg><h3>Badges</h3>
+        <p>Earn badges as your list grows, from your first lifer to all 141 breeds.</p></div>
+      <div><svg class="sketch" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g stroke-width="1.6"><path d="M12 19.6 C5 14.6 3.4 11 4.4 8 c1-3 5-3.8 7.6-.5 c2.6-3.3 6.6-2.5 7.6.5 c1 3-.6 6.6-7.6 11.6 z"/></g><g stroke-width=".7" opacity=".5" transform="translate(.5 -.4) rotate(-1.5 12 12)"><path d="M12 19.6 C5 14.6 3.4 11 4.4 8 c1-3 5-3.8 7.6-.5 c2.6-3.3 6.6-2.5 7.6.5 c1 3-.6 6.6-7.6 11.6 z"/></g></svg><h3>Cross breeds</h3>
+        <p>Spotted a cockapoo? Log both parents. Every new cross counts as a lifer.</p></div>
+      <div><svg class="sketch" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g stroke-width="1.6"><circle cx="9" cy="8.6" r="3"/><path d="M3.4 19.6 c.5-3.5 2.8-5.2 5.6-5.2 s5.1 1.7 5.6 5.2"/><circle cx="16.6" cy="9.4" r="2.4"/><path d="M15.4 14.4 c2.6-.2 4.8 1.4 5.3 4.6"/></g><g stroke-width=".7" opacity=".5" transform="translate(.5 -.4) rotate(-1.5 12 12)"><circle cx="9" cy="8.6" r="3"/><path d="M3.4 19.6 c.5-3.5 2.8-5.2 5.6-5.2 s5.1 1.7 5.6 5.2"/><circle cx="16.6" cy="9.4" r="2.4"/><path d="M15.4 14.4 c2.6-.2 4.8 1.4 5.3 4.6"/></g></svg><h3>Social</h3>
+        <p>See what other spotters have found, with their photos. Sharing is your choice.</p></div>
+      <div><svg class="sketch" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g stroke-width="1.6"><svg x="1" y="0.5" width="22" height="23" viewBox="0 0 180 200"><path stroke-width="10" d="M158 192 C160 160 168 128 160 100 C154 78 140 60 118 56 C100 53 86 60 78 72 C66 80 46 86 26 92 C16 95 12 104 18 110 C26 118 44 120 62 122 C76 124 88 132 96 142 C104 156 108 174 108 192"/><path stroke-width="9.5" d="M112 70 C128 66 142 78 144 98 C147 122 142 146 130 156 C120 164 106 158 104 146 C101 128 104 104 110 84"/><ellipse cx="74" cy="88" rx="9" ry="8" fill="currentColor" stroke="none"/><ellipse cx="20" cy="100" rx="13" ry="11" fill="currentColor" stroke="none"/></svg></g><g stroke-width=".7" opacity=".5" transform="translate(.5 -.4) rotate(-1.5 12 12)"><svg x="1" y="0.5" width="22" height="23" viewBox="0 0 180 200"><path stroke-width="10" d="M158 192 C160 160 168 128 160 100 C154 78 140 60 118 56 C100 53 86 60 78 72 C66 80 46 86 26 92 C16 95 12 104 18 110 C26 118 44 120 62 122 C76 124 88 132 96 142 C104 156 108 174 108 192"/><path stroke-width="9.5" d="M112 70 C128 66 142 78 144 98 C147 122 142 146 130 156 C120 164 106 158 104 146 C101 128 104 104 110 84"/><ellipse cx="74" cy="88" rx="9" ry="8" fill="currentColor" stroke="none"/><ellipse cx="20" cy="100" rx="13" ry="11" fill="currentColor" stroke="none"/></svg></g></svg><h3>Your own dogs</h3>
+        <p>Give your dogs a profile so friends can tag them when they spot them.</p></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="home-screen">
+    <h2 id="home-screen">Put it on your home screen</h2>
+    <p style="text-align:center;margin-top:0">Open the app once, then add it to your phone so it's a tap away, like any other app.</p>
+    <div class="howto">
+      <div><h3>iPhone (Safari)</h3>
+        <ol><li>Tap the <strong>Share</strong> button (the square with an arrow).</li>
+          <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
+          <li>Tap <strong>Add</strong>.</li></ol></div>
+      <div><h3>Android (Chrome)</h3>
+        <ol><li>Tap the <strong>three dots</strong> at the top right.</li>
+          <li>Tap <strong>Add to Home screen</strong> (or <strong>Install app</strong>).</li>
+          <li>Tap <strong>Add</strong>.</li></ol></div>
+    </div>
+  </section>
+
+  <section class="closing">
+    <h2>Ready for your first lifer?</h2>
+    <a class="button" href="https://project-cerberus.streamlit.app">Open the app</a>
+  </section>
+
+  <footer>
+    <p>Made with <svg class="sketch" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><g stroke-width="1.6"><path d="M12 19.6 C5 14.6 3.4 11 4.4 8 c1-3 5-3.8 7.6-.5 c2.6-3.3 6.6-2.5 7.6.5 c1 3-.6 6.6-7.6 11.6 z"/></g><g stroke-width=".7" opacity=".5" transform="translate(.5 -.4) rotate(-1.5 12 12)"><path d="M12 19.6 C5 14.6 3.4 11 4.4 8 c1-3 5-3.8 7.6-.5 c2.6-3.3 6.6-2.5 7.6.5 c1 3-.6 6.6-7.6 11.6 z"/></g></svg> for dogs and the people who spot them.<br>
+      Built in the open on <a href="https://github.com/charlesingramsmith/project-cerberus">GitHub</a>.</p>
+  </footer>
+</main>
+</body>
+</html>

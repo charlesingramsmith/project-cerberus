@@ -119,7 +119,7 @@ _Nothing in progress. Pick the next item from below._
 4. **Move the app's hosting off Streamlit Cloud** (about £5-7 a month on Render or Railway) so the app itself runs on the domain. Meanwhile, "Add to Home Screen" in a phone's browser already gives an app-like icon as a stopgap. See **Launch a real app**.
 5. **A native app, last.** Rebuild the screens as a phone app (for example with React Native) on the same Supabase backend, so members' accounts and sightings carry over. Then publish to Google Play (about £20 once) and the App Store (about £80 a year).
 
-Nothing is bought or built yet.
+Done so far: the name is **Derlin** (27 Nov 2026), `derlin.app` is bought (Porkbun), and the landing page is built in `site/` (see `docs/landing-page.md`); it goes live once the DNS records are in.
 
 - [ ] **A brand name**: a proper name for the app (it's called Project Cerberus for now).
   - Planning: shortlist names; check each is free as a domain, on the App Store and Google Play, and on social handles; do a quick trademark search (UK IPO, EUIPO, USPTO) for the pet/app classes; ask a few members which they like.

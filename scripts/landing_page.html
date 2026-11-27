@@ -1,0 +1,169 @@
+<!doctype html>
+<!-- Template for the Derlin landing page. Don't edit site/index.html by hand: edit this,
+     then run `python scripts/build_site.py`, which fills in {{logo}}, {{icon:<name>}} and
+     {{app_url}} and writes site/index.html (a test checks the two match). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Derlin: a life list for dog spotters</title>
+<meta name="description" content="Spot dogs, name their breeds and collect them all, like birding but for the dogs you pass in the park. Free, in your phone's browser.">
+<meta property="og:title" content="Derlin: a life list for dog spotters">
+<meta property="og:description" content="Spot dogs, name their breeds and collect them all, like birding but for dogs.">
+<meta property="og:image" content="https://derlin.app/icon.png">
+<meta name="theme-color" content="#FBFAF8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#18171A" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="icon" href="icon.png" type="image/png">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* The app's brand colours (.streamlit/config.toml and MOBILE_CSS / DARK_CSS in app.py).
+   Unlike the app, this page simply follows the phone's light or dark setting. */
+:root {
+  --paper: #FBFAF8; --card: #EFF2E8; --ink: #2E2A30; --ink-soft: #5E5862;
+  --pistachio: #BFD99A; --pistachio-soft: rgba(191, 217, 154, .35);
+  --pistachio-text: #56763A; --plum: #8A5A83; --plum-soft: rgba(138, 90, 131, .12);
+  --on-pistachio: #26222A;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #18171A; --card: #262429; --ink: #ECE9EE; --ink-soft: #B5AFB9;
+    --pistachio: #A9C985; --pistachio-soft: rgba(169, 201, 133, .16);
+    --pistachio-text: #B9D697; --plum: #E3BEDD; --plum-soft: rgba(227, 190, 221, .14);
+    --on-pistachio: #18171A;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font: 400 1.05rem/1.6 Nunito, system-ui, sans-serif;
+}
+main { max-width: 40rem; margin: 0 auto; padding: 0 1rem 2rem; }
+h1, h2, h3 { font-family: Caveat, cursive; font-weight: 700; line-height: 1.1; margin: 0; }
+a { color: var(--pistachio-text); }
+.sketch { width: 1.2em; height: 1.2em; vertical-align: -.25em; }
+
+/* The top: logo, name, one line and the button */
+.hero { text-align: center; padding: 2.5rem 0 1.5rem; }
+.logo { width: 9rem; height: auto; display: block; margin: 0 auto .5rem; }
+.logo .ink { color: var(--ink); }
+.logo .collar { stroke: var(--plum); }
+.hero h1 { font-size: 4.2rem; }
+.hero .tagline { font-family: Caveat, cursive; font-size: 1.9rem; color: var(--plum); margin: .1rem 0 .8rem; }
+.hero p { margin: 0 auto 1.4rem; max-width: 30rem; color: var(--ink-soft); }
+.button {
+  display: inline-block; padding: .85rem 2rem; border-radius: .75rem;
+  background: var(--pistachio); color: var(--on-pistachio); font-weight: 800;
+  font-size: 1.15rem; text-decoration: none; box-shadow: 0 2px 0 var(--pistachio-text);
+}
+.button:hover, .button:focus-visible { filter: brightness(1.05); }
+.button:active { transform: translateY(1px); box-shadow: none; }
+.small { font-size: .9rem; color: var(--ink-soft); margin-top: .7rem; }
+
+section { margin-top: 2.5rem; }
+section > h2 { font-size: 2.4rem; text-align: center; margin-bottom: 1rem; }
+
+/* How it works: three numbered steps */
+.steps { list-style: none; padding: 0; margin: 0; display: grid; gap: .8rem; }
+.steps li {
+  display: flex; gap: .9rem; align-items: flex-start; background: var(--card);
+  border-radius: .9rem; padding: .9rem 1rem;
+}
+.steps .icon {
+  flex: none; width: 2.6rem; height: 2.6rem; border-radius: 50%; display: grid;
+  place-items: center; background: var(--pistachio-soft); color: var(--pistachio-text);
+}
+.steps .icon .sketch { width: 1.6rem; height: 1.6rem; }
+.steps h3, .features h3 { font-size: 1.6rem; }
+.steps p, .features p { margin: .1rem 0 0; }
+
+/* Feature highlights: small cards, two across on wider screens */
+.features { display: grid; gap: .8rem; grid-template-columns: 1fr; }
+@media (min-width: 34rem) { .features { grid-template-columns: 1fr 1fr; } }
+.features div { border: 1.5px solid var(--pistachio-soft); border-radius: .9rem; padding: .9rem 1rem; }
+.features .sketch { width: 1.7rem; height: 1.7rem; color: var(--plum); }
+
+/* Add to home screen */
+.howto { display: grid; gap: .8rem; }
+.howto div { background: var(--plum-soft); border-radius: .9rem; padding: .9rem 1rem; }
+.howto h3 { font-size: 1.6rem; color: var(--plum); }
+.howto ol { margin: .3rem 0 0; padding-left: 1.3rem; }
+
+.closing { text-align: center; }
+footer { text-align: center; color: var(--ink-soft); font-size: .9rem; margin-top: 3rem; }
+footer .sketch { color: var(--plum); }
+</style>
+</head>
+<body>
+<main>
+  <header class="hero">
+    {{logo}}
+    <h1>Derlin</h1>
+    <div class="tagline">Spot dogs. Collect breeds.</div>
+    <p>A life list for dog spotters. Every time you see a dog, log its breed. The first time you
+      spot a breed, it's a <strong>lifer</strong>. It's like birdwatching, but for the dogs
+      you pass in the park.</p>
+    <a class="button" href="{{app_url}}">Open the app</a>
+    <div class="small">Free, and it runs in your phone's browser. Nothing to download.</div>
+  </header>
+
+  <section aria-labelledby="how">
+    <h2 id="how">How it works</h2>
+    <ol class="steps">
+      <li><span class="icon">{{icon:camera}}</span><div>
+        <h3>Spot a dog</h3>
+        <p>Out on a walk? Snap a photo, or just note what you saw.</p></div></li>
+      <li><span class="icon">{{icon:magnifier}}</span><div>
+        <h3>Name the breed</h3>
+        <p>Photo ID suggests up to three breeds, each with a picture to compare. Or pick it yourself.</p></div></li>
+      <li><span class="icon">{{icon:notebook}}</span><div>
+        <h3>Grow your life list</h3>
+        <p>Each new breed is a lifer. There are 141 to find, from Labradors to Lagotto Romagnolos.</p></div></li>
+    </ol>
+  </section>
+
+  <section aria-labelledby="features">
+    <h2 id="features">What's inside</h2>
+    <div class="features">
+      <div>{{icon:medal}}<h3>Badges</h3>
+        <p>Earn badges as your list grows, from your first lifer to all 141 breeds.</p></div>
+      <div>{{icon:heart}}<h3>Cross breeds</h3>
+        <p>Spotted a cockapoo? Log both parents. Every new cross counts as a lifer.</p></div>
+      <div>{{icon:people}}<h3>Social</h3>
+        <p>See what other spotters have found, with their photos. Sharing is your choice.</p></div>
+      <div>{{icon:dog}}<h3>Your own dogs</h3>
+        <p>Give your dogs a profile so friends can tag them when they spot them.</p></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="home-screen">
+    <h2 id="home-screen">Put it on your home screen</h2>
+    <p style="text-align:center;margin-top:0">Open the app once, then add it to your phone so it's a tap away, like any other app.</p>
+    <div class="howto">
+      <div><h3>iPhone (Safari)</h3>
+        <ol><li>Tap the <strong>Share</strong> button (the square with an arrow).</li>
+          <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
+          <li>Tap <strong>Add</strong>.</li></ol></div>
+      <div><h3>Android (Chrome)</h3>
+        <ol><li>Tap the <strong>three dots</strong> at the top right.</li>
+          <li>Tap <strong>Add to Home screen</strong> (or <strong>Install app</strong>).</li>
+          <li>Tap <strong>Add</strong>.</li></ol></div>
+    </div>
+  </section>
+
+  <section class="closing">
+    <h2>Ready for your first lifer?</h2>
+    <a class="button" href="{{app_url}}">Open the app</a>
+  </section>
+
+  <footer>
+    <p>Made with {{icon:heart}} for dogs and the people who spot them.<br>
+      Built in the open on <a href="https://github.com/charlesingramsmith/project-cerberus">GitHub</a>.</p>
+  </footer>
+</main>
+</body>
+</html>
