@@ -48,10 +48,15 @@ from cerberus.remember import MAX_AGE_DAYS, SAVED_SIGN_IN_JS  # noqa: E402
 
 st.set_page_config(
     page_title="Project Cerberus",
-    page_icon="🐕",
+    page_icon="assets/icon.png",  # LOGO_ICON (defined below)
     layout="centered",
     initial_sidebar_state="collapsed",
 )
+
+# The logo: a pencil-drawn dachshund head (assets/logo.svg; light and dark built in).
+# Shown big on the sign-in screen, then small at the top left.
+LOGO = "assets/logo.svg"
+LOGO_ICON = "assets/icon.png"  # the same head on a pistachio tile: clearer when small
 
 # Mobile-first styling. Streamlit has no built-in "phone app" mode, so this small
 # stylesheet does the rest: a phone-width column (also on desktop), 16px inputs so
@@ -59,6 +64,34 @@ st.set_page_config(
 # phones a bottom tab bar within thumb reach.
 MOBILE_CSS = """
 <style>
+/* Brand colours (match .streamlit/config.toml). Pistachio is the main colour, plum
+   highlights lifers and badges. Dark mode swaps in the dark-theme values below. */
+:root {
+    --pistachio: #BFD99A; --pistachio-soft: rgba(191, 217, 154, .35);
+    --pistachio-text: #56763A; --plum: #8A5A83; --plum-soft: rgba(138, 90, 131, .14);
+    --on-pistachio: #26222A;
+}
+@media (prefers-color-scheme: dark) {
+    :root {
+        --pistachio: #A9C985; --pistachio-soft: rgba(169, 201, 133, .16);
+        --pistachio-text: #B9D697; --plum: #E3BEDD; --plum-soft: rgba(227, 190, 221, .16);
+        --on-pistachio: #18171A;
+    }
+}
+/* Pastel pistachio is too pale for Streamlit's white button text: use dark text. */
+[data-testid^="stBaseButton-primary"], [data-testid^="stBaseButton-primary"] p,
+[data-testid="stBaseLinkButton-primary"], [data-testid="stBaseLinkButton-primary"] p {
+    color: var(--on-pistachio) !important;
+}
+/* ...and the open tab's label and underline in a deeper green that's easy to read. */
+[data-testid="stTab"][aria-selected="true"] p { color: var(--pistachio-text) !important; }
+[data-baseweb="tab-highlight"] { background-color: var(--pistachio-text) !important; }
+button[data-variant="segmented_control"][aria-checked="true"],
+button[data-variant="segmented_control"][aria-checked="true"] * {
+    color: var(--pistachio-text) !important;
+}
+/* The header logo (st.logo): a little bigger than Streamlit's default */
+[data-testid="stHeaderLogo"] { height: 2.5rem; }
 [data-testid="stMainBlockContainer"] {
     max-width: 560px;
     padding: 1rem 1rem 6rem;
@@ -117,7 +150,7 @@ button { min-height: 2.75rem; }
 .cerb-profile .facts b { font-weight: 600; }
 .cerb-profile .fun {
     padding: .6rem .75rem; border-radius: .5rem; font-size: .9rem;
-    background: rgba(232, 131, 58, .12);  /* primaryColor, faint */
+    background: var(--pistachio-soft);
 }
 
 /* Badges on the profile: earned ones in colour, locked ones faded grey */
@@ -127,7 +160,7 @@ button { min-height: 2.75rem; }
 }
 .cerb-badge {
     padding: .6rem .4rem; border-radius: .5rem; text-align: center;
-    background: rgba(232, 131, 58, .12);  /* primaryColor, faint */
+    background: var(--plum-soft);
 }
 .cerb-badge .icon { display: block; font-size: 1.8rem; line-height: 1.2; }
 .cerb-badge .name { font-weight: 600; font-size: .85rem; }
@@ -162,7 +195,7 @@ button { min-height: 2.75rem; }
 /* A post that earned its spotter a milestone badge */
 .cerb-post .earned {
     display: inline-block; margin: .15rem 0 .25rem; padding: .2rem .5rem; border-radius: .5rem;
-    font-size: .85rem; background: rgba(232, 131, 58, .15);  /* primaryColor, faint */
+    font-size: .85rem; background: var(--plum-soft); color: var(--plum);
 }
 
 /* "Verified breed" and "Unverified breed" labels next to a breed's name */
@@ -171,8 +204,8 @@ button { min-height: 2.75rem; }
     font-size: .7rem; font-weight: 600; line-height: 1.5; vertical-align: middle;
     white-space: nowrap;
 }
-.cerb-chip.unverified { border: 1px solid rgba(232, 131, 58, .7); color: #E8833A; }
-.cerb-chip.verified { background: rgba(46, 160, 67, .15); color: #2EA043; }
+.cerb-chip.unverified { border: 1px solid var(--plum); color: var(--plum); }
+.cerb-chip.verified { background: var(--pistachio-soft); color: var(--pistachio-text); }
 
 /* A sighting's own photo, on its card in Profile and on shared posts in Social */
 .sighting-photo {
@@ -204,7 +237,7 @@ button { min-height: 2.75rem; }
 /* Tagged dogs on a post: @username chips */
 .dog-tag {
     display: inline-block; padding: 0 .45rem; margin: .15rem .25rem 0 0; border-radius: 1rem;
-    background: rgba(232, 131, 58, .15); font-size: .85rem;
+    background: var(--pistachio-soft); font-size: .85rem;
 }
 
 /* Bottom tab bar: the main tabs, pinned to the bottom of the screen like a phone
@@ -214,7 +247,7 @@ button { min-height: 2.75rem; }
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 100;
     gap: 0;
     padding: 0 max(0px, calc((100vw - 560px) / 2)) env(safe-area-inset-bottom);
-    background: #FFFFFF;  /* matches [theme.light] in .streamlit/config.toml */
+    background: #FBFAF8;  /* matches [theme.light] in .streamlit/config.toml */
     border-top: 1px solid rgba(128, 128, 128, .25);
 }
 .st-key-main_nav [data-testid="stTab"] {
@@ -227,7 +260,7 @@ button { min-height: 2.75rem; }
 }
 .st-key-main_nav [data-testid="stTab"] p::first-line { font-size: 1.3rem; }
 @media (prefers-color-scheme: dark) {
-    .st-key-main_nav [role="tablist"] { background: #171614; }  /* [theme.dark] */
+    .st-key-main_nav [role="tablist"] { background: #18171A; }  /* [theme.dark] */
 }
 /* Streamlit Community Cloud pins its own badge (46px tall, ~140px wide) to the
    bottom-right corner, on top of the app, where the app can't move it. On narrow
@@ -434,7 +467,8 @@ def resume_saved_sign_in(saved: str | None):
 
 # --- Sign in / create account ---------------------------------------------------------
 def auth_screen():
-    st.title("🐕 Project Cerberus")
+    st.image(LOGO, width=120)
+    st.title("Project Cerberus")
     st.write("Spot dogs. Collect breeds. Can you find all 100?")
     if backend.demo:
         st.warning(DEMO_NOTICE)
@@ -507,6 +541,7 @@ if "user" not in st.session_state:
     st.stop()
 
 user = st.session_state.user
+st.logo(LOGO_ICON, size="large")  # top-left once signed in (the sign-in screen shows it big)
 
 if backend.demo:
     st.caption("⚠️ Demo mode: accounts and sightings vanish when you close this tab.")
@@ -744,7 +779,7 @@ NEW_UPDATE_DOT_CSS = """
 .st-key-main_nav [data-testid="stTab"]:last-of-type::after {  /* new-update-dot */
     content: ""; position: absolute; top: .45rem; left: calc(50% + .55rem);
     width: .6rem; height: .6rem; border-radius: 50%;
-    background: #E8833A;  /* primaryColor in .streamlit/config.toml */
+    background: #8A5A83;  /* plum, the brand highlight colour (MOBILE_CSS) */
 }
 </style>
 """
