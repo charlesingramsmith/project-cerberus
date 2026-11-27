@@ -1,6 +1,6 @@
 import pytest
 
-from cerberus import logic
+from cerberus import logic, sketches
 
 
 def test_top_100_breeds_load_in_rank_order():
@@ -365,7 +365,8 @@ def test_badges_have_unique_keys_and_rising_goals():
     assert goals == sorted(set(goals))
     assert len({b.key for b in logic.BADGES}) == len(logic.BADGES)
     assert len({b.name for b in logic.BADGES}) == len(logic.BADGES)
-    assert len({b.emoji for b in logic.BADGES}) == len(logic.BADGES)
+    assert len({b.icon for b in logic.BADGES}) == len(logic.BADGES)
+    assert all(b.icon in sketches.SKETCHES for b in logic.BADGES)  # each has a drawing
     assert all(b.key == f"breeds-{b.goal}" for b in logic.BADGES[1:])  # stable ids
     assert logic.BADGES[0].description == "Spot your first breed"
     assert logic.BADGES[1].description == "Spot 5 different breeds"

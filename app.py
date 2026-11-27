@@ -8,6 +8,7 @@ import datetime as dt
 import hashlib
 import html
 import os
+import re
 import sys
 import time
 import uuid
@@ -46,6 +47,7 @@ from cerberus import logic  # noqa: E402
 from cerberus.backends import AuthError, MemoryBackend, SupabaseBackend  # noqa: E402
 from cerberus.oauth import PENDING, with_query, with_trailing_slash  # noqa: E402
 from cerberus.photo_id import PhotoID  # noqa: E402
+from cerberus import sketches  # noqa: E402
 from cerberus.remember import MAX_AGE_DAYS, SAVED_SIGN_IN_JS  # noqa: E402
 
 st.set_page_config(
@@ -60,6 +62,14 @@ st.set_page_config(
 LOGO = "assets/logo.svg"
 LOGO_ICON = "assets/icon.png"  # the same head on a pistachio tile: clearer when small
 
+
+def logo_html() -> str:
+    """The logo drawn inline (not as a picture file) so its pencil lines take the app's
+    own light or dark colours (--ink and --plum in MOBILE_CSS / DARK_CSS)."""
+    drawing = Path(LOGO).read_text(encoding="utf-8")
+    drawing = re.sub(r"<style>.*?</style>", "", drawing, flags=re.S)  # it follows the phone
+    return f'<div class="cerb-logo">{drawing}</div>'
+
 # Mobile-first styling. Streamlit has no built-in "phone app" mode, so this small
 # stylesheet does the rest: a phone-width column (also on desktop), 16px inputs so
 # iPhones don't zoom in when you tap a field, comfortable tap targets, and on
@@ -67,18 +77,12 @@ LOGO_ICON = "assets/icon.png"  # the same head on a pistachio tile: clearer when
 MOBILE_CSS = """
 <style>
 /* Brand colours (match .streamlit/config.toml). Pistachio is the main colour, plum
-   highlights lifers and badges. Dark mode swaps in the dark-theme values below. */
+   highlights lifers and badges. In dark mode DARK_CSS swaps in the dark-theme values. */
 :root {
+    --ink: #2E2A30;
     --pistachio: #BFD99A; --pistachio-soft: rgba(191, 217, 154, .35);
     --pistachio-text: #56763A; --plum: #8A5A83; --plum-soft: rgba(138, 90, 131, .14);
     --on-pistachio: #26222A;
-}
-@media (prefers-color-scheme: dark) {
-    :root {
-        --pistachio: #A9C985; --pistachio-soft: rgba(169, 201, 133, .16);
-        --pistachio-text: #B9D697; --plum: #E3BEDD; --plum-soft: rgba(227, 190, 221, .16);
-        --on-pistachio: #18171A;
-    }
 }
 /* Pastel pistachio is too pale for Streamlit's white button text: use dark text. */
 [data-testid^="stBaseButton-primary"], [data-testid^="stBaseButton-primary"] p,
@@ -92,6 +96,13 @@ button[data-variant="segmented_control"][aria-checked="true"],
 button[data-variant="segmented_control"][aria-checked="true"] * {
     color: var(--pistachio-text) !important;
 }
+/* Hand-drawn icons (cerberus/sketches.py) sit in a line of text at text size */
+.sketch { display: inline-block; width: 1.2em; height: 1.2em; vertical-align: -.25em; }
+.cerb-label { margin: 0 0 .25rem; }
+/* The logo on the sign-in screen, in the theme's own pencil colour */
+.cerb-logo svg { display: block; width: 7.5rem; height: auto; }
+.cerb-logo .ink { color: var(--ink); }
+.cerb-logo .collar { stroke: var(--plum); }
 /* The header logo (st.logo): a little bigger than Streamlit's default */
 [data-testid="stHeaderLogo"] { height: 2.5rem; }
 [data-testid="stMainBlockContainer"] {
@@ -119,11 +130,13 @@ button { min-height: 2.75rem; }
     display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%;
 }
 .cerb-row.missing .thumb img, .cerb-row.missing .thumb .face { filter: grayscale(1); opacity: .5; }
-.cerb-row .thumb .tick {
-    position: absolute; right: .1rem; bottom: .1rem; font-size: .75rem; line-height: 1;
+.cerb-row .thumb .tick {  /* a sketched tick in a pistachio circle */
+    position: absolute; right: .1rem; bottom: .1rem; display: flex; width: 1.05rem;
+    height: 1.05rem; border-radius: 50%; background: var(--pistachio); color: var(--on-pistachio);
 }
-.cerb-row .thumb.icon { display: flex; align-items: center; justify-content: center;
-    font-size: 1.5rem; }  /* an unverified breed: an emoji, no photo */
+.cerb-row .thumb .tick .sketch { width: 100%; height: 100%; }
+.cerb-row .thumb.icon { display: flex; align-items: center; justify-content: center; }
+.cerb-row .thumb.icon .sketch { width: 1.9rem; height: 1.9rem; }  /* unverified: no photo */
 .cerb-row .main { flex: 1; min-width: 0; }
 .cerb-row .name { font-weight: 600; }
 .cerb-row .sub { font-size: .85rem; opacity: .7; }
@@ -164,11 +177,12 @@ button { min-height: 2.75rem; }
     padding: .6rem .4rem; border-radius: .5rem; text-align: center;
     background: var(--plum-soft);
 }
-.cerb-badge .icon { display: block; font-size: 1.8rem; line-height: 1.2; }
+.cerb-badge .icon { display: block; line-height: 1; color: var(--plum); }
+.cerb-badge .icon .sketch { width: 2.2rem; height: 2.2rem; }
 .cerb-badge .name { font-weight: 600; font-size: .85rem; }
 .cerb-badge .sub { font-size: .75rem; opacity: .7; }
 .cerb-badge.locked { background: rgba(128, 128, 128, .1); }
-.cerb-badge.locked .icon { filter: grayscale(1); opacity: .4; }
+.cerb-badge.locked .icon { color: inherit; opacity: .35; }
 .cerb-badge.locked .name { font-weight: 400; opacity: .75; }
 
 /* Social feed posts: avatar on the left, who/when, then the sighting */
@@ -187,6 +201,15 @@ button { min-height: 2.75rem; }
     display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%;
 }
 .me-avatar { display: block; font-size: 2.6rem; line-height: 1; }
+/* No breed picture: a sketch of a dog on a pistachio circle */
+.avatar.sketched, .me-avatar.sketched {
+    display: flex; align-items: center; justify-content: center; border-radius: 50%;
+    background: var(--pistachio-soft);
+}
+.avatar.sketched { width: 2.25rem; height: 2.25rem; }
+.me-avatar.sketched { width: 3.5rem; height: 3.5rem; }
+.avatar.sketched .sketch { width: 70%; height: 70%; }
+.me-avatar.sketched .sketch { width: 70%; height: 70%; }
 .me-avatar.pic { width: 3.5rem; height: 3.5rem; }
 /* The picker + preview row: don't scroll inside itself (that clipped the label) */
 .st-key-avatar_row { overflow: visible; }
@@ -230,9 +253,9 @@ button { min-height: 2.75rem; }
 [class*="st-key-photo_pick_"] [data-testid="stButton"] button { min-height: 2.75rem; }
 [class*="st-key-photo_pick_"] [data-testid="stFileUploaderDropzone"] button > * { display: none; }
 [class*="st-key-photo_pick_"] [data-testid="stFileUploaderDropzone"] button::after {
-    content: "📷  Add photo"; font-size: 1rem; font-weight: 600;
+    content: "Add photo"; font-size: 1rem; font-weight: 600;
 }
-[class*="st-key-photo_pick_"] button[aria-label="Add files"]::after { content: "🔄  Change"; }
+[class*="st-key-photo_pick_"] button[aria-label="Add files"]::after { content: "Change"; }
 .photo-preview {
     display: block; width: 100%; max-height: 16rem; object-fit: cover; border-radius: .75rem;
 }
@@ -257,12 +280,15 @@ button { min-height: 2.75rem; }
     justify-content: center;
 }
 .st-key-main_nav [data-testid="stTab"] p {
-    white-space: pre-line;  /* the line break in each label puts the icon on its own line */
     text-align: center; font-size: .72rem; line-height: 1.25;
 }
-.st-key-main_nav [data-testid="stTab"] p::first-line { font-size: 1.3rem; }
-@media (prefers-color-scheme: dark) {
-    .st-key-main_nav [role="tablist"] { background: #18171A; }  /* [theme.dark] */
+/* Each tab's hand-drawn icon sits above its label (the pictures are in SKETCH_CSS). It's
+   a mask, so it takes the label's colour: green on the open tab. */
+.st-key-main_nav [data-testid="stTab"] p::before {
+    content: ""; display: block; width: 1.6rem; height: 1.6rem; margin: 0 auto .1rem;
+    background-color: currentColor;
+    -webkit-mask: var(--tab-icon) center / contain no-repeat;
+    mask: var(--tab-icon) center / contain no-repeat;
 }
 /* Streamlit Community Cloud pins its own badge (46px tall, ~140px wide) to the
    bottom-right corner, on top of the app, where the app can't move it. On narrow
@@ -278,6 +304,47 @@ button { min-height: 2.75rem; }
 </style>
 """
 st.html(MOBILE_CSS)
+
+
+def sketch_css() -> str:
+    """The hand-drawn icons that CSS draws: one per bottom tab, and the photo buttons.
+    Built here because the pictures come from cerberus/sketches.py."""
+    tabs = "\n".join(
+        f'.st-key-main_nav [data-testid="stTab"]:nth-of-type({n}) p '
+        f'{{ --tab-icon: url("{sketches.data_uri(icon)}"); }}'
+        for n, icon in enumerate(NAV_ICONS, start=1))
+    camera, swap = sketches.data_uri("camera"), sketches.data_uri("swap")
+    return f"""<style>
+{tabs}
+[class*="st-key-photo_pick_"] [data-testid="stFileUploaderDropzone"] button::before {{
+    content: ""; display: inline-block; width: 1.4rem; height: 1.4rem;
+    margin-right: .45rem; vertical-align: -.3rem; background-color: currentColor;
+    -webkit-mask: url("{camera}") center / contain no-repeat;
+    mask: url("{camera}") center / contain no-repeat;
+}}
+[class*="st-key-photo_pick_"] button[aria-label="Add files"]::before {{
+    -webkit-mask-image: url("{swap}"); mask-image: url("{swap}");
+}}
+</style>"""
+
+
+# The icons on the bottom tabs, in order (names in cerberus/sketches.py SKETCHES).
+NAV_ICONS = ["binoculars", "notebook", "person", "people", "sliders"]
+st.html(sketch_css())
+
+# Dark mode: the dark-theme brand colours, used when the member picked dark in Settings
+# (the browser tells us which theme is on: see sync_saved_sign_in). Light is the default.
+DARK_CSS = """
+<style>
+:root {
+    --ink: #ECE9EE;
+    --pistachio: #A9C985; --pistachio-soft: rgba(169, 201, 133, .16);
+    --pistachio-text: #B9D697; --plum: #E3BEDD; --plum-soft: rgba(227, 190, 221, .16);
+    --on-pistachio: #18171A;
+}
+.st-key-main_nav [role="tablist"] { background: #18171A; }  /* [theme.dark] */
+</style>
+"""
 
 DEMO_NOTICE = (
     "**Demo mode:** no Supabase keys are configured, so accounts and sightings "
@@ -444,9 +511,11 @@ saved_sign_in_store = st.components.v2.component("cerberus_saved_sign_in",
                                                  js=SAVED_SIGN_IN_JS)
 
 
-def sync_saved_sign_in() -> str | None:
-    """Mount the component. Returns what the browser had saved: a token, "" for nothing,
-    or None until it has reported to this session. Once it has, it's told to save the
+def sync_saved_sign_in() -> dict | None:
+    """Mount the component (cerberus/remember.py). Returns its report for this session:
+    {"token": the saved sign-in or "", "theme": "Light"/"Dark", "carry": a sign-in kept
+    across a theme switch or None}, or None until it has reported. It also passes on a
+    theme picked in Settings (`theme_wanted`), which makes the browser reload. Once it has, it's told to save the
     current token (or nothing), so a new token from a sign-in, return visit or hourly
     refresh is kept. This runs before anything else talks to Supabase, so if the hour is
     up, refresh_token() swaps the token here and the new one is saved in this same run."""
@@ -455,32 +524,47 @@ def sync_saved_sign_in() -> str | None:
     data = {"session": st.session_state.browser_session}
     if st.session_state.get("saved_read"):
         data["save"] = backend.refresh_token() if st.session_state.get("remember") else None
+    wanted = st.session_state.pop("theme_wanted", None)
+    if wanted and wanted != st.session_state.get("theme"):
+        data["theme"] = wanted  # the browser saves it and reloads the page
+        if "user" in st.session_state:  # stay signed in across the reload
+            data["carry"] = {"token": backend.refresh_token(),
+                             "remember": bool(st.session_state.get("remember"))}
     result = saved_sign_in_store(key="saved_sign_in", data=data,
                                  on_saved_change=lambda: None)
     report = result.saved
     if not isinstance(report, dict) or report.get("session") != data["session"]:
         return None  # not reported yet, or a leftover report from an earlier session
-    return report.get("token") or ""
+    st.session_state.theme = "Dark" if report.get("theme") == "Dark" else "Light"
+    return report
 
 
-def resume_saved_sign_in(saved: str | None):
-    """The first time the browser reports, sign back in with its saved token if we can."""
-    if saved is None or st.session_state.get("saved_read"):
+def switch_theme():
+    """The Settings > Appearance switch: the next run tells the browser to change theme."""
+    st.session_state.theme_wanted = "Dark" if st.session_state.dark_mode else "Light"
+
+
+def resume_saved_sign_in(report: dict | None):
+    """The first time the browser reports, sign back in if we can: with the sign-in kept
+    across a theme switch, else with the saved "Keep me signed in" token."""
+    if report is None or st.session_state.get("saved_read"):
         return
     st.session_state.saved_read = True
-    if saved and "user" not in st.session_state:
+    carry = report.get("carry") if isinstance(report.get("carry"), dict) else None
+    token = (carry or {}).get("token") or report.get("token")
+    if token and "user" not in st.session_state:
         try:
-            st.session_state.user = backend.resume_session(saved)
+            st.session_state.user = backend.resume_session(token)
         except AuthError:
             pass  # expired or signed out elsewhere: the rerun below deletes it
         else:
-            st.session_state.remember = True
+            st.session_state.remember = bool(carry["remember"]) if carry else True
     st.rerun()  # so the browser saves the new token (or forgets the dead one) straight away
 
 
 # --- Sign in / create account ---------------------------------------------------------
 def auth_screen():
-    st.image(LOGO, width=120)
+    st.markdown(logo_html(), unsafe_allow_html=True)
     st.title("Project Cerberus")
     st.write("Spot dogs. Collect breeds. Can you find all 100?")
     if backend.demo:
@@ -549,6 +633,8 @@ def auth_screen():
 if "user" not in st.session_state:
     finish_google_sign_in()
 resume_saved_sign_in(sync_saved_sign_in())
+if st.session_state.get("theme") == "Dark":
+    st.html(DARK_CSS)
 if "user" not in st.session_state:
     auth_screen()
     st.stop()
@@ -557,7 +643,7 @@ user = st.session_state.user
 st.logo(LOGO_ICON, size="large")  # top-left once signed in (the sign-in screen shows it big)
 
 if backend.demo:
-    st.caption("⚠️ Demo mode: accounts and sightings vanish when you close this tab.")
+    st.caption("Demo mode: accounts and sightings vanish when you close this tab.")
 
 # --- Load this spotter's data ---------------------------------------------------------------
 breeds = load_breeds(file_version(logic.BREEDS_CSV))
@@ -580,11 +666,12 @@ def breed_photo_html(profile: logic.BreedProfile, label: str = "") -> str:
 
 
 def avatar_html(avatar: str, css: str) -> str:
-    """A member's picture: their chosen breed's photo in a circle, or an older emoji pick."""
+    """A member's picture: their chosen breed's photo in a circle. Anyone without one
+    (including older profiles that picked an emoji) gets a sketch of a dog instead."""
     photo = breed_profiles.get(avatar)
     if photo and photo.image_url:
         return f'<span class="{css} pic">{breed_photo_html(photo, avatar)}</span>'
-    return f'<span class="{css}">{html.escape(avatar)}</span>'
+    return f'<span class="{css} sketched">{sketches.svg("dog")}</span>'
 
 
 try:
@@ -621,7 +708,7 @@ def clear_photo(key: str):
 
 
 def photo_picker(key: str, note: str, max_side: int = logic.PHOTO_MAX_SIDE) -> bytes | None:
-    """A phone-style "📷 Add photo" button: tapping it on a phone offers Take photo or the
+    """A phone-style "Add photo" button: tapping it on a phone offers Take photo or the
     photo library. Once picked, it shows a preview with Change and Remove.
 
     Returns the photo made small and safe to store (`logic.prepare_photo`: resized, no GPS),
@@ -677,7 +764,8 @@ def photo_id_suggestions(photo: bytes):
         st.session_state.photo_id_result = cached
     result = cached[1]
     with st.container(key="photo_id"):
-        st.markdown("**🔎 Photo ID**")
+        st.markdown(f'<p class="cerb-label">{sketches.svg("magnifier")} <b>Photo ID</b></p>',
+                    unsafe_allow_html=True)
         if not result.is_dog:
             st.caption("Photo ID can't spot a dog in this photo. Pick the breed yourself.")
             return
@@ -790,10 +878,10 @@ if flash:
     kind, breed_name = flash
     if kind == "lifer":
         st.balloons()
-        st.success(f"🎉 New lifer! **{breed_name}** is on your life list.")
+        st.success(f"New lifer! **{breed_name}** is on your life list.")
         badge = logic.badge_for_count(collected)
         if badge:
-            st.success(f"{badge.emoji} Badge earned: **{badge.name}**! "
+            st.success(f"Badge earned: **{badge.name}**! "
                        f"{badge.description}. See it in Profile.")
     elif kind == "unverified":
         st.info(f"Logged a **{md_text(breed_name)}**, an unverified breed. It's not on the "
@@ -806,8 +894,8 @@ if photo_problem:
     st.warning(photo_problem)
 
 # The five main tabs. The "main_nav" key lets MOBILE_CSS pin them to the bottom of the
-# screen as a tab bar; the "\n" puts each icon above its label.
-NAV_TABS = ["👀\nSpotted!", "📋\nLife list", "👤\nProfile", "👥\nSocial", "⚙️\nSettings"]
+# screen as a tab bar; NAV_ICONS draws a hand-drawn icon above each label (SKETCH_CSS).
+NAV_TABS = ["Spotted!", "Life list", "Profile", "Social", "Settings"]
 SETTINGS_TAB = NAV_TABS[-1]
 
 
@@ -862,7 +950,7 @@ with tab_spotted:
     def breed_label(name: str) -> str:
         if name not in listed:
             return f"{name}  · unverified"
-        return name if name in seen_breeds else f"{name}  ✨ new"
+        return name if name in seen_breeds else f"{name}  · new"
 
     def fill_from_tags():
         """Tagging dogs fills in the dog's name and breed straight away (if they're empty,
@@ -918,7 +1006,7 @@ with tab_spotted:
         submitted = st.form_submit_button("Spotted!", type="primary", width="stretch")
 
     if photo is None:
-        st.caption("📷 Add a photo and Photo ID will suggest the breed.")
+        st.caption("Add a photo and Photo ID will suggest the breed.")
 
     if submitted:
         tagged_dogs = [dogs_by_id[d] for d in tagged if d in dogs_by_id]
@@ -975,18 +1063,19 @@ def breed_profile_html(profile: logic.BreedProfile | None) -> str:
         )
     return (
         f'<div class="cerb-profile">{photo}'
-        f'<p><span class="cerb-chip verified">✓ Verified breed</span></p>'
+        f'<p><span class="cerb-chip verified">{sketches.svg("check")} Verified breed</span></p>'
         f'<p>{esc(profile.intro)}</p>'
         f'<div class="facts"><b>From:</b> {esc(profile.origin)}<br>'
         f'<b>Temperament:</b> {esc(profile.temperament)}</div>'
-        f'<div class="fun">💡 <b>Fun fact:</b> {esc(profile.fun_fact)}</div></div>'
+        f'<div class="fun">{sketches.svg("bulb")} <b>Fun fact:</b> {esc(profile.fun_fact)}</div></div>'
     )
 
 
 def breed_thumb(profile: logic.BreedProfile | None, tick: bool = False) -> str:
     """A breed's small square photo (an empty grey square if it has none)."""
     img = breed_photo_html(profile) if profile and profile.image_url else ""
-    return f'<span class="thumb">{img}{"<span class=tick>✅</span>" if tick else ""}</span>'
+    tick_html = f'<span class="tick">{sketches.svg("check")}</span>' if tick else ""
+    return f'<span class="thumb">{img}{tick_html}</span>'
 
 
 def life_row(row, profile: logic.BreedProfile | None) -> str:
@@ -1008,7 +1097,7 @@ def life_row(row, profile: logic.BreedProfile | None) -> str:
 
 def unverified_row(row) -> str:
     """A breed that isn't verified yet, as a plain row (no photo; its name was typed in)."""
-    return (f'<div class="cerb-row"><span class="thumb icon">🐕</span><div class="main">'
+    return (f'<div class="cerb-row"><span class="thumb icon">{sketches.svg("dog")}</span><div class="main">'
             f'<div class="name">{html.escape(row.breed)}{UNVERIFIED_CHIP}</div>'
             f'<div class="sub">First seen {row.first_seen} · seen {row.times_seen}×</div>'
             f'</div></div>')
@@ -1024,7 +1113,7 @@ with tab_life:
     st.progress(collected / total if total else 0.0)
     coming = logic.next_badge(badges)
     if coming:
-        st.caption(f"Next badge: {coming.badge.emoji} **{coming.badge.name}**, "
+        st.caption(f"Next badge: **{coming.badge.name}**, "
                    f"{coming.to_go} more breed{'' if coming.to_go == 1 else 's'} to go.")
 
     show = st.segmented_control(
@@ -1059,7 +1148,7 @@ def badge_html(p: logic.BadgeProgress) -> str:
     else:
         css, sub = "cerb-badge locked", f"{p.have}/{p.badge.goal} breeds"
     return (f'<div class="{css}" title="{html.escape(p.badge.description)}">'
-            f'<span class="icon">{p.badge.emoji}</span>'
+            f'<span class="icon">{sketches.svg(p.badge.icon)}</span>'
             f'<div class="name">{html.escape(p.badge.name)}</div><div class="sub">{sub}</div></div>')
 
 
@@ -1136,11 +1225,11 @@ def photo_links(paths) -> dict[str, str]:
 
 
 def dog_pic_html(dog: dict, links: dict[str, str], css: str = "me-avatar") -> str:
-    """A dog's picture: its own photo, else its breed's photo, else 🐶."""
+    """A dog's picture: its own photo, else its breed's photo, else a sketch of a dog."""
     if dog.get("photo_path") in links:
         return (f'<span class="{css} pic"><img src="{html.escape(links[dog["photo_path"]])}" '
                 f'alt="{html.escape(dog["name"])}"></span>')
-    return avatar_html(dog["breed"] if dog.get("breed") in breed_profiles else "🐶", css)
+    return avatar_html(dog["breed"] if dog.get("breed") in breed_profiles else "", css)
 
 
 def dog_tags_html(dog_ids) -> str:
@@ -1227,12 +1316,12 @@ with tab_profile:
                         width="content")
             st.markdown(f"### {user.username}")
         if profile["favourite_breed"]:
-            st.markdown(f"❤️ Favourite breed: **{profile['favourite_breed']}**")
+            st.markdown(f"Favourite breed: **{profile['favourite_breed']}**")
         if my_dogs:
-            st.markdown(f"🐕 {'My dog' if len(my_dogs) == 1 else 'My dogs'}: "
+            st.markdown(f"{'My dog' if len(my_dogs) == 1 else 'My dogs'}: "
                         + ", ".join(f"@{d['username']}" for d in my_dogs))
         elif profile["dogs"]:
-            st.markdown(f"🐕 {'My dog' if len(profile['dogs']) == 1 else 'My dogs'}: "
+            st.markdown(f"{'My dog' if len(profile['dogs']) == 1 else 'My dogs'}: "
                         f"{dogs_text(profile['dogs'])}")
         if sightings.empty:
             st.caption("No sightings yet.")
@@ -1241,7 +1330,7 @@ with tab_profile:
                        f"{collected} lifer{'' if collected == 1 else 's'} from "
                        f"{len(sightings)} sighting{'' if len(sightings) == 1 else 's'}")
     if profiles_ready:
-        with st.expander("✏️ Edit profile"):
+        with st.expander("Edit profile"):
             profile_editor()
 
     if all_dogs is not None:
@@ -1253,7 +1342,7 @@ with tab_profile:
         mine_links = photo_links(d["photo_path"] for d in my_dogs) if tab_profile.open else {}
         for dog in my_dogs:
             dog_card(dog, mine_links)
-            with st.expander(f"✏️ Edit @{dog['username']}"):
+            with st.expander(f"Edit @{dog['username']}"):
                 dog_form(f"edit_{dog['id']}", dog)
                 if st.button("Delete this dog", key=f"delete_dog_{dog['id']}"):
                     try:
@@ -1261,7 +1350,7 @@ with tab_profile:
                     except AuthError as err:
                         end_session(str(err))
                     st.rerun()
-        with st.expander("➕ Add a dog"):
+        with st.expander("Add a dog"):
             dog_form("new")
 
     earned = sum(p.earned for p in badges)
@@ -1281,7 +1370,7 @@ with tab_profile:
                             + ("" if s.breed in listed else " :violet-badge[Unverified breed]")
                             + f"  \n{s.seen_on}"
                             + (f" · {md_text(s.location)}" if md_text(s.location) else ""))
-                with st.popover("🗑", help="Delete this sighting"):
+                with st.popover("Delete", help="Delete this sighting"):
                     st.write("Delete this sighting? This can't be undone.")
                     if st.button("Delete", key=f"delete_{s.id}", type="primary"):
                         try:
@@ -1296,7 +1385,7 @@ with tab_profile:
             if tags := dog_tags_html(s.dog_ids):
                 st.markdown(tags, unsafe_allow_html=True)
             if s.dog_name:
-                st.caption(f"🐶 {s.dog_name}")
+                st.caption(f"Dog: {s.dog_name}")
             if s.notes:
                 st.caption(s.notes)
 
@@ -1305,15 +1394,15 @@ def feed_post(post: dict, links: dict[str, str]) -> str:
     """One sighting in the feed as HTML. Everything members typed is escaped."""
     seen_on = dt.date.fromisoformat(str(post["seen_on"]))
     who = f"<b>{html.escape(post['username'])}</b>" + (" (you)" if post["user_id"] == user.id else "")
-    details = [f"📍 {html.escape(post['location'])}" if post.get("location") else "",
-               f"🐶 {html.escape(post['dog_name'])}" if post.get("dog_name") else ""]
+    details = [f"{sketches.svg('pin')} {html.escape(post['location'])}" if post.get("location") else "",
+               f"{sketches.svg('dog')} {html.escape(post['dog_name'])}" if post.get("dog_name") else ""]
     lines = [" · ".join(d for d in details if d), html.escape(post.get("notes") or "")]
     photo = (f'<img class="sighting-photo" src="{html.escape(links[post["photo_path"]])}" '
              f'alt="A {html.escape(post["breed"])}" loading="lazy">'
              if post.get("photo_path") in links else "")
     tags = dog_tags_html(post.get("dog_ids"))
     badge = logic.BADGES_BY_KEY.get(post.get("badge") or "")
-    earned = (f'<div class="earned">{badge.emoji} Earned the <b>{html.escape(badge.name)}</b> '
+    earned = (f'<div class="earned">{sketches.svg(badge.icon)} Earned the <b>{html.escape(badge.name)}</b> '
               f'badge: {"first breed" if badge.goal == 1 else f"{badge.goal} breeds"}!</div>'
               if badge else "")
     return (
@@ -1395,7 +1484,9 @@ with tab_settings:
             st.rerun()
 
     st.subheader("Appearance")
-    st.caption("Light or dark mode follows your phone or computer setting.")
+    st.toggle("Dark mode", value=st.session_state.get("theme") == "Dark", key="dark_mode",
+              on_change=switch_theme)
+    st.caption("The app reloads to change the colours. Your choice is saved on this device.")
 
     # What's new: the latest release, with older ones folded away.
     st.subheader("What's new")
