@@ -6,6 +6,13 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.31.0 - 2026-11-27 - Three kinds of badge
+- **Lifer badges** now count every lifer, crosses included, so spotting a new cross moves you up the badge ladder too.
+- New **Purebred badges**: five rarer ones for spotting 10, 25, 50 and 100 verified breeds, and all 141. They have a plum ring so they stand out.
+- New **Cross badges**, just for fun: **Matchmaker** for your first cross, **Doodle collector** for 3 different Poodle crosses, and **Family reunion** for spotting a cross and both of its parent breeds.
+- The Badges section on your profile is easier to follow: pick Lifers, Purebreds or Crosses, see the next badge to earn with a progress bar, then the ones you have. The rest are tucked under **Still to earn**.
+- On your life list, **Lifers** counts every breed and cross you've spotted, and **Breeds** shows how many of the 141 verified breeds you have.
+
 ## 0.30.0 - 2026-11-27 - Dog faces float up for a lifer
 - A new lifer no longer gets balloons. Instead, the breed's face floats slowly up the screen in little circles on strings, like the faces on your life list.
 - For a new cross, both breeds' faces float up together, taking turns.

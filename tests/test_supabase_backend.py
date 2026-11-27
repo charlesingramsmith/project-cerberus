@@ -315,7 +315,7 @@ def test_social_feed_joins_sightings_with_profiles():
     assert ("in_", ("user_id", ["uuid-1", "uuid-9"]), {}) in log
     assert ("limit", (50,), {}) in log
     assert ("order", ("created_at",), {"desc": True}) in log  # newest post, not date seen
-    assert feed[0]["badge"] == "first-lifer"  # pat's first verified breed
+    assert feed[0]["badges"] == ["first-lifer"]  # pat's first verified breed
     assert ("select", ("id, user_id, breed, seen_on",), {}) in log  # spotters' history
 
 # --- Sighting photos ---------------------------------------------------------------

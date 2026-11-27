@@ -265,8 +265,8 @@ def test_feed_marks_the_sighting_that_earned_a_badge(backend):
     backend.add_sighting("Pug", date(2026, 11, 2))
     backend.add_sighting("Cavapoo", date(2026, 10, 1))  # unverified: no badge
     feed = backend.social_feed()
-    assert [(p["breed"], p["badge"]) for p in feed] == [  # newest post first
-        ("Cavapoo", None), ("Pug", None), ("Pug", "first-lifer")]
+    assert [(p["breed"], p["badges"]) for p in feed] == [  # newest post first
+        ("Cavapoo", []), ("Pug", []), ("Pug", ["first-lifer"])]
 
 
 def test_social_feed_is_in_posting_order_not_date_seen(backend):

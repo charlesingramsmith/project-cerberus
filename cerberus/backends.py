@@ -155,12 +155,12 @@ class Backend(Protocol):
     def social_feed(self, limit: int = FEED_LIMIT) -> list[dict]:
         """Recent sightings from everyone who shares (including you), newest first,
         each with the spotter's username and avatar, its photo_path, its dog_ids and
-        "badge": the milestone badge that sighting earned (a key in logic.BADGES_BY_KEY)
-        or None."""
+        "badges": the badges that sighting earned (keys in logic.BADGES_BY_KEY), often
+        none."""
 
 
 def _listed_breeds() -> set[str]:
-    """The verified breeds: only these count towards badges."""
+    """The verified breeds (logic.badge_progress says what counts towards badges)."""
     return set(logic.load_breeds()["breed"])
 
 

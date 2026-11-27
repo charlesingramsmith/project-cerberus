@@ -263,8 +263,9 @@ def test_social_feed_adds_names_and_skips_people_who_dont_share():
                 "b": {"username": "bobby", "avatar": "🐩", "share_sightings": False}}
     feed = logic.social_feed(sightings, profiles)
     assert [(p["breed"], p["username"], p["avatar"]) for p in feed] == [("Pug", "alice", "🐶")]
-    assert feed[0]["badge"] is None
-    assert logic.social_feed(sightings, profiles, {1: "first-lifer"})[0]["badge"] == "first-lifer"
+    assert feed[0]["badges"] == []
+    assert logic.social_feed(sightings, profiles, {1: ["first-lifer"]})[0]["badges"] == [
+        "first-lifer"]
 
 
 def test_milestone_sightings_find_the_post_that_earned_each_badge():
@@ -280,7 +281,8 @@ def test_milestone_sightings_find_the_post_that_earned_each_badge():
         {"id": 21, "user_id": "b", "breed": "Pug", "seen_on": "2026-03-01"},
     ]
     assert logic.milestone_sightings(rows, listed) == {
-        1: "first-lifer", 5: "breeds-5", 10: "breeds-10", 21: "first-lifer"}
+        1: ["first-lifer"], 5: ["breeds-5"], 10: ["breeds-10", "pure-10"],
+        21: ["first-lifer"]}
     assert logic.milestone_sightings([], listed) == {}
 
 # --- Breed thumbnails and photo profile pictures -------------------------------------
@@ -356,31 +358,56 @@ def test_collecting_every_breed_earns_every_badge():
     assert logic.next_badge(progress) is None
 
 
-@pytest.mark.parametrize("count, key", [(1, "first-lifer"), (5, "breeds-5"), (10, "breeds-10"),
-                                        (25, "breeds-25"), (95, "breeds-95"),
-                                        (50, "breeds-50"), (100, "breeds-100"),
-                                        (110, "breeds-110"), (141, "breeds-141"),
-                                        (0, None), (2, None), (11, None), (101, None),
-                                        (105, None), (142, None)])
-def test_badge_for_count_only_matches_a_milestone(count, key):
-    badge = logic.badge_for_count(count)
-    assert (badge.key if badge else None) == key
-
-
 def test_badges_have_unique_keys_and_rising_goals():
-    goals = [b.goal for b in logic.BADGES]
-    assert goals == sorted(set(goals))
+    for ladder in (logic.BADGES, logic.PUREBRED_BADGES):
+        goals = [b.goal for b in ladder]
+        assert goals == sorted(set(goals))
+    assert len(logic.BADGES_BY_KEY) == len(logic.ALL_BADGES)
+    assert all(b.icon in sketches.SKETCHES for b in logic.ALL_BADGES)
+    assert {b.track for b in logic.ALL_BADGES} == set(logic.BADGE_TRACKS)
     assert len({b.key for b in logic.BADGES}) == len(logic.BADGES)
     assert len({b.name for b in logic.BADGES}) == len(logic.BADGES)
     assert len({b.icon for b in logic.BADGES}) == len(logic.BADGES)
     assert all(b.icon in sketches.SKETCHES for b in logic.BADGES)  # each has a drawing
     assert all(b.key == f"breeds-{b.goal}" for b in logic.BADGES[1:])  # stable ids
-    assert logic.BADGES[0].description == "Spot your first breed"
-    assert logic.BADGES[1].description == "Spot 5 different breeds"
+    assert logic.BADGES[0].description == "Spot your first lifer"
+    assert logic.BADGES[1].description == "Spot 5 lifers"
+    assert logic.PUREBRED_BADGES[0].description == "Spot 10 different purebreds"
 
 
-def test_last_badge_is_for_every_verified_breed():
-    assert logic.BADGES[-1].goal == len(logic.load_breeds())
+def test_last_purebred_badge_is_for_every_verified_breed():
+    assert logic.PUREBRED_BADGES[-1].goal == len(logic.load_breeds())
+
+
+def test_crosses_count_as_lifers_but_not_purebreds():
+    rows = [("Beagle", "2026-01-01"), ("Beagle x Pug", "2026-01-02")]
+    rows += [(f"Breed {i}", "2026-01-03") for i in range(3)]
+    progress = {p.badge.key: p for p in logic.badge_progress(sightings_of(*rows),
+                                                             logic.ALL_BADGES)}
+    assert progress["breeds-5"].earned and progress["breeds-5"].have == 5
+    assert progress["pure-10"].have == 4
+    assert logic.lifer_count(sightings_of(*rows), {"Beagle"}) == 2
+
+
+def test_cross_badges():
+    def earned(*rows):
+        progress = logic.badge_progress(sightings_of(*rows), logic.CROSS_BADGES)
+        return {p.badge.key: p.earned_on for p in progress if p.earned}
+
+    assert earned(("Beagle", "2026-01-01")) == {}
+    assert earned(("Beagle x Pug", "2026-01-02")) == {"cross-1": "2026-01-02"}
+    # Family reunion: earned when the last of the cross and both its parents is seen
+    assert earned(("Beagle x Pug", "2026-01-02"), ("Pug", "2026-01-05"),
+                  ("Beagle", "2026-01-03"))["cross-family"] == "2026-01-05"
+    poodles = [(f"Poodle x {b}", f"2026-02-0{i}") for i, b in enumerate("ABC", 1)]
+    assert earned(*poodles)["cross-poodle-3"] == "2026-02-03"
+    assert "cross-poodle-3" not in earned(*poodles[:2], ("A x B", "2026-02-09"))
+
+
+def test_newly_earned_lists_badges_that_werent_there_before():
+    progress = logic.badge_progress(sightings_of(("Pug", "2026-01-01")))
+    assert [b.key for b in logic.newly_earned([], progress)] == ["first-lifer"]
+    assert logic.newly_earned(["first-lifer"], progress) == []
 
 
 # --- Sighting photos ---------------------------------------------------------------
@@ -558,13 +585,13 @@ def test_cross_parents_and_is_cross():
     assert logic.is_cross("Beagle x Pug") and not logic.is_cross("Shih Tzu")
 
 
-def test_new_crosses_are_lifers_but_not_badge_breeds_and_have_their_own_list():
+def test_new_crosses_are_lifers_and_have_their_own_list():
     listed = {"Pug", "Beagle"}
     assert logic.is_lifer(sightings_of(("Pug", "2026-01-01")), "Beagle x Pug", listed)
     sightings = sightings_of(("Beagle x Pug", "2026-01-01"), ("Cavapoo", "2026-01-02"),
                              ("Beagle x Pug", "2026-01-03"))
     assert not logic.is_lifer(sightings, "Beagle x Pug", listed)  # seen already
-    assert logic.badge_progress(sightings, listed=listed)[0].earned_on is None
+    assert logic.badge_progress(sightings, listed=listed)[0].earned_on == "2026-01-01"
     assert logic.cross_breeds(sightings).to_dict("records") == [
         {"breed": "Beagle x Pug", "first_seen": "2026-01-01", "times_seen": 2}]
     assert list(logic.unverified_breeds(sightings, listed)["breed"]) == ["Cavapoo"]

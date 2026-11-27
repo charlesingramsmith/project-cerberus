@@ -188,6 +188,16 @@ button { min-height: 2.75rem; }
 .cerb-badge.locked { background: rgba(128, 128, 128, .1); }
 .cerb-badge.locked .icon { color: inherit; opacity: .35; }
 .cerb-badge.locked .name { font-weight: 400; opacity: .75; }
+.cerb-badge.purebred { box-shadow: inset 0 0 0 2px var(--plum); }  /* rarer: a plum ring */
+.cerb-badge.cross .icon { color: var(--pistachio-text); }
+.cerb-badge.cross:not(.locked) { background: var(--pistachio-soft); }
+/* The next badge to earn, above the grid */
+.cerb-next-badge { display: flex; gap: .75rem; align-items: center; margin-bottom: .25rem; }
+.cerb-next-badge .icon { color: var(--plum); opacity: .55; line-height: 1; }
+.cerb-next-badge.cross .icon { color: var(--pistachio-text); }
+.cerb-next-badge .icon .sketch { width: 2.6rem; height: 2.6rem; }
+.cerb-next-badge .label { font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; opacity: .7; }
+.cerb-next-badge .sub { font-size: .85rem; opacity: .75; }
 
 /* Social feed posts: avatar on the left, who/when, then the sighting */
 .cerb-post {
@@ -262,6 +272,7 @@ button { min-height: 2.75rem; }
     display: inline-block; margin: .15rem 0 .25rem; padding: .2rem .5rem; border-radius: .5rem;
     font-size: .85rem; background: var(--plum-soft); color: var(--plum);
 }
+.cerb-post .earned.cross { background: var(--pistachio-soft); color: var(--pistachio-text); }
 
 /* "Verified breed" and "Unverified breed" labels next to a breed's name */
 .cerb-chip {
@@ -1004,7 +1015,8 @@ if st.session_state.get("sharing_notice"):
 life = logic.life_list(breeds, sightings)
 seen = life["times_seen"] > 0
 collected, total = int(seen.sum()), len(life)
-badges = logic.badge_progress(sightings, listed=listed)
+badges = logic.badge_progress(sightings, logic.ALL_BADGES, listed=listed)
+lifers = logic.lifer_count(sightings, listed)  # breeds, plus crosses
 
 flash = st.session_state.pop("flash", None)
 if flash:
@@ -1012,10 +1024,6 @@ if flash:
     if kind == "lifer":
         st.markdown(face_balloons_html(breed_name), unsafe_allow_html=True)
         st.success(f"New lifer! **{breed_name}** is on your life list.")
-        badge = logic.badge_for_count(collected)
-        if badge:
-            st.success(f"Badge earned: **{badge.name}**! "
-                       f"{badge.description}. See it in Profile.")
     elif kind == "cross_lifer":
         st.markdown(face_balloons_html(breed_name), unsafe_allow_html=True)
         st.success(f"New lifer! **{md_text(breed_name)}** is a new cross on your life list.")
@@ -1027,6 +1035,9 @@ if flash:
                 "Thanks for helping us find breeds to add!")
     else:
         st.info(f"Logged another **{breed_name}**.")
+    # Any badges this sighting earned (any track: a cross can finish a Family reunion).
+    for badge in logic.newly_earned(st.session_state.pop("badges_before", []), badges):
+        st.success(f"Badge earned: **{badge.name}**! {badge.description}. See it in Profile.")
 photo_problem = st.session_state.pop("photo_problem", None)
 if photo_problem:
     st.warning(photo_problem)
@@ -1285,6 +1296,7 @@ with tab_spotted:
         st.session_state.clear_tags = True  # back to step 1, empty, for the next dog
         st.session_state.pop("photo_filled", None)
         clear_photo("sighting_photo")
+        st.session_state.badges_before = [p.badge.key for p in badges if p.earned]
         st.session_state.flash = ("cross_lifer" if lifer and logic.is_cross(breed) else
                                   "lifer" if lifer else
                                   "repeat" if breed in listed else
@@ -1353,14 +1365,16 @@ with tab_life:
     st.header(f"{user.username}'s life list")
     # Three small stat cards side by side, even on a narrow phone (st.columns would stack them).
     with st.container(horizontal=True, wrap=False, gap="small"):
-        st.metric("Lifers", f"{collected}/{total}", border=True)
+        st.metric("Lifers", lifers, border=True,
+                  help="Every breed and cross you've spotted at least once.")
+        st.metric("Breeds", f"{collected}/{total}", border=True,
+                  help="Verified breeds you've spotted, out of all of them.")
         st.metric("Spotted", len(sightings), border=True)
-        st.metric("To find", total - collected, border=True)
     st.progress(collected / total if total else 0.0)
-    coming = logic.next_badge(badges)
+    coming = logic.next_badge(logic.badges_by_track(badges)[logic.LIFER])
     if coming:
         st.caption(f"Next badge: **{coming.badge.name}**, "
-                   f"{coming.to_go} more breed{'' if coming.to_go == 1 else 's'} to go.")
+                   f"{coming.to_go} more lifer{'' if coming.to_go == 1 else 's'} to go.")
 
     show = st.segmented_control(
         "Show", logic.LIFE_LIST_FILTERS, default="All", required=True,
@@ -1397,13 +1411,56 @@ with tab_life:
                     unsafe_allow_html=True)
 
 # --- Your profile: who you are, plus every sighting you've logged ------------------------------
+def badges_section():
+    """Profile > Badges: one tab per kind of badge (Lifers, Purebreds, Crosses), each with
+    the next badge to earn up front, the ones you have, then the rest folded away."""
+    tracks = logic.badges_by_track(badges)
+    earned = sum(p.earned for p in badges)
+    st.subheader(f"Badges ({earned}/{len(badges)})")
+
+    def label(track: str) -> str:
+        mine = tracks[track]
+        return f"{logic.BADGE_TRACKS[track][0]} {sum(p.earned for p in mine)}/{len(mine)}"
+
+    track = st.segmented_control(
+        "Badge type", list(tracks), default=logic.LIFER, required=True, format_func=label,
+        key="badge_track", label_visibility="collapsed", width="stretch")
+    mine = tracks[track]
+    st.caption(logic.BADGE_TRACKS[track][2])
+    coming = [p for p in mine if not p.earned]
+    if coming:  # the closest one first (cross badges each count something different)
+        up = min(coming, key=lambda p: (p.to_go, p.badge.goal))
+        st.markdown(
+            f'<div class="cerb-next-badge {up.badge.track}"><span class="icon">'
+            f'{sketches.svg(up.badge.icon)}</span><div class="main">'
+            f'<div class="label">Next up</div><b>{html.escape(up.badge.name)}</b><br>'
+            f'<span class="sub">{html.escape(up.badge.description)}'
+            + (f": {up.have}/{up.badge.goal} {html.escape(up.badge.unit)}"
+               if up.badge.goal > 1 else "") + '</span></div></div>',
+            unsafe_allow_html=True)
+        st.progress(up.have / up.badge.goal)
+    else:
+        st.success("You've earned every one of these!")
+    got = [p for p in mine if p.earned]
+    if got:
+        st.markdown(f'<div class="cerb-badges">{"".join(badge_html(p) for p in got)}</div>',
+                    unsafe_allow_html=True)
+    else:
+        st.caption("None earned yet.")
+    if coming:
+        with st.expander(f"Still to earn ({len(coming)})"):
+            st.markdown(f'<div class="cerb-badges">{"".join(badge_html(p) for p in coming)}'
+                        "</div>", unsafe_allow_html=True)
+
+
 def badge_html(p: logic.BadgeProgress) -> str:
     """One badge as a small card: when it was earned, or how far there is to go."""
     if p.earned:
         day = dt.date.fromisoformat(p.earned_on)
-        css, sub = "cerb-badge", f"Earned {day.day} {day:%b %Y}"
+        css, sub = f"cerb-badge {p.badge.track}", f"Earned {day.day} {day:%b %Y}"
     else:
-        css, sub = "cerb-badge locked", f"{p.have}/{p.badge.goal} breeds"
+        css = f"cerb-badge {p.badge.track} locked"
+        sub = f"{p.have}/{p.badge.goal} {p.badge.unit}" if p.badge.goal > 1 else "Not yet"
     return (f'<div class="{css}" title="{html.escape(p.badge.description)}">'
             f'<span class="icon">{sketches.svg(p.badge.icon)}</span>'
             f'<div class="name">{html.escape(p.badge.name)}</div><div class="sub">{sub}</div></div>')
@@ -1584,7 +1641,7 @@ with tab_profile:
             st.caption("No sightings yet.")
         else:
             st.caption(f"Spotting since {sightings['seen_on'].min()} · "
-                       f"{collected} lifer{'' if collected == 1 else 's'} from "
+                       f"{lifers} lifer{'' if lifers == 1 else 's'} from "
                        f"{len(sightings)} sighting{'' if len(sightings) == 1 else 's'}")
     if profiles_ready:
         with st.expander("Edit profile"):
@@ -1610,10 +1667,7 @@ with tab_profile:
         with st.expander("Add a dog"):
             dog_form("new")
 
-    earned = sum(p.earned for p in badges)
-    st.subheader(f"Badges ({earned}/{len(badges)})")
-    st.markdown(f'<div class="cerb-badges">{"".join(badge_html(p) for p in badges)}</div>',
-                unsafe_allow_html=True)
+    badges_section()
 
     st.subheader("Your sightings")
     if sightings.empty:
@@ -1665,10 +1719,10 @@ def feed_post(post: dict, links: dict[str, str]) -> str:
              f'alt="A {html.escape(post["breed"])}" loading="lazy">'
              if post.get("photo_path") in links else "")
     tags = dog_tags_html(post.get("dog_ids"))
-    badge = logic.BADGES_BY_KEY.get(post.get("badge") or "")
-    earned = (f'<div class="earned">{sketches.svg(badge.icon)} Earned the <b>{html.escape(badge.name)}</b> '
-              f'badge: {"first breed" if badge.goal == 1 else f"{badge.goal} breeds"}!</div>'
-              if badge else "")
+    earned = "".join(
+        f'<div class="earned {badge.track}">{sketches.svg(badge.icon)} Earned the '
+        f'<b>{html.escape(badge.name)}</b> badge: {html.escape(badge.description.lower())}!</div>'
+        for key in post.get("badges") or [] if (badge := logic.BADGES_BY_KEY.get(key)))
     return (
         f'<div class="cerb-post">{avatar_html(post["avatar"], "avatar")}'
         f'<div class="main"><div class="who">{who} · {posted.day} {posted:%b %Y}</div>'
