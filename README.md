@@ -53,6 +53,7 @@ project-cerberus/
 ├── scripts/                # One-off helpers (breed photos, face crops, exporting the Photo ID model)
 ├── supabase/schema.sql     # Tables plus row-level security policies
 ├── CHANGELOG.md            # Version history, shown in Settings > What's new
+├── site/                 # The Derlin landing page (derlin.app), built by scripts/build_site.py
 ├── ROADMAP.md              # The plan; its Now and Next items appear in the app
 └── tests/
 ```
@@ -119,7 +120,7 @@ Run the tests with `pytest`.
 - [ ] 👥 More social: comparing life lists, leaderboards
 - [ ] 🤝 Friends and private messaging (with blocking and reporting)
 - [ ] More breeds, a sightings map
-- [ ] 🏷️ A brand name and our own web address (domain)
+- [x] 🏷️ A brand name (Derlin) and our own web address, derlin.app, with a landing page (`site/`)
 - [ ] 📱 Launch a real app: a landing page on our domain, then the app on our own hosting, then the app stores
 
 Inspired by bird ID apps like Merlin, which identify birds from a photo or their song. The full plan, with notes on each item, is in [ROADMAP.md](ROADMAP.md).
