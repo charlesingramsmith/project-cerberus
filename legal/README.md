@@ -16,9 +16,28 @@ Update them in the same change whenever the app starts collecting something new,
 - **Messaging or friends**: say who can see messages and how to report someone.
 - **An in-app "delete my account" button**: point the policy to it instead of only the email address.
 
-## Choices the owner made (or should check)
+## Approval
 
-These were picked as sensible defaults on 27 Nov 2026. Change the text if any is wrong:
+**Approved by Charlie on 27 Nov 2026** for the web app and derlin.app, after a check against:
+
+- **UK GDPR (Articles 13 and 14, the ICO's privacy notice checklist):** who runs it and how to contact them; what's collected, why, and the lawful basis for each; legitimate interests explained; who else gets it; transfers outside the UK and their safeguards; how long it's kept; every right, including complaining to the ICO; what's required versus optional; data from other sources (Google, other members' tags); no automated decisions. All covered.
+- **Google sign-in verification (OAuth consent screen):** the policy is on the same domain as the homepage (derlin.app/privacy), says which Google data is used (email, name, picture) and why, how to delete it, and has the Limited Use statement. Covered. Derlin only asks for basic scopes, so no security assessment is needed.
+- **Apple App Store (5.1.1, 1.2) and Google Play (User Data, UGC, account deletion):** the policy and terms themselves are covered (data, uses, third parties, retention, deletion, rules for posts, a way to report). The apps need a few app features first: see **Before the app stores** below.
+
+This is still not legal advice: a solicitor's review is worth it before a paid or large launch.
+
+## Before the app stores
+
+These are app features the store rules need, not changes to the wording (update the wording when they land):
+
+- **Delete your account in the app.** Apple requires it inside the app; Google Play also needs a web page where people can ask for deletion (derlin.app/privacy's email instructions can do for that).
+- **Block another member.** Both stores require it for apps where members post content (with Report, which PR 65 adds).
+- **Sign in with Apple**, on the iPhone app, because it offers Google sign-in.
+- **Store privacy forms:** Apple's privacy labels and Google Play's Data safety form, filled in from `privacy.md`.
+
+## Choices the owner made
+
+Picked as sensible defaults and approved by Charlie on 27 Nov 2026:
 
 - **Who runs it:** "Charlie, an individual based in the United Kingdom". The app stores and Google's verification may want a full legal name and a postal address: add them here when needed.
 - **ICO fee:** individuals who process personal data for a service may need to pay the ICO's yearly data protection fee (about £52). Check with the ICO's self-assessment at ico.org.uk/fee.
