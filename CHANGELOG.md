@@ -6,6 +6,10 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.29.1 - 2026-11-27 - Social shows the newest posts first
+- The Social feed is now in the order sightings were posted, newest at the top, so a sighting from an older photo no longer gets buried further down.
+- Each post shows the day it was posted. If the dog was seen on a different day, that date shows underneath as "Seen".
+
 ## 0.29.0 - 2026-11-27 - Crosses are lifers
 - The first time you spot each cross breed, like a Labrador Retriever x Poodle, it's now a **lifer**, with balloons.
 - A Poodle x Labrador Retriever is the same cross as a Labrador Retriever x Poodle, so it only counts once. Crosses are always written with their breeds in A to Z order.

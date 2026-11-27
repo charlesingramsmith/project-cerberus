@@ -1598,6 +1598,11 @@ with tab_profile:
 def feed_post(post: dict, links: dict[str, str]) -> str:
     """One sighting in the feed as HTML. Everything members typed is escaped."""
     seen_on = dt.date.fromisoformat(str(post["seen_on"]))
+    # The feed is in posting order, so the header shows when it was posted; the date seen
+    # gets its own quiet line only when it's a different day (e.g. an older photo).
+    posted = logic.posted_on(post.get("created_at"), st.context.timezone) or seen_on
+    seen = (f'<div class="sub">Seen {seen_on.day} {seen_on:%b %Y}</div>'
+            if seen_on != posted else "")
     who = f"<b>{html.escape(post['username'])}</b>" + (" (you)" if post["user_id"] == user.id else "")
     details = [f"{sketches.svg('pin')} {html.escape(post['location'])}" if post.get("location") else "",
                f"{sketches.svg('dog')} {html.escape(post['dog_name'])}" if post.get("dog_name") else ""]
@@ -1612,9 +1617,9 @@ def feed_post(post: dict, links: dict[str, str]) -> str:
               if badge else "")
     return (
         f'<div class="cerb-post">{avatar_html(post["avatar"], "avatar")}'
-        f'<div class="main"><div class="who">{who} · {seen_on.day} {seen_on:%b %Y}</div>'
+        f'<div class="main"><div class="who">{who} · {posted.day} {posted:%b %Y}</div>'
         f'<div class="breed">{html.escape(post["breed"])}{breed_chip(post["breed"])}</div>'
-        + earned + (f"<div>{tags}</div>" if tags else "")
+        + seen + earned + (f"<div>{tags}</div>" if tags else "")
         + "".join(f'<div class="sub">{line}</div>' for line in lines if line)
         + photo + "</div></div>"
     )

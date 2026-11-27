@@ -654,7 +654,7 @@ def social_feed(sightings: list[dict], profiles: dict[str, dict],
 
     `profiles` maps user id -> profile; `milestones` maps sighting id -> badge key (from
     `milestone_sightings`). Sightings from members without a profile, or who have switched
-    sharing off, are left out. Order is kept (newest first from the backend).
+    sharing off, are left out. Order is kept (newest post first from the backend).
     """
     milestones = milestones or {}
     feed = []
@@ -664,6 +664,25 @@ def social_feed(sightings: list[dict], profiles: dict[str, dict],
             feed.append({**s, "username": who["username"], "avatar": who["avatar"],
                          "badge": milestones.get(s["id"])})
     return feed
+
+def posted_on(created_at: str | None, tz: str | None = None) -> date | None:
+    """The day a sighting was posted, from its `created_at` timestamp, in time zone `tz`
+    (the member's browser zone, like "Europe/London"; UTC if missing or unknown). None if
+    there's no timestamp. Can differ from the date seen, which a photo may set earlier."""
+    if not created_at:
+        return None
+    try:
+        when = datetime.fromisoformat(str(created_at).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if when.tzinfo is not None and tz:
+        try:
+            from zoneinfo import ZoneInfo
+            when = when.astimezone(ZoneInfo(tz))
+        except Exception:  # unknown zone, or no time zone data on this machine
+            pass
+    return when.date()
+
 
 # --- Dog profiles: members' own dogs, taggable in posts by @username ------------------
 
