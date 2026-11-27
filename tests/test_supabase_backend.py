@@ -130,7 +130,7 @@ def test_expired_session_asks_user_to_sign_in_again():
 
 def test_google_sign_in_returns_url_and_verifier():
     backend, _ = make_backend()
-    url, verifier = backend.start_google_sign_in("https://app.example/?flow=abc")
+    url, verifier = backend.start_oauth_sign_in("https://app.example/?flow=abc")
     assert "provider=google" in url
     assert verifier == "verifier-123"
     assert backend.client.auth.oauth_creds == {
@@ -139,7 +139,7 @@ def test_google_sign_in_returns_url_and_verifier():
 
 def test_google_sign_in_finishes_with_the_users_google_name():
     backend, _ = make_backend()
-    user = backend.finish_google_sign_in("good-code", "verifier-123")
+    user = backend.finish_oauth_sign_in("good-code", "verifier-123")
     assert (user.username, user.email) == ("Pat Smith", "pat@gmail.com")
     assert backend.list_sightings() == []  # signed in, so data calls work
 
@@ -147,7 +147,7 @@ def test_google_sign_in_finishes_with_the_users_google_name():
 def test_failed_google_exchange_becomes_a_friendly_auth_error():
     backend, _ = make_backend()
     with pytest.raises(AuthError, match="Google sign-in didn't work"):
-        backend.finish_google_sign_in("stale-code", "verifier-123")
+        backend.finish_oauth_sign_in("stale-code", "verifier-123")
 
 
 def test_client_does_not_refresh_tokens_in_the_background(monkeypatch):
@@ -307,7 +307,7 @@ def test_under_13s_are_refused_before_supabase_is_asked():
 
 def test_google_members_are_asked_their_birth_year_once():
     backend, _ = make_backend()
-    backend.finish_google_sign_in("good-code", "verifier-123")
+    backend.finish_oauth_sign_in("good-code", "verifier-123")
     backend.client.table = lambda name: FakeQuery([], [])  # no profile yet
     assert backend.needs_birth_year()
     backend.set_birth_year(1990)
@@ -599,3 +599,94 @@ def test_my_reports_reads_only_your_own_and_survives_a_missing_table():
         raise RuntimeError("relation public.reports does not exist")
     backend.client.table = missing
     assert backend.my_reports() == {"sighting": set(), "dog": set()}
+
+
+# --- Blocking -------------------------------------------------------------------------
+
+def test_block_member_adds_your_own_row_once():
+    backend, log = make_backend()
+    backend.sign_in("charlie@example.com", "correct-horse")
+    backend.block_member("uuid-9")
+    name, args, kwargs = next(e for e in log if e[0] == "upsert")
+    assert args[0] == {"user_id": "uuid-1", "blocked_id": "uuid-9"}
+    assert kwargs["ignore_duplicates"] is True
+    with pytest.raises(ValueError):
+        backend.block_member("uuid-1")
+
+
+def test_unblock_member_deletes_only_your_own_row():
+    backend, log = make_backend()
+    backend.sign_in("charlie@example.com", "correct-horse")
+    backend.unblock_member("uuid-9")
+    assert ("delete", (), {}) in log
+    assert ("eq", ("user_id", "uuid-1"), {}) in log
+    assert ("eq", ("blocked_id", "uuid-9"), {}) in log
+
+
+def test_blocked_members_have_names_and_survive_a_missing_table():
+    backend, log = make_backend()
+    backend.sign_in("charlie@example.com", "correct-horse")
+    rows = {"blocks": [{"blocked_id": "uuid-9"}, {"blocked_id": "uuid-8"}],
+            "profiles": [{"user_id": "uuid-9", "username": "rover"}]}
+    backend.client.table = lambda name: FakeQuery(log, rows[name])
+    assert backend.blocked_members() == {"uuid-9": "rover", "uuid-8": ""}
+    assert ("eq", ("user_id", "uuid-1"), {}) in log
+
+    def missing(name):
+        raise RuntimeError("relation public.blocks does not exist")
+    backend.client.table = missing
+    assert backend.blocked_members() == {}
+
+
+# --- Deleting your account ----------------------------------------------------------------
+
+class FolderBucket:
+    def __init__(self, files):
+        self.files = set(files)
+        self.removed = []
+
+    def list(self, folder, options=None):
+        inside = sorted(f[len(folder) + 1:] for f in self.files if f.startswith(folder + "/"))
+        entries = [{"name": f, "id": "x"} for f in inside if "/" not in f]
+        folders = sorted({f.split("/")[0] for f in inside if "/" in f})
+        return entries + [{"name": d, "id": None} for d in folders]
+
+    def remove(self, paths):
+        self.removed.extend(paths)
+        self.files -= set(paths)
+
+
+def test_delete_account_removes_photos_then_the_account_then_signs_out():
+    backend, log = make_backend()
+    backend.sign_in("charlie@example.com", "correct-horse")
+    bucket = FolderBucket(["uuid-1/a.jpg", "uuid-1/dogs/rex.jpg", "uuid-2/b.jpg"])
+    backend.client.storage = SimpleNamespace(from_=lambda name: bucket)
+    backend.delete_account()
+    assert sorted(bucket.removed) == ["uuid-1/a.jpg", "uuid-1/dogs/rex.jpg"]
+    assert bucket.files == {"uuid-2/b.jpg"}  # someone else's photo stays
+    assert ("rpc", ("delete_my_account",), {}) in log
+    assert backend.client.auth.sign_out_options == {"scope": "local"}
+    assert backend._user is None
+
+
+def test_delete_account_keeps_the_account_if_photos_cant_be_removed():
+    backend, log = make_backend()
+    backend.sign_in("charlie@example.com", "correct-horse")
+
+    class Broken(FolderBucket):
+        def remove(self, paths):
+            raise RuntimeError("storage is down")
+    backend.client.storage = SimpleNamespace(from_=lambda name: Broken(["uuid-1/a.jpg"]))
+    with pytest.raises(RuntimeError):
+        backend.delete_account()
+    assert not any(e[0] == "rpc" for e in log)
+    assert backend._user is not None
+
+
+def test_apple_sign_in_asks_supabase_for_apple():
+    backend, _ = make_backend()
+    url, verifier = backend.start_oauth_sign_in("https://app.example/?flow=abc", "apple")
+    assert backend.client.auth.oauth_creds["provider"] == "apple"
+    assert verifier == "verifier-123"
+    with pytest.raises(AuthError, match="Apple sign-in didn't work"):
+        backend.finish_oauth_sign_in("stale-code", "verifier-123", "apple")

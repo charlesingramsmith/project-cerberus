@@ -652,6 +652,26 @@ def without_reported(posts: list[dict], reported: set[int]) -> list[dict]:
     return [p for p in posts if p["id"] not in reported]
 
 
+def without_blocked(posts: list[dict], blocked) -> list[dict]:
+    """The posts not by members the viewer has blocked (`blocked`: their user ids)."""
+    return [p for p in posts if p["user_id"] not in blocked]
+
+
+def visible_dogs(dogs: list[dict], reported: set[int], blocked) -> list[dict]:
+    """The dogs a member sees (to tag, find and open): not ones they've reported, and not
+    those of members they've blocked."""
+    return [d for d in dogs if d["id"] not in reported and d["owner_id"] not in blocked]
+
+
+DELETE_CONFIRM_WORD = "DELETE"
+
+
+def delete_confirmed(typed: str | None) -> bool:
+    """Has the member typed the word that confirms deleting their account? (Any capitals,
+    spaces around it are fine.)"""
+    return str(typed or "").strip().upper() == DELETE_CONFIRM_WORD
+
+
 # --- Profiles and the Social feed ------------------------------------------------------
 
 MIN_USERNAME_LENGTH, MAX_USERNAME_LENGTH = 3, 30
@@ -1116,7 +1136,14 @@ def cross_badge_hints(sightings: pd.DataFrame) -> dict[str, str]:
 # (app.derlin.app; see render.yaml and docs/hosting.md). They differ in two ways.
 
 SUPABASE_ENV = {"url": "SUPABASE_URL", "key": "SUPABASE_KEY",
-                "redirect_url": "SUPABASE_REDIRECT_URL"}
+                "redirect_url": "SUPABASE_REDIRECT_URL",
+                # Show "Continue with Apple" (off until Apple is set up: docs/apple-sign-in.md)
+                "apple_sign_in": "APPLE_SIGN_IN"}
+
+
+def setting_on(value: str | None) -> bool:
+    """Is a yes/no setting (from secrets.toml or an environment variable) switched on?"""
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def supabase_settings(secrets: Mapping[str, str], environ: Mapping[str, str]) -> dict[str, str]:

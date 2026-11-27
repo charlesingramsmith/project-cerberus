@@ -82,11 +82,11 @@ def test_sightings_listed_newest_first(backend):
 def google_round_trip(backend, tamper=False):
     from urllib.parse import parse_qs, urlparse
 
-    url, verifier = backend.start_google_sign_in("https://app.example/?flow=abc")
+    url, verifier = backend.start_oauth_sign_in("https://app.example/?flow=abc")
     params = parse_qs(urlparse(url).query)
     assert params["flow"] == ["abc"]  # the return address is kept intact
     code = params["code"][0] + ("x" if tamper else "")
-    return backend.finish_google_sign_in(code, verifier)
+    return backend.finish_oauth_sign_in(code, verifier)
 
 
 def test_google_sign_in_creates_an_account_and_signs_in(backend):
@@ -560,3 +560,98 @@ def test_reports_need_a_sign_in(backend):
     for call in (backend.my_reports, lambda: backend.report("sighting", 1, "spam")):
         with pytest.raises(AuthError):
             call()
+
+
+# --- Blocking -------------------------------------------------------------------------
+
+def test_blocks_are_kept_per_member_and_can_be_undone(backend):
+    add_member(backend, "alice")
+    alice = backend._user.id
+    backend.sign_out()
+    add_member(backend, "bobby")
+    backend.block_member(alice)
+    backend.block_member(alice)  # twice is harmless
+    assert backend.blocked_members() == {alice: "alice"}
+    backend.sign_out()
+    backend.sign_in("alice@example.com", "longenough")
+    assert backend.blocked_members() == {}  # only the blocker's own
+    backend.sign_out()
+    backend.sign_in("bobby@example.com", "longenough")
+    backend.unblock_member(alice)
+    assert backend.blocked_members() == {}
+
+
+def test_you_cant_block_yourself_or_nobody(backend):
+    add_member(backend, "alice")
+    with pytest.raises(ValueError):
+        backend.block_member(backend._user.id)
+    with pytest.raises(ValueError):
+        backend.block_member("user-999")
+    backend.sign_out()
+    with pytest.raises(AuthError):
+        backend.blocked_members()
+
+
+# --- Deleting your account ----------------------------------------------------------------
+
+def test_deleting_an_account_removes_everything_in_it(backend):
+    add_member(backend, "alice")
+    alice = backend._user.id
+    rex = backend.add_dog({"username": "rex", "name": "Rex",
+                           "photo_path": backend.add_dog_photo(b"rex")})
+    backend.add_sighting("Pug", date(2026, 11, 1), photo_path=backend.add_photo(b"jpeg"),
+                         dog_ids=[rex["id"]])
+    backend.add_user_breed("Cavapoo")
+    backend.set_feature_vote("photo-upload", True)
+    backend.suggest_feature("More dogs")
+    backend.mark_version_seen("1.0.0")
+    backend.sign_out()
+    add_member(backend, "bobby")
+    bobby_post = backend.add_sighting("Beagle", date(2026, 11, 2), dog_ids=[rex["id"]])
+    backend.report("dog", rex["id"], "spam")
+    backend.block_member(alice)
+    backend.sign_out()
+
+    backend.sign_in("alice@example.com", "longenough")
+    backend.block_member("user-2")
+    backend.delete_account()
+    assert backend._user is None and backend.refresh_token() is None
+    with pytest.raises(AuthError):
+        backend.sign_in("alice@example.com", "longenough")
+
+    add_member(backend, "carol")
+    assert [p["username"] for p in backend.social_feed()] == ["bobby"]
+    assert bobby_post is None and backend.social_feed()[0]["dog_ids"] == []  # rex's tag went
+    assert backend.list_dogs() == []
+    assert not [p for p in backend._photos() if p.startswith(f"{alice}/")]
+    assert backend.feature_vote_counts() == {}
+    assert backend.suggestions == []
+    assert alice not in backend._profiles and alice not in backend._seen
+    assert backend.list_user_breeds() == ["Cavapoo"]  # the breed stays, unlinked
+    assert backend._user_breeds()["cavapoo"]["added_by"] is None
+    assert backend._reports() == [] and backend._blocks() == set()
+    # A new account never reuses the deleted one's id.
+    assert backend._user.id not in {alice, "user-2"}
+
+
+def test_deleting_an_account_can_sign_up_again_with_the_same_email(backend):
+    add_member(backend, "alice")
+    backend.delete_account()
+    add_member(backend, "alice")
+    assert backend.my_profile()["username"] == "alice"
+
+
+def test_deleting_an_account_needs_a_sign_in(backend):
+    with pytest.raises(AuthError):
+        backend.delete_account()
+
+
+def test_apple_sign_in_works_like_google(backend):
+    url, verifier = backend.start_oauth_sign_in("https://app.example/?flow=abc", "apple")
+    code = url.split("code=")[1]
+    user = backend.finish_oauth_sign_in(code, verifier, "apple")
+    assert user.email == MemoryBackend.DEMO_EMAILS["apple"]
+    with pytest.raises(AuthError, match="Apple"):
+        backend.finish_oauth_sign_in("wrong", verifier, "apple")
+    with pytest.raises(ValueError):
+        backend.start_oauth_sign_in("https://app.example/", "myspace")

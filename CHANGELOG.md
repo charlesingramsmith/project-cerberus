@@ -6,6 +6,11 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.40.0 - 2026-11-27 - Delete your account, and block members
+- **Delete your account** yourself in **Settings > Account**. Type DELETE to confirm, and your profile, sightings, photos and dogs are deleted straight away. No email needed.
+- **Block a member** from the **Report or block** menu on their posts or dog pages. Their posts and dogs disappear for you, and they aren't told. You can unblock them in **Settings > Privacy**.
+- The privacy policy and terms now explain both.
+
 ## 0.39.0 - 2026-11-27 - Derlin has a new home
 - Derlin now lives at **app.derlin.app**. Bookmark it, or add it to your home screen again from there.
 - You'll need to sign in once at the new address (and pick dark mode again if you use it). Your sightings, life list, badges, dogs and photos are all there, just as you left them.

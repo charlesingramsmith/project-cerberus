@@ -44,7 +44,8 @@ drop_stale_cerberus_modules()
 
 # These come after the stale-module check above, on purpose.
 from cerberus import logic  # noqa: E402
-from cerberus.backends import AuthError, MemoryBackend, SupabaseBackend  # noqa: E402
+from cerberus.backends import (SIGN_IN_PROVIDERS, AuthError, MemoryBackend,  # noqa: E402
+                               SupabaseBackend)
 from cerberus.oauth import PENDING, with_query, with_trailing_slash  # noqa: E402
 from cerberus.photo_id import PhotoID  # noqa: E402
 from cerberus import places  # noqa: E402
@@ -566,7 +567,7 @@ def end_session(message: str | None = None):
     st.rerun()
 
 
-# --- Continue with Google ---------------------------------------------------------------
+# --- Continue with Google (and Apple, which works the same way) -------------------------
 # 1. The button links to Google, with a return address of this app plus `?flow=<id>`.
 #    Google refuses to show its sign-in page inside the frame that Streamlit Community
 #    Cloud wraps apps in, so the whole browser tab has to go there. That frame blocks
@@ -592,7 +593,8 @@ SAME_TAB_SIGN_IN_JS = """
 if (!window.cerberusSameTabSignIn) {
   window.cerberusSameTabSignIn = true;
   document.addEventListener("click", (event) => {
-    const link = event.target.closest(".st-key-google_sign_in a[href]");
+    const link = event.target.closest(
+      ".st-key-google_sign_in a[href], .st-key-apple_sign_in a[href]");
     if (!link) return;
     let page;
     try { page = window.top.document; } catch (err) { return; }
@@ -607,37 +609,50 @@ if (!window.cerberusSameTabSignIn) {
 """
 
 
-def google_sign_in_url(remember: bool) -> str:
-    """One sign-in link per visit, remade only once its flow has expired or the
-    "Keep me signed in" box changes (the choice rides along in the return address)."""
-    url, flow_id, linked_remember = st.session_state.get("google_link", (None, None, None))
+def sign_in_url(remember: bool, provider: str = "google") -> str:
+    """One sign-in link per visit (and provider: Google, or Apple), remade only once its
+    flow has expired or the "Keep me signed in" box changes (the choice rides along in
+    the return address)."""
+    url, flow_id, linked_remember = st.session_state.get(f"{provider}_link", (None, None, None))
     if url is None or flow_id not in PENDING or linked_remember != remember:
         flow_id = PENDING.new_flow_id()
-        return_to = with_query(app_url(), flow=flow_id, remember="1" if remember else "0")
-        url, verifier = backend.start_google_sign_in(return_to)
+        extra = {} if provider == "google" else {"provider": provider}
+        return_to = with_query(app_url(), flow=flow_id, remember="1" if remember else "0",
+                               **extra)
+        url, verifier = backend.start_oauth_sign_in(return_to, provider)
         PENDING.add(flow_id, verifier)
-        st.session_state.google_link = (url, flow_id, remember)
+        st.session_state[f"{provider}_link"] = (url, flow_id, remember)
     return url
 
 
-def finish_google_sign_in():
-    """If Google just sent the user back here, finish signing them in."""
+def apple_sign_in_on() -> bool:
+    """Show "Continue with Apple"? Only once Apple is set up (docs/apple-sign-in.md) and
+    the apple_sign_in setting is on; demo mode always shows it, faked like Google."""
+    return backend.demo or logic.setting_on(supabase_settings().get("apple_sign_in"))
+
+
+def finish_oauth_sign_in():
+    """If Google (or Apple) just sent the user back here, finish signing them in."""
     params = st.query_params
     code, flow_id, error = params.get("code"), params.get("flow"), params.get("error")
     if not (code or error):
         return
     remember = params.get("remember") == "1"  # read before clearing the address bar
+    provider = params.get("provider", "google")
+    if provider not in SIGN_IN_PROVIDERS:
+        provider = "google"
+    name = SIGN_IN_PROVIDERS[provider]
     st.query_params.clear()  # so a refresh doesn't try to reuse the one-time code
     if error:
-        st.session_state.auth_notice = ("Google sign-in was cancelled or failed: "
+        st.session_state.auth_notice = (f"{name} sign-in was cancelled or failed: "
                                         + params.get("error_description", error))
         return
     verifier = PENDING.pop(flow_id) if flow_id else None
     if verifier is None:
-        st.session_state.auth_notice = "That Google sign-in link expired. Please try again."
+        st.session_state.auth_notice = f"That {name} sign-in link expired. Please try again."
         return
     try:
-        st.session_state.user = backend.finish_google_sign_in(code, verifier)
+        st.session_state.user = backend.finish_oauth_sign_in(code, verifier, provider)
     except AuthError as err:
         st.session_state.auth_notice = str(err)
     else:
@@ -718,8 +733,11 @@ def auth_screen():
     remember = st.checkbox(f"Keep me signed in for {MAX_AGE_DAYS} days", value=True,
                            key="keep_signed_in",
                            help="Untick this on a shared or public computer.")
-    st.link_button("Continue with Google", google_sign_in_url(remember), type="primary",
+    st.link_button("Continue with Google", sign_in_url(remember), type="primary",
                    width="stretch", key="google_sign_in")
+    if apple_sign_in_on():
+        st.link_button("Continue with Apple", sign_in_url(remember, "apple"),
+                       width="stretch", key="apple_sign_in")
     st.html(SAME_TAB_SIGN_IN_JS, unsafe_allow_javascript=True)
     st.caption("New here? This creates your account too.")
     st.divider()
@@ -814,7 +832,7 @@ def birth_year_screen():
 
 
 if "user" not in st.session_state:
-    finish_google_sign_in()
+    finish_oauth_sign_in()
 resume_saved_sign_in(sync_saved_sign_in())
 if st.session_state.get("theme") == "Dark":
     st.html(DARK_CSS)
@@ -1099,12 +1117,14 @@ def move_listed_dogs_to_profiles() -> bool:
 all_dogs = load_dogs()
 if move_listed_dogs_to_profiles():
     profile, all_dogs = backend.my_profile(), load_dogs()
-try:  # what this member has reported: hidden from them straight away (see report_menu)
+try:  # what this member has reported or blocked: hidden from them (see report_menu)
     reported = backend.my_reports()
+    blocked = backend.blocked_members()  # user id -> username
 except AuthError as err:
     end_session(str(err))
-# A reported dog disappears for its reporter: its tags, "Find a dog" and its page.
-all_dogs = None if all_dogs is None else [d for d in all_dogs if d["id"] not in reported["dog"]]
+# A reported dog, or a blocked member's dog, disappears for this member: its tags, "Find
+# a dog" and its page.
+all_dogs = None if all_dogs is None else logic.visible_dogs(all_dogs, reported["dog"], blocked)
 dogs_by_id = {d["id"]: d for d in all_dogs or []}
 my_dogs = [d for d in all_dogs or [] if d["owner_id"] == user.id]
 
@@ -1751,16 +1771,42 @@ def send_report(kind: str, item_id: int, reason: str):
     st.toast("Thanks for telling us. It's hidden for you now, and we'll take a look.")
 
 
-def report_menu(kind: str, item_id: int):
-    """A small "Report" link that opens a list of reasons; one tap sends the report.
+def block(member_id: str, name: str):
+    """"Block" was tapped in a Report or block menu: hide that member from this one. Their
+    posts, dogs and dog tags are left out from the next run on (blocked, above)."""
+    try:
+        backend.block_member(member_id)
+    except Exception:
+        st.toast("Blocking isn't available right now. Please try again later.")
+        return
+    close_dog_page()
+    st.toast(f"You've blocked {name or 'that member'}. You won't see their posts or dogs "
+             "any more. You can unblock them in Settings > Privacy.")
+
+
+def unblock(member_id: str):
+    try:
+        backend.unblock_member(member_id)
+    except Exception:
+        st.toast("That didn't work. Please try again later.")
+
+
+def report_menu(kind: str, item_id: int, member_id: str, member_name: str):
+    """A small "Report or block" link. It opens a list of reasons (one tap sends the
+    report), then a button to block the member who posted it or owns the dog.
     kind is "sighting" (a post) or "dog" (a dog's profile and its photo)."""
     what = "post" if kind == "sighting" else "dog's profile"
-    with st.popover("Report", type="tertiary", key=f"report_{kind}_{item_id}"):
+    with st.popover("Report or block", type="tertiary", key=f"report_{kind}_{item_id}"):
         st.caption(f"Why are you reporting this {what}? It'll be hidden for you, "
                    "and we'll review it.")
         for reason, label in logic.REPORT_REASONS.items():
             st.button(label, key=f"reportwhy_{kind}_{item_id}_{reason}", width="stretch",
                       on_click=send_report, args=(kind, item_id, reason))
+        name = member_name or "this member"
+        st.caption(f"Or block {name}: you won't see their posts or dogs any more. "
+                   "They aren't told.")
+        st.button(f"Block {name}", key=f"blockwho_{kind}_{item_id}", width="stretch",
+                  on_click=block, args=(member_id, member_name))
 
 
 def dog_card(dog: dict, links: dict[str, str]):
@@ -1985,7 +2031,8 @@ with tab_social:
             st.info("Social isn't available right now. Please try again later.")
         else:
             everyone = feed
-            feed = logic.without_reported(feed, reported["sighting"])
+            feed = logic.without_blocked(logic.without_reported(feed, reported["sighting"]),
+                                         blocked)
             if all_dogs:  # look up any member's dog: picking one opens its page
                 st.selectbox("Find a dog", list(dogs_by_id), index=None, key="social_dog",
                              placeholder="Find a dog by @username",
@@ -1995,7 +2042,8 @@ with tab_social:
             if not everyone:
                 st.info("No sightings yet. Log a dog and you'll be the first!")
             elif not feed:
-                st.caption("Nothing new to show: you've reported the latest posts.")
+                st.caption("Nothing new to show: you've reported or blocked the latest "
+                           "posts.")
             for post in feed:
                 # Each post on its own, so its tagged dogs can be buttons that open their page.
                 with st.container(key=f"feedpost_{post['id']}", gap=None):
@@ -2007,7 +2055,8 @@ with tab_social:
                         dog_tag_buttons(post.get("dog_ids"), f"feed_{post['id']}")
                         if post["user_id"] != user.id:
                             st.space("stretch")
-                            report_menu("sighting", post["id"])
+                            report_menu("sighting", post["id"], post["user_id"],
+                                        post["username"])
 
 # --- Settings ------------------------------------------------------------------------------
 def release_card(release: logic.Release, border: bool = True):
@@ -2029,6 +2078,27 @@ with tab_settings:
         if st.button("Sign out", width="stretch"):
             backend.sign_out()
             end_session()
+    with st.expander("Delete my account"):
+        st.write("This deletes your account and everything in it, for good: your profile, "
+                 "sightings, photos, dogs, badges, ideas and votes. It can't be undone.")
+        st.caption("Breed names you added stay on the shared list, no longer linked to you.")
+        typed = st.text_input(f"Type {logic.DELETE_CONFIRM_WORD} to confirm",
+                              key="delete_confirm", autocomplete="off")
+        if st.button("Delete my account for good", key="delete_account", width="stretch"):
+            if not logic.delete_confirmed(typed):
+                st.error(f"Type {logic.DELETE_CONFIRM_WORD} in the box first.")
+            else:
+                try:
+                    backend.delete_account()
+                except AuthError as err:
+                    end_session(str(err))
+                except Exception:
+                    st.error("Your account couldn't be deleted just now. Please try again, "
+                             "or email hello@derlin.app.")
+                else:
+                    st.session_state.pop("delete_confirm", None)
+                    end_session("Your account and everything in it have been deleted. "
+                                "Thanks for spotting dogs with Derlin.")
     st.subheader("Privacy")
     if "share_switch_to" in st.session_state:  # changed from the new-member popup
         st.session_state.share_sightings = st.session_state.pop("share_switch_to")
@@ -2045,6 +2115,19 @@ with tab_settings:
             st.error("That didn't save. Please try again.")
         else:
             st.rerun()
+
+    st.markdown("**Blocked members**")
+    if blocked:
+        for member_id, name in sorted(blocked.items(), key=lambda b: b[1].lower()):
+            with st.container(horizontal=True, vertical_alignment="center",
+                              key=f"blocked_{member_id}"):
+                st.text(name or "A member without a profile")
+                st.space("stretch")
+                st.button("Unblock", key=f"unblock_{member_id}", on_click=unblock,
+                          args=(member_id,))
+    st.caption("Blocked members' posts and dogs are hidden from you. They aren't told. "
+               + ("" if blocked else "To block someone, tap Report or block on one of "
+                  "their posts or dogs."))
 
     st.subheader("Appearance")
     st.toggle("Dark mode", value=st.session_state.get("theme") == "Dark", key="dark_mode",
@@ -2106,8 +2189,8 @@ with tab_settings:
 
     st.subheader("Privacy and terms")
     st.caption("What the app keeps about you, who can see it, and the rules for using the app. "
-               "Questions, or want a copy of your data or your account deleted? Email "
-               "hello@derlin.app.")
+               "Questions, or want a copy of your data? Email hello@derlin.app. You can "
+               "delete your account in Settings > Account.")
     legal_expanders()
 
     st.subheader("About")
@@ -2145,7 +2228,8 @@ def dog_page():
     except Exception:
         posts = None
     if posts is not None:
-        posts = logic.without_reported(posts, reported["sighting"])
+        posts = logic.without_blocked(logic.without_reported(posts, reported["sighting"]),
+                                      blocked)
     links = photo_links([dog.get("photo_path")] + [p.get("photo_path") for p in posts or []])
     with st.container(horizontal=True, vertical_alignment="center", gap="small"):
         st.markdown(dog_pic_html(dog, links, "dog-avatar"), unsafe_allow_html=True,
@@ -2162,7 +2246,7 @@ def dog_page():
                    f"Owned by {dog['owner']}" if dog.get("owner") else "")
         if dog["owner_id"] != user.id:
             st.space("stretch")
-            report_menu("dog", dog["id"])
+            report_menu("dog", dog["id"], dog["owner_id"], dog.get("owner", ""))
     if dog.get("bio"):
         st.text(dog["bio"])
     if posts is None:
