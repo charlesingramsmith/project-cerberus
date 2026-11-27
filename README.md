@@ -17,7 +17,7 @@ It's inspired by bird-watching life lists, but for the dogs you pass in the park
 - **Life list**: progress towards all 141 breeds, the date you first saw each one and how many times, with a small photo of each breed zoomed in on its face (in colour once you've spotted it), filterable by collected or still to find, and searchable. Tap any breed to open its profile: a photo, a short intro, where it's from, its temperament and a fun fact.
 - **Your profile**: a unique username, any breed's photo as your profile picture, your favourite breed, and **dog profiles** for your own dogs (a unique @username, name, breed or cross of two breeds, bio and photo) so they can be tagged in posts, plus a summary of your spotting and every dog you've logged as a card, newest first, with its photo if it has one and its own delete button.
 - **Social**: the latest sightings from everyone in the community, newest post first (with the date seen too when it's a different day), with each spotter's name and picture, their photo and the dogs tagged in them. Tap a tagged **@dog** (or look one up with **Find a dog**) to open its page: its profile, every shared sighting it's tagged in and a gallery of their photos. Sharing is on by default: new members are told so in a popup when they join, and can switch it off there or any time in Settings > Privacy.
-- **Settings**: your account details and sign out, plus **What's new**: the app's version number and recent updates (from [`CHANGELOG.md`](CHANGELOG.md)), the features coming next (straight from [`ROADMAP.md`](ROADMAP.md)) with a **+1** button on each so you can vote for what you want most, and a box to suggest new features. A plum dot on the Settings tab tells you when there's an update you haven't seen.
+- **Settings**: your account details and sign out, plus **What's new**: the app's version number and recent updates (from [`CHANGELOG.md`](CHANGELOG.md)), the features coming next (straight from [`ROADMAP.md`](ROADMAP.md)) with a **+1** button on each so you can vote for what you want most, and a box to suggest new features, and the **Privacy policy** and **Terms of use** (also linked from the sign-in screen). A plum dot on the Settings tab tells you when there's an update you haven't seen.
 - **Demo mode**: with no database configured, the app still runs, keeping data in memory only.
 
 ## Architecture
@@ -43,6 +43,7 @@ project-cerberus/
 │   └── remember.py         # "Keep me signed in" (browser storage)
 ├── .streamlit/config.toml  # Theme (colours, fonts, light/dark) and toolbar settings
 ├── assets/                 # The logo (logo.svg) and app icon (icon.png)
+├── legal/                  # Privacy policy and terms of use (shown in the app)
 ├── docs/                   # Setup guides (Google sign-in, Supabase CLI, reviewing added breeds)
 ├── data/breeds.csv         # AKC 2025 top 100 (with rank), plus 41 more Photo ID knows
 ├── data/breed_info.csv     # Each breed's intro, origin, temperament and fun fact
@@ -53,6 +54,7 @@ project-cerberus/
 ├── scripts/                # One-off helpers (breed photos, face crops, exporting the Photo ID model)
 ├── supabase/schema.sql     # Tables plus row-level security policies
 ├── CHANGELOG.md            # Version history, shown in Settings > What's new
+├── site/                 # The Derlin landing page (derlin.app), built by scripts/build_site.py
 ├── ROADMAP.md              # The plan; its Now and Next items appear in the app
 └── tests/
 ```
@@ -119,7 +121,7 @@ Run the tests with `pytest`.
 - [ ] 👥 More social: comparing life lists, leaderboards
 - [ ] 🤝 Friends and private messaging (with blocking and reporting)
 - [ ] More breeds, a sightings map
-- [x] 🏷️ A brand name, **Derlin**, and our own web address, derlin.app (bought; the app moves there with the new hosting)
+- [x] 🏷️ A brand name (Derlin) and our own web address, derlin.app, with a landing page (`site/`)
 - [ ] 📱 Launch a real app: a landing page on our domain, then the app on our own hosting, then the app stores
 
 Inspired by bird ID apps like Merlin, which identify birds from a photo or their song. The full plan, with notes on each item, is in [ROADMAP.md](ROADMAP.md).

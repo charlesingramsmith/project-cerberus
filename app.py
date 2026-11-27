@@ -485,6 +485,22 @@ def load_breed_profiles(version: tuple) -> dict[str, logic.BreedProfile]:
     return logic.load_breed_profiles()
 
 
+@st.cache_data
+def load_legal_pages(version: tuple) -> tuple[str, str]:
+    """The privacy policy and terms of use (legal/*.md), ready for an expander."""
+    return (logic.legal_page(logic.PRIVACY_MD.read_text(encoding="utf-8")),
+            logic.legal_page(logic.TERMS_MD.read_text(encoding="utf-8")))
+
+
+def legal_expanders():
+    """The privacy policy and terms, each folded away in an expander (no rerun to open)."""
+    privacy, terms = load_legal_pages(file_version(logic.PRIVACY_MD, logic.TERMS_MD))
+    with st.expander("Privacy policy"):
+        st.markdown(privacy)
+    with st.expander("Terms of use"):
+        st.markdown(terms)
+
+
 @st.cache_resource(show_spinner=False)
 def load_photo_id(version: tuple) -> PhotoID | None:
     """The Photo ID model, loaded once and shared by everyone. That's fine here because
@@ -733,6 +749,11 @@ def auth_screen():
                             st.session_state.user = user
                             st.session_state.remember = remember
                             st.rerun()
+
+    st.divider()
+    st.caption("By signing in or creating an account, you agree to the terms of use and "
+               "privacy policy below.")
+    legal_expanders()
 
 
 if "user" not in st.session_state:
@@ -1946,6 +1967,12 @@ with tab_settings:
                 end_session(str(err))
             except Exception:
                 st.error("Your idea couldn't be sent right now. Please try again later.")
+
+    st.subheader("Privacy and terms")
+    st.caption("What the app keeps about you, who can see it, and the rules for using the app. "
+               "Questions, or want a copy of your data or your account deleted? Email "
+               "hello@derlin.app.")
+    legal_expanders()
 
     st.subheader("About")
     st.caption("Derlin: spot dogs, collect breeds. Breeds are the AKC 2025 top 100, plus 41 "

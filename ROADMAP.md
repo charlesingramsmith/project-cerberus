@@ -119,7 +119,9 @@ _Nothing in progress. Pick the next item from below._
 4. **Move the app's hosting off Streamlit Cloud** (about £5-7 a month on Render or Railway) so the app itself runs on the domain. Meanwhile, "Add to Home Screen" in a phone's browser already gives an app-like icon as a stopgap. See **Launch a real app**.
 5. **A native app, last.** Rebuild the screens as a phone app (for example with React Native) on the same Supabase backend, so members' accounts and sightings carry over. Then publish to Google Play (about £20 once) and the App Store (about £80 a year).
 
-Steps 1 and 2 are done (name: **Derlin**; domain: `derlin.app`). Step 3, the landing page, is being built.
+Done so far: the name is **Derlin** (27 Nov 2026), `derlin.app` is bought (Porkbun), and the landing page is built in `site/` (see `docs/landing-page.md`); it goes live once the DNS records are in.
+
+A **privacy policy and terms of use** are drafted in `legal/` (27 Nov 2026) and shown in the app; the landing page can show the same text. Update them at each step (new host, new services), and have them checked before the app stores.
 
 - [x] **A brand name: Derlin** (chosen 27 Nov 2026). No DERLIN trade mark found in the UK, EU or US; `derlin.com` and `derlin.co.uk` are taken, so we use `derlin.app`.
   - Only the name people see changed (page title, sign-in screen, About, README, docs). The code package (`cerberus/`), the GitHub repo, the Supabase project and the Streamlit address keep "cerberus" until the hosting move.

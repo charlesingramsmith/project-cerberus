@@ -21,6 +21,8 @@ BREED_INFO_CSV = ROOT / "data" / "breed_info.csv"
 BREED_PHOTOS_CSV = ROOT / "data" / "breed_photos.csv"
 BREED_FACES_CSV = ROOT / "data" / "breed_faces.csv"
 PHOTO_ID_BREEDS_CSV = ROOT / "data" / "photo_id_breeds.csv"
+PRIVACY_MD = ROOT / "legal" / "privacy.md"
+TERMS_MD = ROOT / "legal" / "terms.md"
 PHOTO_ID_MODEL = ROOT / "models" / "dog_breeds.onnx"
 
 SIGHTING_COLUMNS = ["id", "breed", "seen_on", "location", "dog_name", "notes", "photo_path",
@@ -505,6 +507,17 @@ class Release:
     date: str           # ISO "YYYY-MM-DD"
     title: str
     changes: tuple[str, ...]
+
+
+def legal_page(text: str) -> str:
+    """A legal page (legal/*.md) ready to show inside an expander: the `# Title` line is
+    dropped (the expander's label says it) and other headings are made smaller, because the
+    app's handwritten heading font is big."""
+    lines = text.strip().splitlines()
+    if lines and lines[0].startswith("# "):
+        lines = lines[1:]
+    return "\n".join(re.sub(r"^(#{2,3}) ", lambda m: "#" * (len(m.group(1)) + 2) + " ", line)
+                     for line in lines).strip()
 
 
 RELEASE_HEADING = re.compile(r"^## (\d+\.\d+\.\d+) - (\d{4}-\d{2}-\d{2})(?: - (.+))?$")
