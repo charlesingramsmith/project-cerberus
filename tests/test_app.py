@@ -936,7 +936,7 @@ def test_badges_are_grouped_by_type(at):
     at.run()
     page = "".join(m.value for m in at.markdown)
     assert "Next up</div><b>Pedigree pal</b>" in page and "0/10 breeds" in page
-    assert any(e.label == "Still to earn (5)" for e in at.expander)
+    assert badge_cards(at).count("cerb-badge purebred locked") == 5  # all shown, greyed
 
 def face_balloons(at: AppTest) -> str:
     """The lifer celebration's HTML, or "" if nothing is floating up."""
