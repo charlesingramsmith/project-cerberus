@@ -24,7 +24,7 @@ A guided question flow ("help me identify": size, coat, ears) was considered and
 
 - [x] Manual sighting log and life list for the top 100 breeds
 - [x] **More breeds** (27 Nov 2026): 41 breeds beyond the top 100, the ones Photo ID knows that we didn't list, so its suggestions for them can be logged (141 in all). They have no AKC rank (`rank` blank in `data/breeds.csv`) and sit after the top 100, A to Z. Left out: the model's "toy terrier" (a mix of small terriers, no single breed) and "Eskimo dog" (its photos look like Siberian Huskies). Badges now go every 10 after 100, with a last one for all 141.
-- [x] **Cross breeds** (27 Nov 2026): a "It's a cross breed" switch on Spotted! shows a second breed box; the sighting's `breed` is saved as "Breed A x Breed B" (`logic.cross_name`), so no schema change. Crosses aren't lifers, don't count for badges and aren't added to `user_breeds` (a typed-in parent is). Life list has a **Crosses** section. Typing "beagle x pug" in the single box is read as a cross too.
+- [x] **Cross breeds** (27 Nov 2026): a "It's a cross breed" switch on Spotted! shows a second breed box; the sighting's `breed` is saved as "Breed A x Breed B" in A to Z order (`logic.cross_name`), so no schema change. The first sighting of each cross is a lifer (owner's choice, one switch `logic.CROSSES_ARE_LIFERS` if they change their mind); crosses don't count for badges and aren't added to `user_breeds` (a typed-in parent is). Life list has a **Crosses** section.
 - [x] Accounts and a hosted database (Supabase, with row-level security)
 - [x] Continue with Google (setup steps in [docs/google-sign-in.md](docs/google-sign-in.md))
 - [x] Bottom tab bar: Spotted! (was Dog ID, then Post), Life list, Profile, Social (placeholder), Settings

@@ -347,17 +347,24 @@ def clean_breed(text: str | None, known: Iterable[str] = ()) -> str:
 # --- Cross breeds ----------------------------------------------------------------------
 # A cross (a dog whose parents are two different breeds) is logged with its breed written
 # as "Breed A x Breed B", so it reads the same everywhere (Social, Profile) with no extra
-# database column. Crosses aren't lifers and don't count towards badges: the life list is
-# for breeds. They get their own "Crosses" list on the life list instead.
+# database column. The first sighting of each cross is a lifer, but crosses don't count
+# towards badges or the "of 141 breeds" total (those are for verified breeds). They get
+# their own "Crosses" list on the life list.
 
 CROSS = "Cross breed"
+# The owner's choice (27 Nov 2026), kept as one switch so it's easy to change back:
+# True = the first sighting of each cross is a lifer. Lifers are worked out from
+# sightings every time (nothing is stored), so flipping this updates everyone's history.
+CROSSES_ARE_LIFERS = True
 CROSS_SEPARATOR = " x "
 _CROSS_SPLIT = re.compile(r"\s+[xX×]\s+")
 
 
 def cross_name(first: str | None, second: str | None, known: Iterable[str] = ()) -> str:
     """The breed to log for a cross of two breeds: "Labrador Retriever x Poodle". Each
-    parent is tidied like clean_breed (a known breed gets its usual spelling). Raises
+    parent is tidied like clean_breed (a known breed gets its usual spelling), and they're
+    put in A to Z order, so a Poodle x Labrador is the same cross as a Labrador x Poodle
+    (and only one of them is a lifer). Raises
     ValueError if a parent is missing, both are the same, or the name gets too long."""
     if not (first or "").strip() or not (second or "").strip():
         raise ValueError("Pick both breeds in the cross.")
@@ -367,6 +374,7 @@ def cross_name(first: str | None, second: str | None, known: Iterable[str] = ())
         raise ValueError("Pick one breed in each box.")
     if first.lower() == second.lower():
         raise ValueError("Pick two different breeds for a cross.")
+    first, second = sorted((first, second), key=str.lower)  # same cross, same name
     name = f"{first}{CROSS_SEPARATOR}{second}"
     if len(name) > MAX_BREED_LENGTH:
         raise ValueError(f"Please keep the two breeds under {MAX_BREED_LENGTH} characters "
@@ -424,9 +432,10 @@ def cross_breeds(sightings: pd.DataFrame) -> pd.DataFrame:
 
 def is_lifer(sightings: pd.DataFrame, breed: str, listed: set[str] | None = None) -> bool:
     """True if this breed isn't in the spotter's sightings yet. If `listed` is given, only
-    those (verified) breeds can be lifers."""
+    those (verified) breeds, and crosses if CROSSES_ARE_LIFERS, can be lifers."""
     if listed is not None and breed not in listed:
-        return False
+        if not (CROSSES_ARE_LIFERS and is_cross(breed)):
+            return False
     return breed not in set(sightings["breed"])
 
 

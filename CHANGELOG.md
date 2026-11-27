@@ -6,6 +6,11 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.28.0 - 2026-11-27 - Crosses are lifers
+- The first time you spot each cross breed, like a Labrador Retriever x Poodle, it's now a **lifer**, with balloons.
+- A Poodle x Labrador Retriever is the same cross as a Labrador Retriever x Poodle, so it only counts once. Crosses are always written with their breeds in A to Z order.
+- Badges and the breed total on your life list still count breeds only.
+
 ## 0.27.0 - 2026-11-27 - Log cross breeds
 - On **Spotted!**, switch on **It's a cross breed** and pick its two breeds, for dogs like a Labrador Retriever x Poodle.
 - Crosses show as **Breed A x Breed B** with a "Cross breed" label in Social and on your profile.

@@ -532,6 +532,7 @@ def test_cross_name_joins_two_breeds_with_their_usual_spelling():
     known = ["Labrador Retriever", "Poodle"]
     assert logic.cross_name("labrador retriever", " Poodle ", known) == "Labrador Retriever x Poodle"
     assert logic.cross_name("Poodle", "Sprocker  Spaniel", known) == "Poodle x Sprocker Spaniel"
+    assert logic.cross_name("Poodle", "Labrador Retriever", known) == "Labrador Retriever x Poodle"
     with pytest.raises(ValueError, match="both breeds"):
         logic.cross_name("Poodle", None, known)
     with pytest.raises(ValueError, match="different"):
@@ -555,15 +556,21 @@ def test_cross_parents_and_is_cross():
     assert logic.is_cross("Beagle x Pug") and not logic.is_cross("Shih Tzu")
 
 
-def test_crosses_are_not_lifers_and_have_their_own_list():
+def test_new_crosses_are_lifers_but_not_badge_breeds_and_have_their_own_list():
     listed = {"Pug", "Beagle"}
+    assert logic.is_lifer(sightings_of(("Pug", "2026-01-01")), "Beagle x Pug", listed)
     sightings = sightings_of(("Beagle x Pug", "2026-01-01"), ("Cavapoo", "2026-01-02"),
                              ("Beagle x Pug", "2026-01-03"))
-    assert not logic.is_lifer(sightings, "Pug x Beagle", listed)
+    assert not logic.is_lifer(sightings, "Beagle x Pug", listed)  # seen already
     assert logic.badge_progress(sightings, listed=listed)[0].earned_on is None
     assert logic.cross_breeds(sightings).to_dict("records") == [
         {"breed": "Beagle x Pug", "first_seen": "2026-01-01", "times_seen": 2}]
     assert list(logic.unverified_breeds(sightings, listed)["breed"]) == ["Cavapoo"]
+
+
+def test_crosses_are_never_lifers_when_switched_off(monkeypatch):
+    monkeypatch.setattr(logic, "CROSSES_ARE_LIFERS", False)
+    assert not logic.is_lifer(sightings_of(("Pug", "2026-01-01")), "Beagle x Pug", {"Pug"})
 
 
 def test_escape_markdown_neutralises_formatting():
