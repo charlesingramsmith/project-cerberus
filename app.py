@@ -126,6 +126,9 @@ button { min-height: 2.75rem; }
     position: relative; flex: none; width: 3rem; height: 3rem;
     border-radius: .5rem; overflow: hidden; background: rgba(128, 128, 128, .15);
 }
+/* Photo ID suggestions: a bigger photo of each suggested breed, to compare with yours */
+.cerb-row.guess { border-bottom: none; padding: .25rem 0; }
+.cerb-row.guess .thumb { width: 4.5rem; height: 4.5rem; }
 .cerb-row .thumb img {
     display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%;
 }
@@ -772,14 +775,24 @@ def photo_id_suggestions(photo: bytes):
         if not result.guesses:
             st.caption("Photo ID isn't sure about this one. Pick the breed yourself.")
             return
-        with st.container(horizontal=True, gap="small"):
-            for i, guess in enumerate(result.guesses):
-                chosen = st.session_state.get("sighting_breed") == guess.breed
-                st.button(f"{guess.breed} · {guess.label}", key=f"photo_id_pick_{i}",
+        for i, guess in enumerate(result.guesses):  # each with the breed's own photo
+            chosen = st.session_state.get("sighting_breed") == guess.breed
+            breed_info = breed_profiles.get(guess.breed)
+            pic = (breed_photo_html(breed_info, guess.breed)
+                   if breed_info and breed_info.image_url else "")
+            with st.container(horizontal=True, vertical_alignment="center", gap="small",
+                              key=f"photo_id_guess_{i}"):
+                st.markdown(
+                    f'<div class="cerb-row guess"><span class="thumb">{pic}</span>'
+                    f'<span class="main"><span class="name">{html.escape(guess.breed)}</span>'
+                    f'<br><span class="sub">{guess.label}</span></span></div>',
+                    unsafe_allow_html=True, width="stretch")
+                st.button("Picked" if chosen else "Pick", key=f"photo_id_pick_{i}",
                           type="primary" if chosen else "secondary",
                           on_click=pick_breed, args=(guess.breed,))
         known = len({b for b in model.class_breeds.values() if b})
-        st.caption(f"Tap one to fill in the breed, then check it. Photo ID knows {known} "
+        st.caption(f"Compare each breed's photo with yours and pick the one that matches, "
+                   f"then check it. Photo ID knows {known} "
                    f"of our {len(listed)} breeds so far, so it can't suggest the others yet.")
 
 

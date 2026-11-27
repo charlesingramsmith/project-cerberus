@@ -6,6 +6,10 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.25.0 - 2026-11-27 - Compare Photo ID's guesses
+- Each **Photo ID** suggestion now shows a photo of that breed next to its name, so you can compare it with your own photo and judge whether the guess is right.
+- Tap **Pick** on the one that matches to fill in the breed.
+
 ## 0.24.0 - 2026-11-27 - Hand-drawn icons and a dark mode switch
 - The tabs at the bottom have new hand-drawn icons in the same pencil style as the logo.
 - Emoji are gone from the app: every badge has its own pencil sketch, and so do ticks, tips and places in Social.
