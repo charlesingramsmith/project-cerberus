@@ -13,7 +13,8 @@ Derlin is run by Charlie, an individual based in the United Kingdom (not a compa
 ## The short version
 
 - We keep what you need to use the app: your account, your profile, your sightings, your photos and your dogs.
-- **Your sightings are shared with other members by default.** You can switch this off any time in **Settings > Privacy**.
+- **Your sightings are shared with other members by default** if you're 18 or over. You can switch this off any time in **Settings > Privacy**. If you're under 18, sharing starts off.
+- We ask the **year you were born** (not your full birthday), to check you're old enough and to keep under-18s' sightings private unless they choose to share. Other members never see it.
 - Before a photo is saved, it's made smaller and **everything hidden inside it, including its GPS location, is removed**. Exact coordinates are never stored.
 - No adverts, no tracking cookies, no analytics, and we never sell your information.
 - You can ask for a copy of your information, or for your account and everything in it to be deleted, by emailing **hello@derlin.app**.
@@ -25,11 +26,12 @@ Derlin is run by Charlie, an individual based in the United Kingdom (not a compa
 - **If you sign in with Google:** Google tells us your email address and, depending on your Google settings, your name and profile picture link. We don't get your Google password or anything else from your Google account.
 - **If you sign up with email:** your email address and a password. The password is stored only in scrambled (hashed) form by our sign-in provider, Supabase; nobody, including Charlie, can read it.
 - **Sign-in records** kept by Supabase, such as when you last signed in and the internet (IP) address used, to keep accounts secure.
+- **The year you were born**, asked when you create your account (or the first time you sign in with Google). We use it only to check you're 13 or over and to start your sightings private if you're under 18. It's kept with your account, not your profile, so other members can't see it.
 - **The last app update you've seen**, so the app can show a dot when there's something new.
 
 We use these to create your account, sign you in, keep it secure and contact you about your account if we need to.
 
-You need an email address to have an account, because that's how you sign in. Everything else you add (photos, notes, where you saw a dog, your dogs) is optional.
+You need an email address to have an account, because that's how you sign in, and we need your birth year to check your age. Everything else you add (photos, notes, where you saw a dog, your dogs) is optional.
 
 Derlin's use of information received from Google follows the **Google API Services User Data Policy**, including its Limited Use requirements. We only use it to sign you in and show your account; we never use it for adverts and never sell or pass it on.
 
@@ -43,7 +45,7 @@ For each dog you log: the breed, the date, where you saw it (exactly as you type
 
 From your sightings the app works out your life list, lifers and badges; these aren't stored separately.
 
-**Who can see them:** while **Share my sightings** is on (it is on by default, and new members are told this when they join), every signed-in member can see your sightings in the Social feed, including the "where" text, the photo, the dog's name, your notes and the badges you earned. Switch it off in **Settings > Privacy** and your sightings and their photos are hidden from other members again. Only you can see them while it's off. Please don't type anything in "where" that you wouldn't want other members to read, such as a home address.
+**Who can see them:** while **Share my sightings** is on (it is on by default for members aged 18 and over, off by default for members under 18, and new members are told which when they join), every signed-in member can see your sightings in the Social feed, including the "where" text, the photo, the dog's name, your notes and the badges you earned. Switch it off in **Settings > Privacy** and your sightings and their photos are hidden from other members again. Only you can see them while it's off. Please don't type anything in "where" that you wouldn't want other members to read, such as a home address.
 
 ### Photos
 
@@ -84,6 +86,7 @@ These are needed for the app to work the way you ask, so we don't ask for separa
 UK law says we must have a reason ("lawful basis") for using your information:
 
 - **To provide the app you signed up for** (contract): your account, profile, sightings, photos, dogs, life list and badges.
+- **Legal obligations and protecting children**: your birth year, so we only let in people aged 13 and over and keep under-18s' sightings private by default.
 - **Legitimate interests**: keeping the app secure, sharing sightings in Social so the community works (with an off switch you control), suggesting a date, place and breed from your photos (you can ignore or change them), and improving the app from your ideas and votes. We've weighed these against your privacy and keep them limited to what's needed.
 - **Legal obligations**: if the law requires us to keep or share something.
 
@@ -128,7 +131,15 @@ If you're unhappy with how we've handled your information, please tell us first 
 
 ## Children
 
-Derlin is for people aged **13 and over**. If you're under 13, please don't sign up. If we find out an account belongs to someone under 13, we'll delete it. If you think a child under 13 has an account, email **hello@derlin.app**.
+Derlin is for people aged **13 and over**. When you join, we ask the year you were born, and we don't let anyone under 13 create an account. If we find out an account belongs to someone under 13, we'll delete it. If you think a child under 13 has an account, email **hello@derlin.app**.
+
+**If you're 13 to 17**, Derlin follows the UK's Age Appropriate Design Code (the "Children's Code"), so your privacy settings start high:
+
+- **Your sightings start private.** Other members can't see the dogs you log, their photos or where you saw them. You can choose to share them in **Settings > Privacy**, and switch that off again any time.
+- Like everyone's, your username, profile picture, favourite breed and any dog profiles you add can be seen by other members, so don't use your real name as your username.
+- There are no adverts, no tracking and no location stored, whatever your age.
+
+If you're under 18, it's a good idea to talk to a parent or carer before you share your sightings.
 
 ## Keeping it safe
 

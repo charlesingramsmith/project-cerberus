@@ -25,11 +25,14 @@ def click(at: AppTest, label: str) -> AppTest:
     return at
 
 
-def sign_up(at: AppTest, username="charlie", email="charlie@example.com", password="correct-horse"):
+def sign_up(at: AppTest, username="charlie", email="charlie@example.com", password="correct-horse",
+            birth_year=1990):
     at.text_input(key="sign_up_username").input(username)
     at.text_input(key="sign_up_email").input(email)
     at.text_input(key="sign_up_password").input(password)
     at.text_input(key="sign_up_confirm").input(password)
+    if birth_year is not None:
+        at.selectbox(key="sign_up_birth_year").set_value(birth_year)
     return click(at, "Create account")
 
 
@@ -209,6 +212,10 @@ def test_continue_with_google_signs_in_on_return(at, monkeypatch):
     assert params["remember"] == "1"  # "Keep me signed in" is ticked by default
 
     back = returning_from_google(monkeypatch, **params)
+    # A brand-new Google member is asked their birth year before their profile is made.
+    assert "One more thing" in [h.value for h in back.subheader]
+    back.selectbox(key="google_birth_year").set_value(1990)
+    click(back, "Continue")
     assert "Google User's life list" in headers(back)
     assert not back.query_params  # the one-time code is cleared from the address bar
     assert back.session_state["remember"] is True
@@ -579,6 +586,73 @@ def test_new_members_can_turn_sharing_off_from_the_popup(at):
     click(at, "Turn sharing off")
     assert not [b for b in at.button if b.key == "notice_stop_sharing"]
     assert at.toggle(key="share_sightings").value is False
+
+
+# --- Under-18s start private (ICO Children's Code) --------------------------------------------
+
+def years_ago(n: int) -> int:
+    from datetime import date
+    return date.today().year - n
+
+
+def test_sign_up_needs_a_birth_year(at):
+    sign_up(at, birth_year=None)
+    assert "year you were born" in at.error[0].value
+    assert not at.header  # no account made
+
+
+def test_under_13s_cant_sign_up(at):
+    sign_up(at, birth_year=years_ago(10))
+    assert "13 or over" in at.error[0].value
+    assert not at.header
+
+
+def test_under_18s_start_with_their_sightings_private(at):
+    sign_up(at, birth_year=years_ago(15))
+    assert at.button(key="notice_keep_private")
+    assert not [b for b in at.button if b.key == "notice_keep_sharing"]
+    click(at, "Keep them private")
+    assert not [b for b in at.button if b.key == "notice_keep_private"]
+    assert at.toggle(key="share_sightings").value is False
+    # Someone else doesn't see their sighting in Social.
+    log_breed(at, "Beagle")
+    backend = at.session_state["backend"]
+    backend.sign_out()
+    backend.sign_up("someone@example.com", "correct-horse", "someone", 1990)
+    assert "Beagle" not in [p["breed"] for p in backend.social_feed()]
+
+
+def test_under_18s_can_choose_to_share_from_the_popup(at):
+    sign_up(at, birth_year=years_ago(16))
+    click(at, "Share my sightings")
+    assert not [b for b in at.button if b.key == "notice_start_sharing"]
+    assert at.toggle(key="share_sightings").value is True
+
+
+def test_google_members_too_young_are_turned_away(at, monkeypatch):
+    from urllib.parse import parse_qs, urlparse
+
+    params = {k: v[0] for k, v in parse_qs(urlparse(google_link(at)).query).items()}
+    back = returning_from_google(monkeypatch, **params)
+    back.selectbox(key="google_birth_year").set_value(years_ago(11))
+    click(back, "Continue")
+    assert "13 or over" in back.error[0].value
+    assert not headers(back)
+    click(back, "Sign out")
+    assert any(b.label == "Sign in" for b in back.button)
+
+
+def test_members_who_joined_before_birth_years_arent_asked(at):
+    backend = at.session_state["backend"]
+    backend.sign_up("old@example.com", "correct-horse", "oldtimer")  # no birth year
+    backend.my_profile()  # they already have a profile
+    backend.profile_is_new = False
+    backend.sign_out()
+    at.text_input(key="sign_in_email").input("old@example.com")
+    at.text_input(key="sign_in_password").input("correct-horse")
+    click(at, "Sign in")
+    assert "oldtimer's life list" in headers(at)
+    assert at.toggle(key="share_sightings").value is True
 
 
 # --- After a deploy -----------------------------------------------------------------------
