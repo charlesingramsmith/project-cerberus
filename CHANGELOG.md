@@ -6,6 +6,11 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.26.0 - 2026-11-27 - Log cross breeds
+- On **Spotted!**, switch on **It's a cross breed** and pick its two breeds, for dogs like a Labrador Retriever x Poodle.
+- Crosses show as **Breed A x Breed B** with a "Cross breed" label in Social and on your profile.
+- Crosses don't count as lifers or towards badges, since the life list is for breeds. They get their own **Crosses** list on your life list.
+
 ## 0.25.0 - 2026-11-27 - Compare Photo ID's guesses
 - Each **Photo ID** suggestion now shows a photo of that breed next to its name, so you can compare it with your own photo and judge whether the guess is right.
 - Tap **Pick** on the one that matches to fill in the breed.

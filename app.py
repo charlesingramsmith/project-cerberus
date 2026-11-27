@@ -233,6 +233,7 @@ button { min-height: 2.75rem; }
     white-space: nowrap;
 }
 .cerb-chip.unverified { border: 1px solid var(--plum); color: var(--plum); }
+.cerb-chip.cross { border: 1px solid var(--pistachio-text); color: var(--pistachio-text); }
 .cerb-chip.verified { background: var(--pistachio-soft); color: var(--pistachio-text); }
 
 /* A sighting's own photo, on its card in Profile and on shared posts in Social */
@@ -698,11 +699,13 @@ user = dataclasses.replace(user, username=profile["username"])  # the name other
 # which go on a shared list (user_breeds) so others can pick them and the owner can review.
 listed = set(breeds["breed"])  # only these count towards the life list, lifers and badges
 try:
-    added_breeds = [b for b in backend.list_user_breeds() if b not in listed]
+    added_breeds = [b for b in backend.list_user_breeds()
+                    if b not in listed and not logic.is_cross(b)]
 except AuthError as err:
     end_session(str(err))
 md_text = logic.escape_markdown
 UNVERIFIED_CHIP = f'<span class="cerb-chip unverified">{logic.UNVERIFIED}</span>'
+CROSS_CHIP = f'<span class="cerb-chip cross">{logic.CROSS}</span>'
 
 
 
@@ -748,8 +751,14 @@ def photo_picker(key: str, note: str, max_side: int = logic.PHOTO_MAX_SIDE) -> b
 
 
 def pick_breed(breed: str):
-    """A Photo ID suggestion was tapped: put that breed in the form's Breed box."""
-    st.session_state.sighting_breed = breed
+    """A Photo ID suggestion was tapped: put that breed in the form's Breed box. For a
+    cross whose first breed is already picked, it fills the second breed instead."""
+    first = st.session_state.get("sighting_breed")
+    if (st.session_state.get("sighting_is_cross") and first and first != breed
+            and not st.session_state.get("sighting_breed_2")):
+        st.session_state.sighting_breed_2 = breed
+    else:
+        st.session_state.sighting_breed = breed
 
 
 def photo_id_suggestions(photo: bytes):
@@ -778,7 +787,8 @@ def photo_id_suggestions(photo: bytes):
             st.caption("Photo ID isn't sure about this one. Pick the breed yourself.")
             return
         for i, guess in enumerate(result.guesses):  # each with the breed's own photo
-            chosen = st.session_state.get("sighting_breed") == guess.breed
+            chosen = guess.breed in (st.session_state.get("sighting_breed"),
+                                     st.session_state.get("sighting_breed_2"))
             breed_info = breed_profiles.get(guess.breed)
             pic = (breed_photo_html(breed_info, guess.breed)
                    if breed_info and breed_info.image_url else "")
@@ -798,9 +808,12 @@ def photo_id_suggestions(photo: bytes):
                    f"of our {len(listed)} breeds so far, so it can't suggest the others yet.")
 
 
-def unverified_chip(breed: str) -> str:
-    """The "Unverified breed" label, for a breed that isn't on the verified list."""
-    return "" if breed in listed else UNVERIFIED_CHIP
+def breed_chip(breed: str) -> str:
+    """A "Cross breed" label for a cross, or "Unverified breed" for a breed that isn't on
+    the verified list."""
+    if breed in listed:
+        return ""
+    return CROSS_CHIP if logic.is_cross(breed) else UNVERIFIED_CHIP
 
 
 def load_dogs() -> list[dict] | None:
@@ -898,6 +911,9 @@ if flash:
         if badge:
             st.success(f"Badge earned: **{badge.name}**! "
                        f"{badge.description}. See it in Profile.")
+    elif kind == "cross":
+        st.info(f"Logged a **{md_text(breed_name)}** cross. Crosses don't count as lifers, "
+                "so it's under **Crosses** on your life list.")
     elif kind == "unverified":
         st.info(f"Logged a **{md_text(breed_name)}**, an unverified breed. It's not on the "
                 "life list yet, so it's under **Unverified breeds** on your life list. "
@@ -967,6 +983,9 @@ with tab_spotted:
             return f"{name}  · unverified"
         return name if name in seen_breeds else f"{name}  · new"
 
+    def parent_label(name: str) -> str:  # a cross is never a lifer, so no "new"
+        return name if name in listed else f"{name}  · unverified"
+
     def fill_from_tags():
         """Tagging dogs fills in the dog's name and breed straight away (if they're empty,
         or still hold what an earlier tag filled in), so you can see and change them."""
@@ -999,18 +1018,33 @@ with tab_spotted:
             help="Tag dogs that have a profile, like your own. Their name and breed are "
                  "filled in for you.")
 
+    if st.session_state.pop("clear_cross", False):  # the last sighting was just logged
+        st.session_state.sighting_is_cross = False
+    # Outside the form, so switching it on shows the second breed box straight away.
+    is_cross = st.toggle(
+        "It's a cross breed", key="sighting_is_cross",
+        help="A dog whose parents are two different breeds, like a Labrador Retriever x "
+             "Poodle. Crosses are logged as **Breed A x Breed B** and don't count as lifers.")
+
+    breed_options = [*breeds["breed"], *added_breeds]
     with st.form("log_sighting", clear_on_submit=True, border=False):
         breed = st.selectbox(
-            "Breed",
-            [*breeds["breed"], *added_breeds],
+            "First breed" if is_cross else "Breed",
+            breed_options,
             index=None,
-            format_func=breed_label,
+            format_func=parent_label if is_cross else breed_label,
             placeholder="Start typing a breed…",
             accept_new_options=True,  # a breed that isn't listed can be typed in
             key="sighting_breed",
             help="Can't find the breed? Type it in. It's logged as an **unverified breed** "
                  "and we'll look at adding it to the app.",
         )
+        second_breed = None
+        if is_cross:
+            second_breed = st.selectbox(
+                "Second breed", breed_options, index=None,
+                placeholder="Start typing a breed…", accept_new_options=True,
+                key="sighting_breed_2", format_func=parent_label)
         seen_on = st.date_input("Date seen", value=dt.date.today(), max_value=dt.date.today())
         dog_name = st.text_input("Dog's name (if you found out)", key="sighting_dog_name")
         location = st.text_input(
@@ -1027,10 +1061,14 @@ with tab_spotted:
         tagged_dogs = [dogs_by_id[d] for d in tagged if d in dogs_by_id]
         breed = breed or logic.tagged_breed(tagged_dogs)
         dog_name = dog_name.strip() or logic.tagged_names(tagged_dogs)
+        known = [*listed, *added_breeds]
         try:
-            breed = logic.clean_breed(breed, [*listed, *added_breeds])
+            if is_cross:
+                breed = logic.cross_name(breed, second_breed, known)
+            else:
+                breed = logic.clean_breed(breed, known)
         except ValueError as err:
-            st.warning(str(err) if not tagged_dogs else
+            st.warning(str(err) if is_cross or not tagged_dogs else
                        "Pick a breed first (the dogs you tagged don't have one breed listed).")
             breed = None
         if breed is not None:
@@ -1049,17 +1087,23 @@ with tab_spotted:
                                      [d["id"] for d in tagged_dogs])
             except AuthError as err:
                 end_session(str(err))
-            if breed not in listed and breed not in added_breeds:
-                try:  # put it on the list of breeds to review (and for others to pick)
-                    backend.add_user_breed(breed)
+            # A typed-in breed (or either breed of a cross) goes on the list of breeds to
+            # review, and for others to pick. The cross itself isn't added.
+            for new_breed in logic.cross_parents(breed) or (breed,):
+                if new_breed in listed or new_breed in added_breeds:
+                    continue
+                try:
+                    backend.add_user_breed(new_breed)
                 except AuthError as err:
                     end_session(str(err))
                 except Exception:
                     pass  # not set up yet: the sighting is logged all the same
             st.session_state.clear_tags = True
+            st.session_state.clear_cross = True
             clear_photo("sighting_photo")
             st.session_state.flash = ("lifer" if lifer else
-                                      "repeat" if breed in listed else "unverified", breed)
+                                      "repeat" if breed in listed else
+                                      "cross" if logic.is_cross(breed) else "unverified", breed)
             st.rerun()
 
 # --- Life list ----------------------------------------------------------------------------------
@@ -1112,10 +1156,10 @@ def life_row(row, profile: logic.BreedProfile | None) -> str:
     )
 
 
-def unverified_row(row) -> str:
-    """A breed that isn't verified yet, as a plain row (no photo; its name was typed in)."""
+def unverified_row(row, chip: str = UNVERIFIED_CHIP) -> str:
+    """A breed that isn't verified yet (or a cross), as a plain row with no photo."""
     return (f'<div class="cerb-row"><span class="thumb icon">{sketches.svg("dog")}</span><div class="main">'
-            f'<div class="name">{html.escape(row.breed)}{UNVERIFIED_CHIP}</div>'
+            f'<div class="name">{html.escape(row.breed)}{chip}</div>'
             f'<div class="sub">First seen {row.first_seen} · seen {row.times_seen}×</div>'
             f'</div></div>')
 
@@ -1155,6 +1199,14 @@ with tab_life:
         st.caption("Breeds you typed in that aren't on the life list yet. We review them, "
                    "and once a breed is verified your sightings of it count as lifers.")
         st.markdown("".join(unverified_row(r) for r in unverified.itertuples()),
+                    unsafe_allow_html=True)
+
+    crosses = logic.cross_breeds(sightings)
+    if not crosses.empty:
+        st.subheader("Crosses")
+        st.caption("Cross breeds you've spotted. They don't count as lifers or towards "
+                   "badges, since the life list is for breeds.")
+        st.markdown("".join(unverified_row(r, CROSS_CHIP) for r in crosses.itertuples()),
                     unsafe_allow_html=True)
 
 # --- Your profile: who you are, plus every sighting you've logged ------------------------------
@@ -1385,7 +1437,9 @@ with tab_profile:
             with st.container(horizontal=True, vertical_alignment="top",
                               horizontal_alignment="distribute"):
                 st.markdown(f"**{md_text(s.breed)}**"
-                            + ("" if s.breed in listed else " :violet-badge[Unverified breed]")
+                            + ("" if s.breed in listed else
+                               f" :violet-badge[{logic.CROSS}]" if logic.is_cross(s.breed)
+                               else f" :violet-badge[{logic.UNVERIFIED}]")
                             + f"  \n{s.seen_on}"
                             + (f" · {md_text(s.location)}" if md_text(s.location) else ""))
                 with st.popover("Delete", help="Delete this sighting"):
@@ -1426,7 +1480,7 @@ def feed_post(post: dict, links: dict[str, str]) -> str:
     return (
         f'<div class="cerb-post">{avatar_html(post["avatar"], "avatar")}'
         f'<div class="main"><div class="who">{who} · {seen_on.day} {seen_on:%b %Y}</div>'
-        f'<div class="breed">{html.escape(post["breed"])}{unverified_chip(post["breed"])}</div>'
+        f'<div class="breed">{html.escape(post["breed"])}{breed_chip(post["breed"])}</div>'
         + earned + (f"<div>{tags}</div>" if tags else "")
         + "".join(f'<div class="sub">{line}</div>' for line in lines if line)
         + photo + "</div></div>"

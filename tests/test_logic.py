@@ -526,6 +526,46 @@ def test_unverified_breeds_lists_your_sightings_of_unlisted_breeds():
         {"breed": "Sprocker", "first_seen": "2026-02-01", "times_seen": 1}]
 
 
+# --- Cross breeds -----------------------------------------------------------------------
+
+def test_cross_name_joins_two_breeds_with_their_usual_spelling():
+    known = ["Labrador Retriever", "Poodle"]
+    assert logic.cross_name("labrador retriever", " Poodle ", known) == "Labrador Retriever x Poodle"
+    assert logic.cross_name("Poodle", "Sprocker  Spaniel", known) == "Poodle x Sprocker Spaniel"
+    with pytest.raises(ValueError, match="both breeds"):
+        logic.cross_name("Poodle", None, known)
+    with pytest.raises(ValueError, match="different"):
+        logic.cross_name("Poodle", "POODLE", known)
+    with pytest.raises(ValueError, match="one breed in each"):
+        logic.cross_name("Poodle", "Beagle x Pug", known)
+    with pytest.raises(ValueError, match="100 characters"):
+        logic.cross_name("a" * 60, "b" * 60, known)
+
+
+def test_a_cross_typed_in_one_box_is_tidied_part_by_part():
+    known = ["Labrador Retriever", "Poodle"]
+    assert logic.clean_breed("labrador retriever X poodle", known) == "Labrador Retriever x Poodle"
+    assert logic.clean_breed("Xoloitzcuintli", known) == "Xoloitzcuintli"  # an x, not a cross
+
+
+def test_cross_parents_and_is_cross():
+    assert logic.cross_parents("Beagle x Pug") == ("Beagle", "Pug")
+    assert logic.cross_parents("Beagle") is None
+    assert logic.cross_parents(None) is None
+    assert logic.is_cross("Beagle x Pug") and not logic.is_cross("Shih Tzu")
+
+
+def test_crosses_are_not_lifers_and_have_their_own_list():
+    listed = {"Pug", "Beagle"}
+    sightings = sightings_of(("Beagle x Pug", "2026-01-01"), ("Cavapoo", "2026-01-02"),
+                             ("Beagle x Pug", "2026-01-03"))
+    assert not logic.is_lifer(sightings, "Pug x Beagle", listed)
+    assert logic.badge_progress(sightings, listed=listed)[0].earned_on is None
+    assert logic.cross_breeds(sightings).to_dict("records") == [
+        {"breed": "Beagle x Pug", "first_seen": "2026-01-01", "times_seen": 2}]
+    assert list(logic.unverified_breeds(sightings, listed)["breed"]) == ["Cavapoo"]
+
+
 def test_escape_markdown_neutralises_formatting():
     assert logic.escape_markdown("**Rex** [x](y) :red[z]") == (
         r"\*\*Rex\*\* \[x\]\(y\) \:red\[z\]")
