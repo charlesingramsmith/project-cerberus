@@ -191,6 +191,11 @@ button { min-height: 2.75rem; }
 .cerb-badge.purebred { box-shadow: inset 0 0 0 2px var(--plum); }  /* rarer: a plum ring */
 .cerb-badge.cross .icon { color: var(--pistachio-text); }
 .cerb-badge.cross:not(.locked) { background: var(--pistachio-soft); }
+/* Life list stat cards (Lifers, Breeds, Spotted): equal widths, whatever the numbers */
+.st-key-life_stats > div { flex: 1 1 0 !important; min-width: 0 !important; width: auto !important; }
+.st-key-life_stats { align-items: stretch !important; }
+.st-key-life_stats [data-testid="stMetric"] { height: 100%; }
+
 /* Tapping a badge opens what it's for */
 .cerb-badge summary { list-style: none; cursor: pointer; }
 .cerb-badge summary::-webkit-details-marker { display: none; }
@@ -1369,12 +1374,14 @@ def unverified_row(row, chip: str = UNVERIFIED_CHIP) -> str:
 with tab_life:
     st.header(f"{user.username}'s life list")
     # Three small stat cards side by side, even on a narrow phone (st.columns would stack them).
-    with st.container(horizontal=True, wrap=False, gap="small"):
+    # The "life_stats" key lets MOBILE_CSS give all three the same width.
+    with st.container(horizontal=True, wrap=False, gap="small", key="life_stats"):
         st.metric("Lifers", lifers, border=True,
                   help="Every breed and cross you've spotted at least once.")
         st.metric("Breeds", f"{collected}/{total}", border=True,
                   help="Verified breeds you've spotted, out of all of them.")
-        st.metric("Spotted", len(sightings), border=True)
+        st.metric("Spotted", len(sightings), border=True,
+                  help="Every sighting you've logged, repeats included.")
     st.progress(collected / total if total else 0.0)
     coming = logic.next_badge(logic.badges_by_track(badges)[logic.LIFER])
     if coming:
