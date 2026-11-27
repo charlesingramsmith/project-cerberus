@@ -1588,8 +1588,14 @@ def dog_form(key: str, dog: dict | None = None):
     """Add a dog (dog=None) or edit one of yours. Saves on submit."""
     dog = dog or {}
     own_breeds = breeds["breed"].tolist() + [logic.MIXED_BREED]
+    parents = logic.cross_parents(dog.get("breed")) or (None, None)
     photo = photo_picker(f"dog_{key}_photo", "Other members can see your dog's photo.",
                          logic.DOG_PHOTO_MAX_SIDE)
+    # Outside the form, so switching it on shows the second breed box straight away.
+    is_cross = st.toggle("My dog is a cross breed", key=f"dog_{key}_is_cross",
+                         value=logic.is_cross(dog.get("breed")),
+                         help="Parents of two different breeds, like a Labrador Retriever "
+                              "x Poodle. Shown as **Breed A x Breed B**.")
     with st.form(f"dog_form_{key}", clear_on_submit=not dog, border=False):
         name = st.text_input("Name", value=dog.get("name", ""), key=f"dog_{key}_name",
                              max_chars=logic.MAX_DOG_NAME_LENGTH)
@@ -1598,10 +1604,20 @@ def dog_form(key: str, dog: dict | None = None):
             max_chars=30, placeholder="e.g. rex_the_lab",
             help="Others tag your dog in their posts with this. Letters, numbers, dots "
                  "and underscores. Leave it empty to make one from the name.")
-        breed = st.selectbox("Breed", own_breeds, key=f"dog_{key}_breed",
-                             placeholder="Pick a breed (optional)",
-                             index=own_breeds.index(dog["breed"])
-                             if dog.get("breed") in own_breeds else None)
+        second = None
+        if is_cross:
+            names = breeds["breed"].tolist()
+            breed = st.selectbox("First breed", names, key=f"dog_{key}_breed_a",
+                                 placeholder="Pick a breed",
+                                 index=names.index(parents[0]) if parents[0] in names else None)
+            second = st.selectbox("Second breed", names, key=f"dog_{key}_breed_b",
+                                  placeholder="Pick a breed",
+                                  index=names.index(parents[1]) if parents[1] in names else None)
+        else:
+            breed = st.selectbox("Breed", own_breeds, key=f"dog_{key}_breed",
+                                 placeholder="Pick a breed (optional)",
+                                 index=own_breeds.index(dog["breed"])
+                                 if dog.get("breed") in own_breeds else None)
         bio = st.text_area("Bio", value=dog.get("bio") or "", key=f"dog_{key}_bio",
                            max_chars=logic.MAX_DOG_BIO_LENGTH, height=80,
                            placeholder="Loves tennis balls, scared of cats.")
@@ -1613,6 +1629,8 @@ def dog_form(key: str, dog: dict | None = None):
         taken = {d["username"].lower() for d in all_dogs or [] if d.get("id") != dog.get("id")}
         username = next(u for u in logic.dog_username_candidates(name) if u not in taken)
     try:
+        if is_cross:
+            breed = logic.cross_name(breed, second, listed)
         photo_path = dog.get("photo_path")
         if photo is not None:
             photo_path = backend.add_dog_photo(photo)  # already made small, no GPS
