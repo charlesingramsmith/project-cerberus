@@ -47,6 +47,7 @@ from cerberus import logic  # noqa: E402
 from cerberus.backends import AuthError, MemoryBackend, SupabaseBackend  # noqa: E402
 from cerberus.oauth import PENDING, with_query, with_trailing_slash  # noqa: E402
 from cerberus.photo_id import PhotoID  # noqa: E402
+from cerberus import places  # noqa: E402
 from cerberus import sketches  # noqa: E402
 from cerberus.remember import MAX_AGE_DAYS, SAVED_SIGN_IN_JS  # noqa: E402
 
@@ -710,6 +711,7 @@ def clear_photo(key: str):
     """Empty a photo_picker (after saving, or when Remove is tapped)."""
     st.session_state[f"{key}_n"] = st.session_state.get(f"{key}_n", 0) + 1
     st.session_state.pop(f"{key}_prepared", None)
+    st.session_state.pop(f"{key}_details", None)
 
 
 def photo_picker(key: str, note: str, max_side: int = logic.PHOTO_MAX_SIDE) -> bytes | None:
@@ -719,6 +721,9 @@ def photo_picker(key: str, note: str, max_side: int = logic.PHOTO_MAX_SIDE) -> b
     Returns the photo made small and safe to store (`logic.prepare_photo`: resized, no GPS),
     or None. Keep it outside `st.form`: form widgets only send their value on submit, so
     there'd be no preview. Call `clear_photo(key)` once the photo is saved.
+    When and where the original was taken (`logic.photo_details`, read before the
+    metadata is stripped) waits in `st.session_state[f"{key}_details"]` as
+    (photo id, details).
     """
     n = st.session_state.get(f"{key}_n", 0)  # a new number makes a new, empty uploader
     with st.container(key=f"photo_pick_{key}"):
@@ -740,11 +745,48 @@ def photo_picker(key: str, note: str, max_side: int = logic.PHOTO_MAX_SIDE) -> b
             preview.warning(str(err))
             return None
         st.session_state[f"{key}_prepared"] = prepared
+        st.session_state[f"{key}_details"] = (photo.file_id,
+                                              logic.photo_details(photo.getvalue()))
     src = "data:image/jpeg;base64," + base64.b64encode(prepared[1]).decode()
     preview.markdown(f'<img class="photo-preview" src="{src}" alt="Your photo">',
                      unsafe_allow_html=True)
     preview.caption(note)
     return prepared[1]
+
+
+@st.cache_data(ttl=7 * 24 * 3600, show_spinner=False, max_entries=5000)
+def look_up_place(lat: float, lon: float) -> str:
+    """The place name for a (rounded) photo location. Cached, and shared by everyone,
+    which is fine: it's only a map lookup. Raises LookupError if none was found, so a
+    failed lookup isn't cached and the next photo tries again."""
+    place = places.place_for(lat, lon)
+    if place is None:
+        raise LookupError("no place found")
+    return place
+
+
+def fill_from_photo(key: str, date_key: str, where_key: str, earliest: dt.date):
+    """Fill in the date seen and suggest a place from a new photo's metadata, once per
+    photo. Only fills a box that's empty (or still holds today's date) or still holds
+    what an earlier photo filled in, so nothing the member typed is overwritten. Photos
+    without the details (screenshots, or a browser that removed them) fill in nothing."""
+    photo_id, details = st.session_state.get(f"{key}_details") or (None, None)
+    if details is None or st.session_state.get("photo_filled_for") == photo_id:
+        return
+    st.session_state.photo_filled_for = photo_id
+    filled = st.session_state.get("photo_filled", {})
+    today = dt.date.today()
+    taken_on = details.taken_on
+    if taken_on and earliest <= taken_on <= today and \
+            st.session_state.get(date_key, today) in (today, filled.get("date")):
+        filled["date"] = st.session_state[date_key] = taken_on
+    if details.where and (st.session_state.get(where_key) or "") in ("", filled.get("where")):
+        with st.spinner("Looking up where your photo was taken…"):
+            try:
+                filled["where"] = st.session_state[where_key] = look_up_place(*details.where)
+            except LookupError:
+                pass  # no place name: leave Where for the member
+    st.session_state.photo_filled = filled
 
 
 def pick_breed(breed: str):
@@ -988,6 +1030,13 @@ with tab_spotted:
         "stored in it.")
     if photo is not None:
         photo_id_suggestions(photo)
+    earliest_date = dt.date(dt.date.today().year - 10, 1, 1)
+    fill_from_photo("sighting_photo", "sighting_date", "sighting_where", earliest_date)
+    filled_in = st.session_state.get("photo_filled", {})
+    if photo is not None and filled_in:
+        what = " and ".join(name for name, part in (("Date", "date"), ("place", "where"))
+                            if part in filled_in).capitalize()
+        st.caption(f"{what} filled in from your photo. Change it if it's wrong.")
     tagged = []
     if all_dogs:  # dogs with a profile (anyone's) can be tagged by their @username
         # Outside the form below, so picking a dog can fill in its name and breed at once
@@ -1011,10 +1060,11 @@ with tab_spotted:
             help="Can't find the breed? Type it in. It's logged as an **unverified breed** "
                  "and we'll look at adding it to the app.",
         )
-        seen_on = st.date_input("Date seen", value=dt.date.today(), max_value=dt.date.today())
+        seen_on = st.date_input("Date seen", min_value=earliest_date,
+                                max_value=dt.date.today(), key="sighting_date")
         dog_name = st.text_input("Dog's name (if you found out)", key="sighting_dog_name")
         location = st.text_input(
-            "Where", placeholder="e.g. Hyde Park",
+            "Where", placeholder="e.g. Hyde Park", key="sighting_where",
             help="Other members can see this in Social if you share your sightings "
                  "(Settings > Privacy).")
         notes = st.text_area("Notes", placeholder="Good boy. Very fluffy.", height=80)
@@ -1057,6 +1107,7 @@ with tab_spotted:
                 except Exception:
                     pass  # not set up yet: the sighting is logged all the same
             st.session_state.clear_tags = True
+            st.session_state.pop("photo_filled", None)
             clear_photo("sighting_photo")
             st.session_state.flash = ("lifer" if lifer else
                                       "repeat" if breed in listed else "unverified", breed)
