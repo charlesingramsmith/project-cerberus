@@ -178,4 +178,5 @@ def main(refresh: bool = False) -> None:
 
 
 if __name__ == "__main__":
+    sys.stdout.reconfigure(encoding="utf-8")  # Windows can't print some photo names otherwise
     main(refresh="--refresh" in sys.argv[1:])
