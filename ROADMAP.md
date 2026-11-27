@@ -110,10 +110,20 @@ _Nothing in progress. Pick the next item from below._
   - New `conversations`/`messages` tables with RLS so only the people in a conversation can read it. Messages are member text, so show them escaped (plain text), like bios.
   - Streamlit has no live updates or push notifications: new messages would show on the next rerun or a refresh button. Realtime chat and notifications fit better after **Launch a real app** (Supabase Realtime and push in a store app). Email alerts would need the domain's email sender.
   - Check privacy-policy and age-rating wording before launch: app stores ask about user-to-user messaging.
+**The launch plan, in order** (agreed with the owner on 27 Nov 2026; the three items below give the detail). Each step waits for the one before it:
+
+1. **Pick a name (naming brainstorm first).** Sit down together and brainstorm names before anything else, because the domain, the website and the store listings all use it. See **A brand name**.
+2. **Buy the domain** (about £10 a year). A domain is the web address, like `ourname.app`. Buy it from a registrar such as Cloudflare, Porkbun or Namecheap, which are cheap and include privacy for your contact details. See **Our own web address**.
+3. **A free one-page website on the domain.** A simple landing page that says what the app is and has a button to open it. Free hosts such as GitHub Pages or Cloudflare Pages can serve it.
+4. **Move the app's hosting off Streamlit Cloud** (about £5-7 a month on Render or Railway) so the app itself runs on the domain. Meanwhile, "Add to Home Screen" in a phone's browser already gives an app-like icon as a stopgap. See **Launch a real app**.
+5. **A native app, last.** Rebuild the screens as a phone app (for example with React Native) on the same Supabase backend, so members' accounts and sightings carry over. Then publish to Google Play (about £20 once) and the App Store (about £80 a year).
+
+Nothing is bought or built yet.
+
 - [ ] **A brand name**: a proper name for the app (it's called Project Cerberus for now).
   - Planning: shortlist names; check each is free as a domain, on the App Store and Google Play, and on social handles; do a quick trademark search (UK IPO, EUIPO, USPTO) for the pet/app classes; ask a few members which they like.
   - Decide whether "Cerberus" stays as the code/project name and only the app's display name changes.
-  - The owner chose (27 Nov 2026) to do the visual refresh first under the current name and rework the name later. The dachshund logo can stay; a wordmark follows the name. Do the name before buying a domain.
+  - The owner chose (27 Nov 2026) to do the visual refresh first under the current name and rework the name later. The dachshund logo can stay; a wordmark follows the name. Do the name before buying a domain (step 1 of the launch plan above).
   - Changing it touches the page title and text in `app.py` (including the sign-in screen under the logo), `README.md`, the Google sign-in consent screen and Supabase email templates.
 - [ ] **Our own web address (domain)**: e.g. `<brand>.app` instead of `project-cerberus.streamlit.app`.
   - Planning: pick the name first; choose a registrar (cost per year, renewal price, WHOIS privacy); decide between `.com`, `.app` (HTTPS only, fine for us) or a country domain.
