@@ -1,8 +1,11 @@
 """End-to-end check of the Streamlit app (in demo mode) using Streamlit's test runner."""
+import re
 from pathlib import Path
 
 import pytest
 from streamlit.testing.v1 import AppTest
+
+from cerberus import logic
 
 APP = str(Path(__file__).resolve().parent.parent / "app.py")
 
@@ -922,3 +925,26 @@ def test_spotted_asks_for_the_breed_first_then_the_details(at):
     assert "Pug" in at.success[0].value
     assert spot_step(at) == 1  # ready for the next dog
     assert at.selectbox(key="sighting_breed").value is None
+
+
+def face_balloons(at: AppTest) -> str:
+    """The lifer celebration's HTML, or "" if nothing is floating up."""
+    return next((m.value for m in at.markdown if 'class="face-balloons"' in m.value), "")
+
+
+def test_a_lifer_floats_the_breeds_face_up_instead_of_balloons(at):
+    sign_up(at)
+    log_breed(at, "Beagle")
+    floating = face_balloons(at)
+    assert floating.count('class="face-balloon"') == logic.FACE_BALLOONS
+    photos = set(re.findall(r"background-image:url\(&quot;(.*?)&quot;", floating))
+    assert len(photos) == 1  # every circle is the Beagle's face
+    log_breed(at, "Beagle")
+    assert not face_balloons(at)  # only for a lifer
+
+
+def test_a_cross_lifer_floats_both_parents_faces(at):
+    sign_up(at)
+    log_cross(at, "Labrador Retriever", "Poodle")
+    photos = set(re.findall(r"background-image:url\(&quot;(.*?)&quot;", face_balloons(at)))
+    assert len(photos) == 2

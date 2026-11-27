@@ -650,3 +650,14 @@ def test_posted_on_reads_the_day_in_the_members_time_zone():
     assert logic.posted_on("2026-07-01T23:30:00Z", "Europe/London") == date(2026, 7, 2)  # BST
     assert logic.posted_on("2026-07-01T23:30:00+00:00", "Not/A_Zone") == date(2026, 7, 1)
     assert logic.posted_on(None) is None and logic.posted_on("soon") is None
+
+
+def test_celebration_layout_floats_the_breeds_face_or_both_parents():
+    pug = logic.celebration_layout("Pug")
+    assert len(pug) == logic.FACE_BALLOONS
+    assert {face["breed"] for face in pug} == {"Pug"}
+    # Spread across the screen, never off its edges, and slower than Streamlit's balloons
+    assert len({face["left"] for face in pug}) == len(pug)
+    assert all(0 <= face["left"] <= 90 and face["rise"] >= 8 for face in pug)
+    cross = logic.celebration_layout("Beagle x Pug", count=4)
+    assert [face["breed"] for face in cross] == ["Beagle", "Pug", "Beagle", "Pug"]

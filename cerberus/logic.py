@@ -396,6 +396,31 @@ def is_cross(breed: str | None) -> bool:
     return cross_parents(breed) is not None
 
 
+# --- Lifer celebration --------------------------------------------------------------
+
+FACE_BALLOONS = 12  # how many breed faces float up for a new lifer
+
+
+def celebration_layout(breed: str, count: int = FACE_BALLOONS) -> list[dict]:
+    """Where each floating face goes when a lifer is logged: one dict per face, with the
+    breed whose face it shows (a cross takes turns between its two parents), how far
+    across the screen it starts (left, %), when it sets off and how long it takes to
+    rise (delay, seconds), and its size (rem). Spread out but fixed, so tests can check
+    it and the faces never bunch up on one side."""
+    parents = cross_parents(breed)
+    faces = list(parents) if parents else [breed]
+    layout = []
+    for i in range(count):
+        layout.append({
+            "breed": faces[i % len(faces)],
+            "left": round(4 + (i * 5 % count) / count * 80, 1),  # 4-84% across, shuffled
+            "delay": round(i * 0.35, 2),
+            "rise": round(8 + (i * 5 % 4) * 0.75, 2),  # 8-10.25 s, slower than balloons
+            "size": (4.25, 3.5, 5.0)[i % 3],
+        })
+    return layout
+
+
 _MARKDOWN_SPECIAL = re.compile(r"([\\`*_{}\[\]()#+\-.!|<>~:$])")
 
 
