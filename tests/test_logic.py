@@ -1,4 +1,5 @@
 import base64
+import re
 from datetime import date
 
 import pytest
@@ -722,3 +723,23 @@ def test_sketches_and_logo_are_crisp_vectors():
     assert not any("<filter" in d or "filter=" in d for d in drawings)
     mask = base64.b64decode(sketches.data_uri("paw").split(",", 1)[1]).decode()
     assert 'width="96" height="96"' in mask  # big enough that a mask is never stretched up
+
+
+def test_legal_page_drops_the_title_and_shrinks_headings():
+    page = logic.legal_page("# Privacy policy\n\nIntro\n\n## Who\n\nText\n\n### Photos\n")
+    assert page == "Intro\n\n#### Who\n\nText\n\n##### Photos"
+
+
+@pytest.mark.parametrize("path", [logic.PRIVACY_MD, logic.TERMS_MD])
+def test_legal_pages_are_dated_and_give_a_contact(path):
+    text = path.read_text(encoding="utf-8")
+    assert text.startswith("# ")
+    assert re.search(r"\*\*Last updated: \d{1,2} \w+ \d{4}\*\*", text)
+    assert "hello@derlin.app" in text
+    assert "[" not in text  # no placeholders or links left to fill in
+
+
+def test_privacy_policy_names_every_service_the_app_uses():
+    text = logic.PRIVACY_MD.read_text(encoding="utf-8")
+    for service in ("Supabase", "Streamlit", "Google", "OpenStreetMap", "Wikimedia"):
+        assert service in text

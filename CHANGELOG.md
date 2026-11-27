@@ -6,6 +6,9 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.35.0 - 2026-11-27 - Privacy policy and terms
+- Read our **Privacy policy** and **Terms of use** in **Settings > Privacy and terms**, or at the bottom of the sign-in screen. They say, in plain English, what the app keeps about you, who can see it, which services help run it, and how to get a copy of your data or have your account deleted.
+
 ## 0.34.0 - 2026-11-27 - Dog profile pages
 - Tap a tagged **@dog** on a post in Social (or on your own sightings in Profile) to open that dog's page: its photo, name, breed (crosses shown as **Breed A x Breed B**), owner and bio.
 - The page lists every sighting the dog is tagged in, with a gallery of their photos. Tap a photo to see it bigger.
