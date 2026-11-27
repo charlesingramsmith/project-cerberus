@@ -573,3 +573,64 @@ def test_escape_markdown_neutralises_formatting():
     # An empty optional field from the database (None, which pandas turns into NaN)
     assert logic.escape_markdown(None) == ""
     assert logic.escape_markdown(float("nan")) == ""
+
+
+# --- Date and place from a photo's metadata ---------------------------------------
+
+def photo_with_details(taken="2025:06:01 14:30:00", gps=((51, 30, 26.4), "N", (0, 7, 39.6), "W")):
+    import io
+
+    from PIL import Image
+
+    exif = Image.Exif()
+    if taken:
+        exif.get_ifd(logic.EXIF_IFD)[logic.DATE_TAKEN] = taken
+    if gps:
+        lat, lat_ref, lon, lon_ref = gps
+        exif.get_ifd(logic.GPS_IFD).update({1: lat_ref, 2: lat, 3: lon_ref, 4: lon})
+    out = io.BytesIO()
+    Image.new("RGB", (40, 30), "tan").save(out, format="JPEG", exif=exif)
+    return out.getvalue()
+
+
+def test_photo_details_read_the_date_and_a_rounded_spot():
+    from datetime import date
+
+    details = logic.photo_details(photo_with_details())
+    assert details.taken_on == date(2025, 6, 1)
+    assert details.where == (51.507, -0.128)  # west is negative, rounded to about 100 m
+
+
+def test_photo_details_handle_south_and_east():
+    details = logic.photo_details(photo_with_details(gps=((33, 52, 0), "S", (151, 12, 0), "E")))
+    assert details.where == (-33.867, 151.2)
+
+
+def test_photos_without_metadata_give_no_details():
+    assert logic.photo_details(photo_with_details(taken=None, gps=None)) == logic.PhotoDetails()
+    assert logic.photo_details(make_image()) == logic.PhotoDetails()
+    assert logic.photo_details(b"not a photo") == logic.PhotoDetails()
+
+
+def test_odd_metadata_is_ignored():
+    details = logic.photo_details(photo_with_details(taken="0000:00:00 00:00:00",
+                                                     gps=((0, 0, 0), "N", (0, 0, 0), "E")))
+    assert details == logic.PhotoDetails()
+
+
+def test_the_saved_photo_still_has_no_location():
+    original = photo_with_details()
+    assert logic.photo_details(original).where
+    assert logic.photo_details(logic.prepare_photo(original)) == logic.PhotoDetails()
+
+
+@pytest.mark.parametrize("address, expected", [
+    ({"leisure": "Hyde Park", "suburb": "Mayfair", "city": "London"}, "Hyde Park, London"),
+    ({"road": "High St", "suburb": "Clapham", "city": "London"}, "Clapham, London"),
+    ({"village": "Grasmere", "county": "Cumbria"}, "Grasmere"),
+    ({"town": "Ambleside"}, "Ambleside"),
+    ({"road": "A591"}, None),
+    ({}, None),
+])
+def test_place_names_are_short(address, expected):
+    assert logic.place_name(address) == expected

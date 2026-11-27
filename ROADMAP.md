@@ -55,6 +55,9 @@ A guided question flow ("help me identify": size, coat, ears) was considered and
   - Model: MobileNetV3Large trained on ImageNet (`models/dog_breeds.onnx`, 22 MB, made by `scripts/export_photo_id_model.py`), run in the app with `onnxruntime` (`cerberus/photo_id.py`, a few milliseconds per photo). `data/photo_id_breeds.csv` maps its 118 dog classes to 114 of our 141 breeds (73 of the top 100, plus the 41 added for it); `logic.breed_guesses` adds up classes per breed and scores them as a share of all dog classes.
   - Tested on 27 Nov 2026 with 376 web photos (4 per breed, 94 of our breeds, from an FCI breeds photo set on GitHub): for the 73 breeds it knows, the right breed was in the top 3 for 98% of photos (top guess 91%). Across all 94 breeds it's about 73%, because it can't suggest the 27 it doesn't know, and for those it sometimes confidently suggests a look-alike. **Smarter Photo ID** (Next) fixes that.
   - The photo stays on our server. Photo ID runs once per photo (cached by the photo's hash in `st.session_state`).
+- [x] **Date and place from a photo** (27 Nov 2026, owner's ask): adding a photo on Spotted! fills in **Date seen** from when it was taken and suggests **Where** as a short place name ("Hyde Park, London"). Both can be changed.
+  - `logic.photo_details` reads the photo's EXIF (date taken, GPS) from the original upload, before `prepare_photo` strips it. The spot is rounded to about 100 m and sent to OpenStreetMap's free reverse geocoder, Nominatim (`cerberus/places.py`, cached in `app.look_up_place`); `logic.place_name` makes the short name. Only the place name the member keeps is saved, never coordinates (sightings still store free text).
+  - Many photos carry no details: screenshots, photos shared through messaging apps, and some phone browsers (iPhone Safari especially) remove the location when a photo is picked. Then nothing is filled in. Nominatim allows about one lookup a second: if the app grows a lot, move to a paid geocoder or our own.
 
 ## Now
 
@@ -91,6 +94,7 @@ _Nothing in progress. Pick the next item from below._
   - Simplest start: a free-text place name (e.g. "Hyde Park"). Then add "Use my current location" on phones; Streamlit has no built-in GPS, so this needs a small component that asks the browser for location (with the user's permission). Could also pick a spot on a map.
   - New nullable column(s) on sightings in `supabase/schema.sql` (place name, and optionally latitude/longitude).
   - The free-text "where" already exists and is shown in the Social feed as typed. Exact GPS spots should stay private (never shown in Social).
+  - Done: a photo's own location suggests the place name (see **Date and place from a photo** in Done).
 - [ ] Map of where you've spotted dogs (builds on location on a sighting)
 - [ ] **More social**: compare life lists, leaderboards, "new lifer" highlights in the feed, and tapping a name to see that member's profile.
   - Builds on `profiles` and the "Members can read shared sightings" RLS policy. Comparing life lists and leaderboards work best between **Friends** (below).
