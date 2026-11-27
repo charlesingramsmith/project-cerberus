@@ -29,6 +29,10 @@ Derlin is run by Charlie, an individual based in the United Kingdom (not a compa
 
 We use these to create your account, sign you in, keep it secure and contact you about your account if we need to.
 
+You need an email address to have an account, because that's how you sign in. Everything else you add (photos, notes, where you saw a dog, your dogs) is optional.
+
+Derlin's use of information received from Google follows the **Google API Services User Data Policy**, including its Limited Use requirements. We only use it to sign you in and show your account; we never use it for adverts and never sell or pass it on.
+
 ### Your profile
 
 Your username, your profile picture (a breed photo you pick), your favourite breed, and your "share my sightings" setting. **Your username, picture and favourite breed can be seen by every signed-in member**, because they appear on your posts and profile. Your email address is never shown to other members.
