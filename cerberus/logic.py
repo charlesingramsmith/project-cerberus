@@ -19,6 +19,8 @@ ROADMAP_MD = ROOT / "ROADMAP.md"
 BREED_INFO_CSV = ROOT / "data" / "breed_info.csv"
 BREED_PHOTOS_CSV = ROOT / "data" / "breed_photos.csv"
 BREED_FACES_CSV = ROOT / "data" / "breed_faces.csv"
+PHOTO_ID_BREEDS_CSV = ROOT / "data" / "photo_id_breeds.csv"
+PHOTO_ID_MODEL = ROOT / "models" / "dog_breeds.onnx"
 
 SIGHTING_COLUMNS = ["id", "breed", "seen_on", "location", "dog_name", "notes", "photo_path",
                     "dog_ids"]  # dog_ids: the dog profiles tagged in it
@@ -115,7 +117,7 @@ def sightings_frame(rows: list[dict]) -> pd.DataFrame:
 
 PHOTO_TYPES = ["jpg", "jpeg", "png", "webp"]  # what the photo picker accepts
 MAX_PHOTO_UPLOAD_MB = 20  # a phone camera photo is usually 2-8 MB
-PHOTO_MAX_SIDE = 1600  # px: plenty for Photo ID later, and about 300 KB as a JPEG
+PHOTO_MAX_SIDE = 1600  # px: plenty for Photo ID, and about 300 KB as a JPEG
 PHOTO_QUALITY = 85
 NOT_A_PHOTO = "That file doesn't look like a photo. Try a JPG or PNG."
 
@@ -149,6 +151,83 @@ def photo_path(user_id: str, photo_id: str) -> str:
     named after their own id, so the folder must come first.
     """
     return f"{user_id}/{photo_id}.jpg"
+
+
+# --- Photo ID: breed suggestions from a photo -------------------------------------------
+# A small ready-made image model (models/dog_breeds.onnx, MobileNetV3 trained on ImageNet,
+# whose 1,000 things include 118 dog breeds) looks at the photo. data/photo_id_breeds.csv
+# lists the model's dog classes and which of our breeds each one is (blank if we don't
+# list that breed). cerberus/photo_id.py runs the model; these functions do the rest.
+# The model only suggests: the member always picks the breed.
+
+PHOTO_ID_SIZE = 224  # px: the model looks at a 224 x 224 square
+LIKELY = 0.7  # a guess this sure is "Very likely"
+POSSIBLE = 0.3  # ... this sure "Possible", below it "Long shot". A best guess below
+# POSSIBLE means "not sure": no suggestions, pick the breed yourself.
+MIN_DOG = 0.5  # how sure the model must be that there's a dog at all
+MIN_SHOWN = 0.05  # guesses below this aren't worth showing
+
+
+@dataclass(frozen=True)
+class BreedGuess:
+    breed: str
+    score: float  # 0 to 1: how much of the model's "it's a dog" belief went to this breed
+    label: str  # "Very likely", "Possible" or "Long shot"
+
+
+@dataclass(frozen=True)
+class PhotoGuesses:
+    is_dog: bool  # False: the model can't see a dog in the photo
+    guesses: tuple[BreedGuess, ...]  # best first; empty if no dog or not sure
+
+
+def load_photo_id_breeds(text: str) -> dict[int, str]:
+    """Parse data/photo_id_breeds.csv: model class number -> our breed name, or "" for a
+    dog breed the model knows that isn't on our list (it still counts as "a dog")."""
+    frame = pd.read_csv(io.StringIO(text), dtype={"breed": str}, keep_default_na=False)
+    return {int(row.class_id): row.breed.strip() for row in frame.itertuples()}
+
+
+def confidence_label(score: float) -> str:
+    return "Very likely" if score >= LIKELY else "Possible" if score >= POSSIBLE else "Long shot"
+
+
+def breed_guesses(probs, class_breeds: dict[int, str], top: int = 3) -> PhotoGuesses:
+    """Turn the model's scores for each class (probabilities adding up to 1) into our top
+    breed guesses. Classes for the same breed add up (toy, miniature and standard
+    poodle are all Poodle). Scores are shares of the dog classes only, so a clear photo
+    of a Beagle scores near 1 for Beagle however much else is in the picture."""
+    dog = float(sum(probs[i] for i in class_breeds))
+    if dog < MIN_DOG:
+        return PhotoGuesses(False, ())
+    scores: dict[str, float] = {}
+    for i, breed in class_breeds.items():
+        if breed:
+            scores[breed] = scores.get(breed, 0.0) + float(probs[i]) / dog
+    best = sorted(scores, key=scores.get, reverse=True)[:top]
+    if not best or scores[best[0]] < POSSIBLE:
+        return PhotoGuesses(True, ())
+    return PhotoGuesses(True, tuple(BreedGuess(b, scores[b], confidence_label(scores[b]))
+                                    for b in best if scores[b] >= MIN_SHOWN))
+
+
+def photo_id_pixels(data: bytes, size: int = PHOTO_ID_SIZE):
+    """The photo as the model wants it: the middle square, shrunk to size x size, as a
+    1 x size x size x 3 array of red/green/blue values from 0 to 255.
+    Raises ValueError if the file isn't an image."""
+    import numpy as np
+    from PIL import Image, ImageOps
+
+    try:
+        with Image.open(io.BytesIO(data)) as img:
+            img = ImageOps.exif_transpose(img).convert("RGB")
+            side = min(img.size)
+            left, top = (img.width - side) // 2, (img.height - side) // 2
+            img = img.crop((left, top, left + side, top + side)).resize(
+                (size, size), Image.Resampling.BILINEAR)
+            return np.asarray(img, dtype=np.float32)[None]
+    except (OSError, SyntaxError, ValueError, Image.DecompressionBombError) as err:
+        raise ValueError(NOT_A_PHOTO) from err
 
 
 # --- Verified and unverified breeds ----------------------------------------------------
