@@ -50,6 +50,10 @@ _Nothing in progress. Pick the next item from below._
 
 ## Next
 
+- [ ] **Dog identification**: a bigger project to help you work out which dog you've seen, starting with Photo ID below.
+  - Starts with a brainstorming session with the owner on how to get a simple model working, before anything is built. Questions to bring: identify the *breed* (Stanford Dogs-style classifier) or also a *particular dog* (matching a photo to a dog profile)? Hosted API vs. a small pretrained model (e.g. fine-tuned MobileNet/EfficientNet), and where it runs (Streamlit Cloud's memory limit, an external endpoint, or in the browser)? How to handle mixed breeds and "not sure"? What training data we can use (public datasets, then members' opt-in photos)? How we judge "good enough" (e.g. right breed in the top 3)?
+  - Covers these items rather than repeating them: **Photo ID** (below), **Help train the model with your photos** and **Sound ID** (Later), and the saved "Not sure / Mixed breed" dog ID mechanics in **Ideas** (built once in PR #25, reverted in PR #27, kept in git).
+  - Don't build any ID features until the brainstorm has happened and the owner picks an approach.
 - [ ] **Photo ID**: snap or upload a photo of the dog and get the top 3 likely breeds. Tap one to log it, or skip and pick the breed yourself.
   - Photo is optional: a sighting can always be logged without one, and the breed picker stays on the Spotted! tab.
   - Photo capture and storage are done (see **Photos on sightings** above). Next is the model; it can run on the photo before the sighting is logged, then the same photo is saved with it.
@@ -109,5 +113,5 @@ _Nothing in progress. Pick the next item from below._
 ## Ideas (not yet committed to)
 
 - Password reset by email. Built and removed in Nov 2026 (v0.11.0 to v0.13.1): Supabase only lets you edit the reset email template once custom SMTP is set up, and the owner chose not to set one up yet. The working version is in git (commit e30b98e): the email template links to `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=recovery`, and the app checks it with `verify_otp` and then asks for a new password. Bring it back once there's an email sender (for example a domain with Resend).
-- Mixed-breed / "unknown" sightings that can be identified later (a good fit for Photo ID). A first version was built and taken out again on 26 Nov 2026 (PR #25, reverted): "Not sure: help me identify it" and "Mixed breed" options on the post form (typed-in breeds came back separately as **Add your own breeds**), an Identify button in Profile, and an "Other dogs" section on the life list, with no schema change. Bring it back with `git revert` of the revert commit when it is time for dog ID.
+- Mixed-breed / "unknown" sightings that can be identified later (part of **Dog identification**, a good fit for Photo ID). A first version was built and taken out again on 26 Nov 2026 (PR #25, reverted): "Not sure: help me identify it" and "Mixed breed" options on the post form (typed-in breeds came back separately as **Add your own breeds**), an Identify button in Profile, and an "Other dogs" section on the life list, with no schema change. Bring it back with `git revert` of the revert commit when it is time for dog ID.
 - Regional life lists.

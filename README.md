@@ -100,6 +100,7 @@ Run the tests with `pytest`.
 - [x] 📸 Your own photo on a sighting (stored in Supabase Storage, shown in Social when shared): the first step to Photo ID
 - [x] 🐕 Dog profiles: your dogs get their own @username and profile, and can be tagged in posts
 - [x] ➕ Add your own breeds: typed-in breeds are logged as unverified and reviewed for the app
+- [ ] 🔎 Dog identification: a wider project to identify dogs from photos with a simple model, starting with a brainstorm on the approach
 - [ ] 📷 Photo ID: snap a photo and an ML model suggests the breed (you confirm, or just pick it yourself)
 - [ ] 🧠 Opt-in: share your confirmed photos to help train the model
 - [ ] 🔊 Sound ID: get a hint from a recorded bark (experimental)
