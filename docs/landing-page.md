@@ -38,5 +38,5 @@ DNS records are the address book that tells browsers which computer serves `derl
    up to a day; until then `.app` pages won't open, because they need HTTPS).
 
 ## When the app moves
-The button points at `APP_URL` in `scripts/build_site.py`. When the app gets its own
-hosting (launch plan step 4), change it there and rebuild.
+The button points at `APP_URL` in `scripts/build_site.py` (now `https://app.derlin.app`,
+on Render; see `docs/hosting.md`). If the app moves again, change it there and rebuild.

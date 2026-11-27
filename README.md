@@ -1,6 +1,6 @@
 # 🐕 Derlin
 
-**[▶ Try it live](https://project-cerberus.streamlit.app)**
+**[▶ Try it live](https://app.derlin.app)**
 
 **A life list for dog spotters.** Every time you see a dog, log its breed. The first time you log a breed it becomes a *lifer*. The goal is to collect all 141 breeds: the 100 most popular, plus 41 more that Photo ID can recognise.
 
@@ -92,7 +92,7 @@ Run the tests with `pytest`.
 
 **Render (app.derlin.app):** `render.yaml` is a Render Blueprint: in Render choose **New > Blueprint**, pick this repo and give it `SUPABASE_URL` and `SUPABASE_KEY` (the publishable key). It runs on the $7/month Starter plan and redeploys when `main` changes. Full steps, DNS and Google sign-in: [docs/hosting.md](docs/hosting.md).
 
-**Streamlit Community Cloud** (the current address, until the move is finished):
+**Streamlit Community Cloud** (the old address, kept running for a few weeks after the move):
 
 1. At [share.streamlit.io](https://share.streamlit.io), sign in with GitHub and create an app from this repo, with `app.py` as the main file.
 2. Under **Advanced settings > Secrets**, paste the contents of your `secrets.toml`.
