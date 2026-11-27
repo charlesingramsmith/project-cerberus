@@ -84,8 +84,8 @@ def test_full_journey(at):
 def test_signed_in_app_has_five_main_tabs(at):
     sign_up(at)
     labels = [t.label for t in at.tabs]
-    assert labels == ["Spotted!", "Life list", "Profile", "Social", "Settings"]
-    assert headers(at) == ["Spotted a dog?", "charlie's life list", "Your profile", "Social", "Settings"]
+    assert labels == ["Spotted!", "Social", "Life list", "Profile", "Settings"]
+    assert headers(at) == ["Spotted a dog?", "Social", "charlie's life list", "Your profile", "Settings"]
 
 
 def badge_cards(at: AppTest) -> str:
