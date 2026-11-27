@@ -1,6 +1,7 @@
 import base64
 import re
 from datetime import date
+from pathlib import Path
 
 import pytest
 
@@ -743,3 +744,19 @@ def test_privacy_policy_names_every_service_the_app_uses():
     text = logic.PRIVACY_MD.read_text(encoding="utf-8")
     for service in ("Supabase", "Streamlit", "Google", "OpenStreetMap", "Wikimedia"):
         assert service in text
+# --- Reports ---------------------------------------------------------------------------
+
+def test_report_reasons_match_the_database_check():
+    schema = (Path(__file__).parent.parent / "supabase" / "schema.sql").read_text()
+    keys = ", ".join(f"'{k}'" for k in logic.REPORT_REASONS)
+    assert f"reason in ({keys})" in schema
+
+
+def test_check_report_and_hiding_reported_posts():
+    logic.check_report("sighting", "spam")
+    with pytest.raises(ValueError):
+        logic.check_report("sighting", "rude")
+    with pytest.raises(ValueError):
+        logic.check_report("profile", "spam")
+    posts = [{"id": 1}, {"id": 2}, {"id": 3}]
+    assert logic.without_reported(posts, {2}) == [{"id": 1}, {"id": 3}]

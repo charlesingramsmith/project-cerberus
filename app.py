@@ -346,9 +346,14 @@ button { min-height: 2.75rem; }
 [class*="st-key-feedpost_"] { border-bottom: 1px solid rgba(128, 128, 128, .2); padding-bottom: .5rem; }
 [class*="st-key-feedpost_"] .cerb-post { border-bottom: none; padding-bottom: 0; }
 [class*="st-key-feedpost_"] [data-testid="stMarkdownContainer"] { margin-bottom: 0; }
-[class*="st-key-feedpost_"] [class*="st-key-dogtags_"] {
-    padding: .5rem 0 0 3.25rem; column-gap: .4rem; row-gap: .3rem;
+[class*="st-key-feedpost_"] [class*="st-key-postfoot_"] { padding: .35rem 0 0 3.25rem; }
+[class*="st-key-feedpost_"] [class*="st-key-dogtags_"] { column-gap: .4rem; row-gap: .3rem; }
+/* Report (report_menu): a quiet grey word, no arrow, so it doesn't pull the eye */
+[class*="st-key-report_"] [data-testid="stPopoverButton"] {
+    min-height: 0; padding: .05rem .25rem; color: var(--ink); opacity: .55;
 }
+[class*="st-key-report_"] button p { font-size: .8rem; }
+[class*="st-key-report_"] button [data-testid="stIconMaterial"] { display: none; }
 /* A dog's page (dog_page): a big picture, then a gallery of its photos. Tapping a photo
    opens it full width (an HTML details, so no rerun). */
 .dog-avatar.pic, .dog-avatar.sketched {
@@ -1034,6 +1039,12 @@ def move_listed_dogs_to_profiles() -> bool:
 all_dogs = load_dogs()
 if move_listed_dogs_to_profiles():
     profile, all_dogs = backend.my_profile(), load_dogs()
+try:  # what this member has reported: hidden from them straight away (see report_menu)
+    reported = backend.my_reports()
+except AuthError as err:
+    end_session(str(err))
+# A reported dog disappears for its reporter: its tags, "Find a dog" and its page.
+all_dogs = None if all_dogs is None else [d for d in all_dogs if d["id"] not in reported["dog"]]
 dogs_by_id = {d["id"]: d for d in all_dogs or []}
 my_dogs = [d for d in all_dogs or [] if d["owner_id"] == user.id]
 
@@ -1638,6 +1649,31 @@ def dog_tag_buttons(dog_ids, where: str):
                       type="tertiary", on_click=open_dog_page, args=(dog["id"],))
 
 
+def send_report(kind: str, item_id: int, reason: str):
+    """A Report menu's reason was tapped: send it. The post or dog is hidden from the
+    reporter on the next run (reported, above); nobody else's view changes."""
+    try:
+        backend.report(kind, item_id, reason)
+    except Exception:
+        st.toast("Reporting isn't available right now. Please try again later.")
+        return
+    if kind == "dog":
+        close_dog_page()
+    st.toast("Thanks for telling us. It's hidden for you now, and we'll take a look.")
+
+
+def report_menu(kind: str, item_id: int):
+    """A small "Report" link that opens a list of reasons; one tap sends the report.
+    kind is "sighting" (a post) or "dog" (a dog's profile and its photo)."""
+    what = "post" if kind == "sighting" else "dog's profile"
+    with st.popover("Report", type="tertiary", key=f"report_{kind}_{item_id}"):
+        st.caption(f"Why are you reporting this {what}? It'll be hidden for you, "
+                   "and we'll review it.")
+        for reason, label in logic.REPORT_REASONS.items():
+            st.button(label, key=f"reportwhy_{kind}_{item_id}_{reason}", width="stretch",
+                      on_click=send_report, args=(kind, item_id, reason))
+
+
 def dog_card(dog: dict, links: dict[str, str]):
     """A dog's profile: picture, @username, name, breed, owner and bio (all escaped)."""
     with st.container(border=True):
@@ -1859,19 +1895,30 @@ with tab_social:
         if feed is None:
             st.info("Social isn't available right now. Please try again later.")
         else:
+            everyone = feed
+            feed = logic.without_reported(feed, reported["sighting"])
             if all_dogs:  # look up any member's dog: picking one opens its page
                 st.selectbox("Find a dog", list(dogs_by_id), index=None, key="social_dog",
                              placeholder="Find a dog by @username",
                              format_func=lambda i: logic.dog_label(dogs_by_id[i]),
                              on_change=find_dog)
             links = photo_links(p.get("photo_path") for p in feed)
-            if not feed:
+            if not everyone:
                 st.info("No sightings yet. Log a dog and you'll be the first!")
+            elif not feed:
+                st.caption("Nothing new to show: you've reported the latest posts.")
             for post in feed:
                 # Each post on its own, so its tagged dogs can be buttons that open their page.
                 with st.container(key=f"feedpost_{post['id']}", gap=None):
                     st.markdown(feed_post(post, links, tags=False), unsafe_allow_html=True)
-                    dog_tag_buttons(post.get("dog_ids"), f"feed_{post['id']}")
+                    # Under the post: its tagged dogs, and Report on the right (not on
+                    # your own posts).
+                    with st.container(horizontal=True, vertical_alignment="center",
+                                      key=f"postfoot_{post['id']}"):
+                        dog_tag_buttons(post.get("dog_ids"), f"feed_{post['id']}")
+                        if post["user_id"] != user.id:
+                            st.space("stretch")
+                            report_menu("sighting", post["id"])
 
 # --- Settings ------------------------------------------------------------------------------
 def release_card(release: logic.Release, border: bool = True):
@@ -2008,6 +2055,8 @@ def dog_page():
         end_session(str(err))
     except Exception:
         posts = None
+    if posts is not None:
+        posts = logic.without_reported(posts, reported["sighting"])
     links = photo_links([dog.get("photo_path")] + [p.get("photo_path") for p in posts or []])
     with st.container(horizontal=True, vertical_alignment="center", gap="small"):
         st.markdown(dog_pic_html(dog, links, "dog-avatar"), unsafe_allow_html=True,
@@ -2019,8 +2068,12 @@ def dog_page():
             if breed := dog.get("breed"):
                 st.markdown(html.escape(breed) + (CROSS_CHIP if logic.is_cross(breed) else ""),
                             unsafe_allow_html=True)
-    st.caption("Your dog" if dog["owner_id"] == user.id else
-               f"Owned by {dog['owner']}" if dog.get("owner") else "")
+    with st.container(horizontal=True, vertical_alignment="center", key="dog_page_owner"):
+        st.caption("Your dog" if dog["owner_id"] == user.id else
+                   f"Owned by {dog['owner']}" if dog.get("owner") else "")
+        if dog["owner_id"] != user.id:
+            st.space("stretch")
+            report_menu("dog", dog["id"])
     if dog.get("bio"):
         st.text(dog["bio"])
     if posts is None:

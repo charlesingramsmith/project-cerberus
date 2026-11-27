@@ -1057,3 +1057,49 @@ def test_settings_shows_the_privacy_policy_and_terms(at):
     assert legal_labels(at) == ["Privacy policy", "Terms of use"]
     shown = " ".join(m.value for m in at.markdown)
     assert "GPS location" in shown and "13 or older" in shown
+# --- Reports ---------------------------------------------------------------------------
+
+def test_reporting_a_post_hides_it_from_the_reporter_only(at):
+    sign_up(at, username="alice", email="alice@example.com")
+    log_breed(at, "Pug")
+    backend = at.session_state["backend"]
+    pug_post = backend.list_sightings()[0]["id"]
+    open_tab(at, "Social")
+    assert not [b for b in at.button if b.key == f"reportwhy_sighting_{pug_post}_spam"]  # own post
+    click(at, "Sign out")
+    sign_up(at, username="bobby", email="bobby@example.com")
+    click(at, "Keep sharing")  # the new-member notice comes first
+
+    open_tab(at, "Social")
+    assert "Pug" in feed_html(at)
+    at.button(key=f"reportwhy_sighting_{pug_post}_not_a_dog").click().run()
+    assert not at.exception
+    assert "Pug" not in feed_html(at)
+    assert backend.my_reports()["sighting"] == {pug_post}
+    assert backend._reports()[0]["reason"] == "not_a_dog"
+
+    click(at, "Sign out")
+    at.text_input(key="sign_in_email").input("alice@example.com")
+    at.text_input(key="sign_in_password").input("correct-horse")
+    click(at, "Sign in")
+    open_tab(at, "Social")
+    assert "Pug" in feed_html(at)  # everyone else still sees it
+
+
+def test_reporting_a_dog_closes_its_page_and_hides_it(at):
+    sign_up(at, username="alice", email="alice@example.com")
+    add_dog(at, "Rex", username="rex", breed="Pug")
+    backend = at.session_state["backend"]
+    rex_id = backend.list_dogs()[0]["id"]
+    assert not [b for b in at.button if b.key == f"reportwhy_dog_{rex_id}_spam"]  # own dog
+    click(at, "Sign out")
+    sign_up(at, username="bobby", email="bobby@example.com")
+    click(at, "Keep sharing")
+
+    open_tab(at, "Social")
+    at.selectbox(key="social_dog").set_value(rex_id).run()
+    at.button(key=f"reportwhy_dog_{rex_id}_photo").click().run()
+    assert not at.exception
+    assert "dog_page" not in at.session_state
+    assert backend.my_reports()["dog"] == {rex_id}
+    assert not [s for s in at.selectbox if s.key == "social_dog"]  # no dogs left to find

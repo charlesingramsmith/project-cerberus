@@ -531,3 +531,35 @@ def test_a_dogs_page_is_empty_if_tags_cant_be_read():
             raise RuntimeError("relation sighting_dogs does not exist")
     backend.client.table = lambda name: Missing(log)
     assert backend.dog_sightings(7) == []
+
+
+# --- Reports ---------------------------------------------------------------------------
+
+def test_a_report_is_sent_with_user_id_and_a_repeat_is_ignored():
+    backend, log = make_backend()
+    backend.sign_in("charlie@example.com", "correct-horse")
+    backend.report("dog", 7, "not_a_dog")
+    insert = next(args[0] for name, args, _ in log if name == "insert")
+    assert insert == {"user_id": "uuid-1", "dog_id": 7, "reason": "not_a_dog"}
+
+    class Taken(FakeQuery):
+        def execute(self):
+            raise DuplicateError("duplicate key value violates unique constraint")
+    backend.client.table = lambda name: Taken(log)
+    backend.report("dog", 7, "spam")  # no error
+    with pytest.raises(ValueError):
+        backend.report("dog", 7, "rude")
+
+
+def test_my_reports_reads_only_your_own_and_survives_a_missing_table():
+    backend, log = make_backend()
+    backend.sign_in("charlie@example.com", "correct-horse")
+    backend.client.table = lambda name: FakeQuery(log, [
+        {"sighting_id": 3, "dog_id": None}, {"sighting_id": None, "dog_id": 7}])
+    assert backend.my_reports() == {"sighting": {3}, "dog": {7}}
+    assert ("eq", ("user_id", "uuid-1"), {}) in log
+
+    def missing(name):
+        raise RuntimeError("relation public.reports does not exist")
+    backend.client.table = missing
+    assert backend.my_reports() == {"sighting": set(), "dog": set()}

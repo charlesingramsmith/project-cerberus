@@ -343,3 +343,41 @@ create policy "Members can add breeds"
     on public.user_breeds for insert
     to authenticated
     with check ((select auth.uid()) = added_by and not rejected);
+
+
+-- Reports: a member flags a post (sighting) or a dog profile they think shouldn't be
+-- there. Each report names exactly one of the two. The app hides it from the reporter
+-- straight away; everyone else still sees it until the owner reviews it (Table Editor >
+-- reports, or the queries in docs/reviewing-reports.md) and ticks "reviewed". Members can
+-- only see their own reports, never who reported them.
+create table if not exists public.reports (
+    id           bigint generated always as identity primary key,
+    user_id      uuid not null default auth.uid() references auth.users (id) on delete cascade,
+    sighting_id  bigint references public.sightings (id) on delete cascade,
+    dog_id       bigint references public.dogs (id) on delete cascade,
+    reason       text not null check (reason in ('photo', 'not_a_dog', 'spam', 'other')),
+    reviewed     boolean not null default false,
+    created_at   timestamptz not null default now(),
+    check (num_nonnulls(sighting_id, dog_id) = 1)
+);
+
+-- One report per member per post or dog (reporting again is harmless: the app skips it).
+create unique index if not exists reports_sighting_unique
+    on public.reports (user_id, sighting_id) where sighting_id is not null;
+create unique index if not exists reports_dog_unique
+    on public.reports (user_id, dog_id) where dog_id is not null;
+create index if not exists reports_new_idx on public.reports (created_at) where not reviewed;
+
+alter table public.reports enable row level security;
+
+drop policy if exists "Users can read their own reports" on public.reports;
+create policy "Users can read their own reports"
+    on public.reports for select
+    to authenticated
+    using ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can add their own reports" on public.reports;
+create policy "Users can add their own reports"
+    on public.reports for insert
+    to authenticated
+    with check ((select auth.uid()) = user_id and not reviewed);

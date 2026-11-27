@@ -134,6 +134,15 @@ class Backend(Protocol):
     def suggest_feature(self, suggestion: str) -> None:
         """Send a feature idea. Raises ValueError if it's empty or too long."""
 
+    def report(self, kind: str, item_id: int, reason: str) -> None:
+        """Report a post (kind "sighting") or a dog profile (kind "dog") for the owner to
+        review. reason is a key of logic.REPORT_REASONS. Reporting the same thing twice is
+        harmless. Raises ValueError for a bad kind or reason, or one that doesn't exist."""
+
+    def my_reports(self) -> dict[str, set[int]]:
+        """What the signed-in user has reported: {"sighting": ids, "dog": ids}. Empty if
+        reports can't be read (e.g. the table isn't set up yet)."""
+
     def seen_version(self) -> str | None:
         """The newest app update (e.g. "0.6.0") the signed-in user has seen, or None."""
 
@@ -513,6 +522,30 @@ class SupabaseBackend:
         self.client.table("feature_suggestions").insert(
             {"suggestion": text, "user_id": user.id}).execute()
 
+    def report(self, kind, item_id, reason):
+        user = self._require_user()
+        logic.check_report(kind, reason)
+        try:
+            self.client.table("reports").insert(
+                {"user_id": user.id, f"{kind}_id": item_id, "reason": reason}).execute()
+        except Exception as err:
+            if not _is_duplicate(err):  # reported before: nothing more to do
+                raise
+
+    def my_reports(self):
+        user = self._require_user()
+        reported = {kind: set() for kind in logic.REPORT_KINDS}
+        try:  # reports are extras: if they can't be read, nothing is hidden
+            rows = (self.client.table("reports").select("sighting_id, dog_id")
+                    .eq("user_id", user.id).execute().data)
+        except Exception:
+            return reported
+        for row in rows:
+            for kind in logic.REPORT_KINDS:
+                if row.get(f"{kind}_id") is not None:
+                    reported[kind].add(row[f"{kind}_id"])
+        return reported
+
     # The last update a user has seen lives in their Supabase user_metadata, so no table
     # is needed and it follows them to every device. Supabase merges `data` into the
     # existing metadata, so the username is kept.
@@ -731,6 +764,8 @@ class MemoryBackend:
         for s in mine:
             self._photos().pop(s["photo_path"], None)
             self.__dict__["tags"] = {t for t in self._tags() if t[0] != s["id"]}
+            self.__dict__["reports"] = [r for r in self._reports()
+                                        if r.get("sighting_id") != s["id"]]
 
     def _user_breeds(self) -> dict[str, dict]:
         """lower-case name -> {name, added_by}, like the user_breeds table (whose unique
@@ -827,6 +862,7 @@ class MemoryBackend:
         self._photos().pop(dog["photo_path"], None)
         del self._dogs()[dog_id]
         self.__dict__["tags"] = {t for t in self._tags() if t[1] != dog_id}
+        self.__dict__["reports"] = [r for r in self._reports() if r.get("dog_id") != dog_id]
 
     def feature_vote_counts(self):
         self._require_user()
@@ -846,6 +882,28 @@ class MemoryBackend:
     def suggest_feature(self, suggestion):
         user = self._require_user()
         self.suggestions.append({"user_id": user.id, "suggestion": clean_suggestion(suggestion)})
+
+    def _reports(self) -> list[dict]:
+        """Rows like the reports table. Made on first use, for backends from before a deploy."""
+        return self.__dict__.setdefault("reports", [])
+
+    def report(self, kind, item_id, reason):
+        user = self._require_user()
+        logic.check_report(kind, reason)
+        exists = (any(s["id"] == item_id for s in self._sightings) if kind == "sighting"
+                  else item_id in self._dogs())
+        if not exists:  # like the database's foreign key
+            raise ValueError("That post or dog doesn't exist.")
+        key = f"{kind}_id"
+        if not any(r["user_id"] == user.id and r.get(key) == item_id for r in self._reports()):
+            self._reports().append({"user_id": user.id, key: item_id, "reason": reason,
+                                    "reviewed": False})
+
+    def my_reports(self):
+        user = self._require_user()
+        return {kind: {r[f"{kind}_id"] for r in self._reports()
+                       if r["user_id"] == user.id and r.get(f"{kind}_id") is not None}
+                for kind in logic.REPORT_KINDS}
 
     def seen_version(self):
         return self._seen.get(self._require_user().id)

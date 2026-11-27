@@ -6,6 +6,10 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.36.0 - 2026-11-27 - Report a post
+- See something that shouldn't be there? Tap **Report** under someone's post in Social, or on a dog's profile page, and pick why: an inappropriate photo, not a dog, spam or something else.
+- It disappears for you straight away, and we review every report. Nobody is told who reported them.
+
 ## 0.35.0 - 2026-11-27 - Privacy policy and terms
 - Read our **Privacy policy** and **Terms of use** in **Settings > Privacy and terms**, or at the bottom of the sign-in screen. They say, in plain English, what the app keeps about you, who can see it, which services help run it, and how to get a copy of your data or have your account deleted.
 
