@@ -744,6 +744,8 @@ def test_privacy_policy_names_every_service_the_app_uses():
     text = logic.PRIVACY_MD.read_text(encoding="utf-8")
     for service in ("Supabase", "Streamlit", "Google", "OpenStreetMap", "Wikimedia"):
         assert service in text
+
+
 # --- Reports ---------------------------------------------------------------------------
 
 def test_report_reasons_match_the_database_check():
@@ -760,3 +762,32 @@ def test_check_report_and_hiding_reported_posts():
         logic.check_report("profile", "spam")
     posts = [{"id": 1}, {"id": 2}, {"id": 3}]
     assert logic.without_reported(posts, {2}) == [{"id": 1}, {"id": 3}]
+
+
+def test_supabase_settings_come_from_secrets_first_then_the_environment():
+    secrets = {"url": "https://a.supabase.co", "key": "sb_publishable_a"}
+    environ = {"SUPABASE_URL": "https://b.supabase.co", "SUPABASE_KEY": "sb_publishable_b",
+               "SUPABASE_REDIRECT_URL": "https://app.derlin.app/"}
+    assert logic.supabase_settings(secrets, environ) == {
+        "url": "https://a.supabase.co", "key": "sb_publishable_a",
+        "redirect_url": "https://app.derlin.app/"}
+    assert logic.supabase_settings({}, environ)["url"] == "https://b.supabase.co"
+
+
+def test_supabase_settings_leave_out_missing_or_blank_values():
+    assert logic.supabase_settings({}, {}) == {}
+    assert logic.supabase_settings({"url": " "}, {"SUPABASE_KEY": ""}) == {}
+
+
+@pytest.mark.parametrize("url, expected", [
+    ("https://project-cerberus.streamlit.app/", True),
+    ("https://project-cerberus.streamlit.app/~/+/?flow=1", True),
+    ("https://app.derlin.app/", False),
+    ("https://derlin.onrender.com/", False),
+    ("http://localhost:8501/", False),
+    ("https://streamlit.app.example.com/", False),
+    (None, False),
+    ("", False),
+])
+def test_on_streamlit_cloud(url, expected):
+    assert logic.on_streamlit_cloud(url) is expected

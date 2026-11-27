@@ -88,7 +88,11 @@ Without Supabase keys the app starts in **demo mode**. To connect a real databas
 
 Run the tests with `pytest`.
 
-## Deploy (Streamlit Community Cloud)
+## Deploy
+
+**Render (app.derlin.app):** `render.yaml` is a Render Blueprint: in Render choose **New > Blueprint**, pick this repo and give it `SUPABASE_URL` and `SUPABASE_KEY` (the publishable key). It runs on the $7/month Starter plan and redeploys when `main` changes. Full steps, DNS and Google sign-in: [docs/hosting.md](docs/hosting.md).
+
+**Streamlit Community Cloud** (the current address, until the move is finished):
 
 1. At [share.streamlit.io](https://share.streamlit.io), sign in with GitHub and create an app from this repo, with `app.py` as the main file.
 2. Under **Advanced settings > Secrets**, paste the contents of your `secrets.toml`.

@@ -398,11 +398,18 @@ button { min-height: 2.75rem; }
     -webkit-mask: var(--tab-icon) center / contain no-repeat;
     mask: var(--tab-icon) center / contain no-repeat;
 }
-/* Streamlit Community Cloud pins its own badge (46px tall, ~140px wide) to the
-   bottom-right corner, on top of the app, where the app can't move it. On narrow
-   screens it would cover the last tabs, so lift the tabs above it: the bar's
-   background still reaches the bottom edge and the badge sits in that strip. On
-   wider screens the centred tabs stop short of the corner. */
+</style>
+"""
+st.html(MOBILE_CSS)
+
+# Streamlit Community Cloud pins its own badge (46px tall, ~140px wide) to the
+# bottom-right corner, on top of the app, where the app can't move it. On narrow
+# screens it would cover the last tabs, so there the tabs are lifted above it: the
+# bar's background still reaches the bottom edge and the badge sits in that strip. On
+# wider screens the centred tabs stop short of the corner. Other hosts (Render, at
+# app.derlin.app) have no badge, so the lift is only added on Streamlit Cloud.
+STREAMLIT_CLOUD_BADGE_CSS = """
+<style>
 @media (max-width: 840px) {
     [data-testid="stMainBlockContainer"] { padding-bottom: 9rem; }
     .st-key-main_nav [role="tablist"] {
@@ -411,7 +418,8 @@ button { min-height: 2.75rem; }
 }
 </style>
 """
-st.html(MOBILE_CSS)
+if logic.on_streamlit_cloud(st.context.url):
+    st.html(STREAMLIT_CLOUD_BADGE_CSS)
 
 
 def sketch_css() -> str:
@@ -460,14 +468,24 @@ DEMO_NOTICE = (
 )
 
 
+def supabase_settings() -> dict[str, str]:
+    """The Supabase url, key and optional redirect_url: from secrets.toml when it has a
+    [supabase] section (local runs, Streamlit Cloud), else from SUPABASE_* environment
+    variables (Render). See logic.supabase_settings."""
+    try:
+        section = dict(st.secrets["supabase"])
+    except Exception:  # no secrets file, or no [supabase] section
+        section = {}
+    return logic.supabase_settings(section, os.environ)
+
+
 def make_backend():
-    """Use Supabase when its keys are in secrets, otherwise fall back to demo mode."""
+    """Use Supabase when its keys are set, otherwise fall back to demo mode."""
     if os.environ.get("CERBERUS_DEMO") == "1":
         return MemoryBackend()
-    try:
-        cfg = st.secrets["supabase"]
-        url, key = cfg["url"], cfg["key"]
-    except Exception:  # no secrets file, or no [supabase] section
+    cfg = supabase_settings()
+    url, key = cfg.get("url", ""), cfg.get("key", "")
+    if not url or not key:
         return MemoryBackend()
     if "YOUR-PROJECT-REF" in url or key.endswith("..."):  # template not filled in yet
         return MemoryBackend()
@@ -558,10 +576,7 @@ def end_session(message: str | None = None):
 #    (see cerberus/oauth.py) using the flow id.
 def app_url() -> str:
     """Where Google should send people back to: this app, as the browser sees it."""
-    try:
-        url = st.secrets["supabase"]["redirect_url"]  # optional override
-    except Exception:
-        url = st.context.url or "http://localhost:8501/"
+    url = supabase_settings().get("redirect_url") or st.context.url or "http://localhost:8501/"
     return with_trailing_slash(url)
 
 
@@ -569,8 +584,8 @@ def app_url() -> str:
 # second one. Streamlit Cloud's frame is not allowed to send the tab elsewhere, but the
 # page around it is on the same site, so we put a link on that page and click it there.
 # If the outer page can't be reached, nothing is cancelled and the button's own
-# open-in-a-new-tab behaviour takes over. Running locally there's no frame at all, so
-# window.top is just this page.
+# open-in-a-new-tab behaviour takes over. Running locally or on Render there's no frame
+# at all, so window.top is just this page.
 SAME_TAB_SIGN_IN_JS = """
 <script>
 if (!window.cerberusSameTabSignIn) {

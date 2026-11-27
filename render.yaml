@@ -1,0 +1,36 @@
+# Render Blueprint: how Render (render.com) runs Derlin at app.derlin.app.
+# Render reads this file when you create the service with "New > Blueprint", then
+# redeploys automatically every time `main` changes, just like Streamlit Cloud.
+# Step-by-step setup for the owner: docs/hosting.md.
+services:
+  - type: web
+    name: derlin
+    runtime: python
+    plan: starter            # $7 a month: 512 MB memory, always on (the free plan sleeps)
+    region: frankfurt        # Render's closest region to the UK
+    branch: main
+    autoDeploy: true
+    buildCommand: pip install -r requirements.txt
+    # Render tells the app which port to listen on in $PORT.
+    startCommand: >-
+      streamlit run app.py
+      --server.port $PORT
+      --server.address 0.0.0.0
+      --server.headless true
+      --browser.gatherUsageStats false
+    healthCheckPath: /_stcore/health
+    domains:
+      - app.derlin.app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      # The Supabase project address and its PUBLISHABLE key (never the secret one).
+      # "sync: false" means Render asks for the value when the Blueprint is created,
+      # so it's never written in this file. Same values as .streamlit/secrets.toml.
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      # Where Google sign-in sends people back to.
+      - key: SUPABASE_REDIRECT_URL
+        value: https://app.derlin.app/

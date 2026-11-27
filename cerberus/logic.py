@@ -6,10 +6,11 @@ from __future__ import annotations
 
 import io
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
+from urllib.parse import urlparse
 
 import pandas as pd
 
@@ -1065,3 +1066,33 @@ def cross_badge_hints(sightings: pd.DataFrame) -> dict[str, str]:
         else:
             hints["cross-family"] = "The parents can be spotted before or after the cross."
     return hints
+
+
+# --- Hosting ------------------------------------------------------------------------------
+# The app runs on Streamlit Community Cloud (project-cerberus.streamlit.app) and on Render
+# (app.derlin.app; see render.yaml and docs/hosting.md). They differ in two ways.
+
+SUPABASE_ENV = {"url": "SUPABASE_URL", "key": "SUPABASE_KEY",
+                "redirect_url": "SUPABASE_REDIRECT_URL"}
+
+
+def supabase_settings(secrets: Mapping[str, str], environ: Mapping[str, str]) -> dict[str, str]:
+    """The Supabase url, key and (optional) redirect_url. Streamlit Cloud and local runs
+    keep them in .streamlit/secrets.toml's [supabase] section; Render passes them as the
+    environment variables in SUPABASE_ENV. Each value comes from secrets if set there,
+    otherwise from the environment; blank or missing ones are left out."""
+    settings = {}
+    for name, env_name in SUPABASE_ENV.items():
+        value = str(secrets.get(name) or environ.get(env_name) or "").strip()
+        if value:
+            settings[name] = value
+    return settings
+
+
+def on_streamlit_cloud(url: str | None) -> bool:
+    """Is the app being served from Streamlit Community Cloud (a *.streamlit.app address)?
+    Only there does a badge sit over the bottom-right corner of the app."""
+    if not url:
+        return False
+    host = urlparse(url).hostname or ""
+    return host == "streamlit.app" or host.endswith(".streamlit.app")
