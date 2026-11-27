@@ -1,8 +1,11 @@
 """End-to-end check of the Streamlit app (in demo mode) using Streamlit's test runner."""
+import re
 from pathlib import Path
 
 import pytest
 from streamlit.testing.v1 import AppTest
+
+from cerberus import logic
 
 APP = str(Path(__file__).resolve().parent.parent / "app.py")
 
@@ -540,6 +543,17 @@ def test_badges_show_in_the_social_feed(at):
     assert feed.count("Earned the <b>First lifer</b> badge") == 1
 
 
+def test_feed_shows_the_post_date_and_an_older_date_seen(at):
+    import datetime as dt
+    sign_up(at)
+    log_breed(at, "Beagle")
+    at.session_state["backend"].add_sighting("Pug", dt.date(2026, 3, 9))  # from an old photo
+    open_tab(at, "Social")
+    feed = feed_html(at)
+    assert feed.index("Pug") < feed.index("Beagle")  # posted last, so on top
+    assert feed.count("Seen ") == 1 and "Seen 9 Mar 2026" in feed
+
+
 def test_switching_sharing_off_hides_your_sightings(at):
     sign_up(at)
     log_breed(at, "Beagle")
@@ -924,3 +938,24 @@ def test_badges_are_grouped_by_type(at):
     assert "Next up</div><b>Pedigree pal</b>" in page and "0/10 breeds" in page
     assert any(e.label == "Still to earn (5)" for e in at.expander)
 
+def face_balloons(at: AppTest) -> str:
+    """The lifer celebration's HTML, or "" if nothing is floating up."""
+    return next((m.value for m in at.markdown if 'class="face-balloons"' in m.value), "")
+
+
+def test_a_lifer_floats_the_breeds_face_up_instead_of_balloons(at):
+    sign_up(at)
+    log_breed(at, "Beagle")
+    floating = face_balloons(at)
+    assert floating.count('class="face-balloon"') == logic.FACE_BALLOONS
+    photos = set(re.findall(r"background-image:url\(&quot;(.*?)&quot;", floating))
+    assert len(photos) == 1  # every circle is the Beagle's face
+    log_breed(at, "Beagle")
+    assert not face_balloons(at)  # only for a lifer
+
+
+def test_a_cross_lifer_floats_both_parents_faces(at):
+    sign_up(at)
+    log_cross(at, "Labrador Retriever", "Poodle")
+    photos = set(re.findall(r"background-image:url\(&quot;(.*?)&quot;", face_balloons(at)))
+    assert len(photos) == 2

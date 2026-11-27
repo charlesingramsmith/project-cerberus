@@ -206,6 +206,42 @@ button { min-height: 2.75rem; }
 }
 .cerb-post .avatar { font-size: 1.6rem; line-height: 1.2; width: 2.25rem; text-align: center; flex: none; }
 
+/* Lifer celebration (face_balloons_html): the breed's face in circles floating slowly
+   up the screen, each on a plum string, swaying a little as it rises. */
+.face-balloons {
+    position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 1000000;
+}
+.face-balloon {
+    position: absolute; bottom: 0; display: block;
+    transform: translateY(110%); opacity: 0;
+    animation-name: face-rise; animation-timing-function: ease-in; animation-fill-mode: forwards;
+}
+.face-balloon .bob {
+    display: flex; align-items: center; justify-content: center;
+    width: 100%; height: 100%; border-radius: 50%; overflow: hidden;
+    background: var(--pistachio-soft); border: 3px solid var(--pistachio);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .18);
+    animation: face-sway 2.6s ease-in-out infinite alternate;
+}
+.face-balloon:nth-child(even) .bob { border-color: var(--plum); }
+.face-balloon .bob img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.face-balloon .bob .sketch { width: 70%; height: 70%; }
+.face-balloon::after {  /* the string */
+    content: ""; position: absolute; left: 50%; top: 100%; width: 0; height: 2.5rem;
+    border-left: 1.5px solid var(--plum); opacity: .6;
+}
+@keyframes face-rise {
+    0% { transform: translateY(110%); opacity: 0; }
+    8% { opacity: 1; }
+    85% { opacity: 1; }
+    100% { transform: translateY(-115vh); opacity: 0; }
+}
+@keyframes face-sway {
+    from { transform: translateX(-.6rem) rotate(-5deg); }
+    to { transform: translateX(.6rem) rotate(5deg); }
+}
+@media (prefers-reduced-motion: reduce) { .face-balloons { display: none; } }
+
 /* Member pictures: a breed photo in a circle (".pic"), or an older emoji pick */
 .avatar.pic, .me-avatar.pic {
     display: block; border-radius: 50%; overflow: hidden; background: rgba(128, 128, 128, .15);
@@ -678,11 +714,11 @@ breed_profiles = load_breed_profiles(
     file_version(logic.BREED_INFO_CSV, logic.BREED_PHOTOS_CSV, logic.BREED_FACES_CSV))
 
 
-def breed_photo_html(profile: logic.BreedProfile, label: str = "") -> str:
+def breed_photo_html(profile: logic.BreedProfile, label: str = "", box_px: int = 56) -> str:
     """A breed's photo filling a small square or circle, zoomed in on the dog's face
     (breed_faces.csv), or a plain thumbnail if it has no crop. label = text for screen
     readers; empty means decorative, so a photo that fails to load leaves a plain shape."""
-    face = logic.face_photo(profile)
+    face = logic.face_photo(profile, box_px)
     if face:
         url, css = face
         name = f' role="img" aria-label="{html.escape(label)}"' if label else ""
@@ -690,6 +726,24 @@ def breed_photo_html(profile: logic.BreedProfile, label: str = "") -> str:
                 f'&quot;);{css}"></span>')
     return (f'<img src="{html.escape(logic.thumbnail_url(profile.image_url))}" '
             f'alt="{html.escape(label)}" loading="lazy">')
+
+
+def face_balloons_html(breed: str) -> str:
+    """The lifer celebration: the new breed's face in circles floating slowly up the
+    screen like balloons (both parents' faces, taking turns, for a cross). Pure CSS
+    (".face-balloons" in MOBILE_CSS), so it plays once and needs no rerun. A breed with
+    no photo floats up as a sketched dog instead."""
+    balloons = []
+    for spot in logic.celebration_layout(breed):
+        photo = breed_profiles.get(spot["breed"])
+        inside = (breed_photo_html(photo, box_px=80) if photo and photo.image_url
+                  else sketches.svg("dog"))
+        balloons.append(
+            f'<span class="face-balloon" style="left:{spot["left"]}%;'
+            f'width:{spot["size"]}rem;height:{spot["size"]}rem;'
+            f'animation-duration:{spot["rise"]}s;animation-delay:{spot["delay"]}s">'
+            f'<span class="bob" style="animation-delay:{spot["delay"]}s">{inside}</span></span>')
+    return f'<div class="face-balloons" aria-hidden="true">{"".join(balloons)}</div>'
 
 
 def avatar_html(avatar: str, css: str) -> str:
@@ -968,10 +1022,10 @@ flash = st.session_state.pop("flash", None)
 if flash:
     kind, breed_name = flash
     if kind == "lifer":
-        st.balloons()
+        st.markdown(face_balloons_html(breed_name), unsafe_allow_html=True)
         st.success(f"New lifer! **{breed_name}** is on your life list.")
     elif kind == "cross_lifer":
-        st.balloons()
+        st.markdown(face_balloons_html(breed_name), unsafe_allow_html=True)
         st.success(f"New lifer! **{md_text(breed_name)}** is a new cross on your life list.")
     elif kind == "cross":
         st.info(f"Logged another **{md_text(breed_name)}**.")
@@ -1652,6 +1706,11 @@ with tab_profile:
 def feed_post(post: dict, links: dict[str, str]) -> str:
     """One sighting in the feed as HTML. Everything members typed is escaped."""
     seen_on = dt.date.fromisoformat(str(post["seen_on"]))
+    # The feed is in posting order, so the header shows when it was posted; the date seen
+    # gets its own quiet line only when it's a different day (e.g. an older photo).
+    posted = logic.posted_on(post.get("created_at"), st.context.timezone) or seen_on
+    seen = (f'<div class="sub">Seen {seen_on.day} {seen_on:%b %Y}</div>'
+            if seen_on != posted else "")
     who = f"<b>{html.escape(post['username'])}</b>" + (" (you)" if post["user_id"] == user.id else "")
     details = [f"{sketches.svg('pin')} {html.escape(post['location'])}" if post.get("location") else "",
                f"{sketches.svg('dog')} {html.escape(post['dog_name'])}" if post.get("dog_name") else ""]
@@ -1666,9 +1725,9 @@ def feed_post(post: dict, links: dict[str, str]) -> str:
         for key in post.get("badges") or [] if (badge := logic.BADGES_BY_KEY.get(key)))
     return (
         f'<div class="cerb-post">{avatar_html(post["avatar"], "avatar")}'
-        f'<div class="main"><div class="who">{who} · {seen_on.day} {seen_on:%b %Y}</div>'
+        f'<div class="main"><div class="who">{who} · {posted.day} {posted:%b %Y}</div>'
         f'<div class="breed">{html.escape(post["breed"])}{breed_chip(post["breed"])}</div>'
-        + earned + (f"<div>{tags}</div>" if tags else "")
+        + seen + earned + (f"<div>{tags}</div>" if tags else "")
         + "".join(f'<div class="sub">{line}</div>' for line in lines if line)
         + photo + "</div></div>"
     )
