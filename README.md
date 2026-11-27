@@ -120,7 +120,7 @@ Run the tests with `pytest`.
 - [ ] 🤝 Friends and private messaging (with blocking and reporting)
 - [ ] More breeds, a sightings map
 - [ ] 🏷️ A brand name and our own web address (domain)
-- [ ] 📱 Launch a real app: home-screen install first, then the app stores
+- [ ] 📱 Launch a real app: a landing page on our domain, then the app on our own hosting, then the app stores
 
 Inspired by bird ID apps like Merlin, which identify birds from a photo or their song. The full plan, with notes on each item, is in [ROADMAP.md](ROADMAP.md).
 
