@@ -6,9 +6,15 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
-## 0.31.2 - 2026-11-27 - Tap a badge to see how to earn it
+## 0.32.0 - 2026-11-27 - Tap a badge to see how to earn it
 - Tap any badge to see what it's for and how to earn it.
 - The **Crosses** badges also give a tip based on your own sightings, like "You've spotted a Pug x Shih Tzu: now spot a Shih Tzu." **Doodle collector** suggests popular Poodle crosses to look out for, like the Labradoodle and Cockapoo.
+
+## 0.31.3 - 2026-11-27 - Even faster floating faces
+- The dog faces for a new lifer now float up twice as fast again, in about two seconds.
+
+## 0.31.2 - 2026-11-27 - Faster floating faces
+- The dog faces that float up for a new lifer now rise twice as fast.
 
 ## 0.31.1 - 2026-11-27 - All badges in one place
 - Each kind of badge now shows all its badges together, in order. The ones you've earned are in colour and the rest are grey, with no separate **Still to earn** list.
