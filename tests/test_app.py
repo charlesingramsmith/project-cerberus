@@ -938,6 +938,12 @@ def test_badges_are_grouped_by_type(at):
     assert "Next up</div><b>Pedigree pal</b>" in page and "0/10 breeds" in page
     assert badge_cards(at).count("cerb-badge purebred locked") == 5  # all shown, greyed
 
+    at.session_state["badge_track"] = "cross"
+    at.run()
+    page = "".join(m.value for m in at.markdown)
+    assert page.count('<details class="cerb-badge cross locked">') == 3
+    assert "Spot your first cross breed. On Spotted!, switch on &quot;It&#x27;s a cross" in page
+
 def face_balloons(at: AppTest) -> str:
     """The lifer celebration's HTML, or "" if nothing is floating up."""
     return next((m.value for m in at.markdown if 'class="face-balloons"' in m.value), "")

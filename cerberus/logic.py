@@ -987,3 +987,36 @@ def lifer_count(sightings: pd.DataFrame, listed: set[str]) -> int:
 def badges_by_track(progress: list[BadgeProgress]) -> dict[str, list[BadgeProgress]]:
     """Badge progress grouped by track, in BADGE_TRACKS order."""
     return {track: [p for p in progress if p.badge.track == track] for track in BADGE_TRACKS}
+
+
+# Popular Poodle crosses, as examples for the Doodle collector badge (both breeds listed).
+POODLE_CROSS_EXAMPLES = (("Labrador Retriever x Poodle", "Labradoodle"),
+                         ("Cocker Spaniel x Poodle", "Cockapoo"),
+                         ("Cavalier King Charles Spaniel x Poodle", "Cavapoo"))
+
+
+def cross_badge_hints(sightings: pd.DataFrame) -> dict[str, str]:
+    """For each Cross badge not earned yet, one plain line on what to do next, using your
+    own sightings where it can ("You've spotted a Beagle x Pug: now spot a Pug.")."""
+    seen = set(sightings["breed"])
+    crosses = sorted(b for b in seen if is_cross(b))
+    poodles = [c for c in crosses if "Poodle" in cross_parents(c)]
+    progress = {p.badge.key: p for p in badge_progress(sightings, CROSS_BADGES)}
+    hints = {}
+    if not progress["cross-1"].earned:
+        hints["cross-1"] = ("On Spotted!, switch on \"It's a cross breed\" and pick its two "
+                            "breeds.")
+    if not progress["cross-poodle-3"].earned:
+        examples = ", ".join(f"{name} ({cross})" for cross, name in POODLE_CROSS_EXAMPLES
+                             if cross not in poodles)
+        have = f"You have {len(poodles)}. " if poodles else ""
+        hints["cross-poodle-3"] = f"{have}Look out for {examples}."
+    if not progress["cross-family"].earned:
+        if crosses:  # the cross closest to a full family (fewest parents still to find)
+            cross = min(crosses, key=lambda c: (sum(p not in seen for p in cross_parents(c)), c))
+            missing = [p for p in cross_parents(cross) if p not in seen]
+            hints["cross-family"] = (f"You've spotted a {cross}: now spot a "
+                                     + " and a ".join(missing) + ".")
+        else:
+            hints["cross-family"] = "The parents can be spotted before or after the cross."
+    return hints
