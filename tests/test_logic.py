@@ -404,6 +404,20 @@ def test_cross_badges():
     assert "cross-poodle-3" not in earned(*poodles[:2], ("A x B", "2026-02-09"))
 
 
+def test_cross_badge_hints_say_what_to_do_next():
+    hints = logic.cross_badge_hints(sightings_of())
+    assert set(hints) == {"cross-1", "cross-poodle-3", "cross-family"}
+    assert "Labradoodle (Labrador Retriever x Poodle)" in hints["cross-poodle-3"]
+
+    hints = logic.cross_badge_hints(sightings_of(("Beagle x Pug", "2026-01-01"),
+                                                 ("Labrador Retriever x Poodle", "2026-01-02"),
+                                                 ("Pug", "2026-01-03")))
+    assert "cross-1" not in hints  # earned
+    assert hints["cross-family"] == "You've spotted a Beagle x Pug: now spot a Beagle."
+    assert hints["cross-poodle-3"].startswith("You have 1.")
+    assert "Labradoodle" not in hints["cross-poodle-3"]  # already spotted
+
+
 def test_newly_earned_lists_badges_that_werent_there_before():
     progress = logic.badge_progress(sightings_of(("Pug", "2026-01-01")))
     assert [b.key for b in logic.newly_earned([], progress)] == ["first-lifer"]

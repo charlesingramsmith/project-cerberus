@@ -174,7 +174,7 @@ button { min-height: 2.75rem; }
 
 /* Badges on the profile: earned ones in colour, locked ones faded grey */
 .cerb-badges {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(4.5rem, 1fr));
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
     gap: .5rem; margin: 0 0 1rem;
 }
 .cerb-badge {
@@ -191,6 +191,11 @@ button { min-height: 2.75rem; }
 .cerb-badge.purebred { box-shadow: inset 0 0 0 2px var(--plum); }  /* rarer: a plum ring */
 .cerb-badge.cross .icon { color: var(--pistachio-text); }
 .cerb-badge.cross:not(.locked) { background: var(--pistachio-soft); }
+/* Tapping a badge opens what it's for */
+.cerb-badge summary { list-style: none; cursor: pointer; }
+.cerb-badge summary::-webkit-details-marker { display: none; }
+.cerb-badge .how { font-size: .75rem; margin-top: .35rem; text-align: left; opacity: .9; }
+.cerb-badge[open] { grid-column: 1 / -1; }  /* full width, so the text has room */
 /* The next badge to earn, above the grid */
 .cerb-next-badge { display: flex; gap: .75rem; align-items: center; margin-bottom: .25rem; }
 .cerb-next-badge .icon { color: var(--plum); opacity: .55; line-height: 1; }
@@ -1441,22 +1446,31 @@ def badges_section():
         st.progress(up.have / up.badge.goal)
     else:
         st.success("You've earned every one of these!")
-    # All of them in order: earned ones in colour, the rest grey.
-    st.markdown(f'<div class="cerb-badges">{"".join(badge_html(p) for p in mine)}</div>',
+    # All of them in order: earned ones in colour, the rest grey. Tap one to see what it
+    # needs (cross badges add a tip from your own sightings).
+    hints = logic.cross_badge_hints(sightings) if track == logic.CROSS_TRACK else {}
+    st.caption("Tap a badge to see how to earn it.")
+    st.markdown(f'<div class="cerb-badges">'
+                f'{"".join(badge_html(p, hints.get(p.badge.key, "")) for p in mine)}</div>',
                 unsafe_allow_html=True)
 
 
-def badge_html(p: logic.BadgeProgress) -> str:
-    """One badge as a small card: when it was earned, or how far there is to go."""
+
+def badge_html(p: logic.BadgeProgress, hint: str = "") -> str:
+    """One badge as a small card: when it was earned, or how far there is to go. Tapping
+    it opens what it's for (an HTML <details>, so no rerun), plus `hint` until earned."""
     if p.earned:
         day = dt.date.fromisoformat(p.earned_on)
         css, sub = f"cerb-badge {p.badge.track}", f"Earned {day.day} {day:%b %Y}"
     else:
         css = f"cerb-badge {p.badge.track} locked"
         sub = f"{p.have}/{p.badge.goal} {p.badge.unit}" if p.badge.goal > 1 else "Not yet"
-    return (f'<div class="{css}" title="{html.escape(p.badge.description)}">'
+    hint = f" {hint}" if hint and not p.earned else ""
+    return (f'<details class="{css}"><summary>'
             f'<span class="icon">{sketches.svg(p.badge.icon)}</span>'
-            f'<div class="name">{html.escape(p.badge.name)}</div><div class="sub">{sub}</div></div>')
+            f'<div class="name">{html.escape(p.badge.name)}</div><div class="sub">{sub}</div>'
+            f'</summary><div class="how">{html.escape(p.badge.description)}.'
+            f'{html.escape(hint)}</div></details>')
 
 
 def dogs_text(dogs: list[dict]) -> str:
