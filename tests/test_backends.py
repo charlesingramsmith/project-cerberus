@@ -508,3 +508,55 @@ def test_a_dogs_page_shows_only_sightings_social_would_show(backend):
     assert [p["username"] for p in posts] == ["carol", "alice"]  # newest first; bobby doesn't share
     assert all(p["dog_ids"] == [rex["id"]] for p in posts)
     assert backend.dog_sightings(999) == []
+
+
+# --- Reports ---------------------------------------------------------------------------
+
+def test_reports_are_kept_per_member_and_only_once(backend):
+    backend.sign_up("a@example.com", "correct-horse", "alice")
+    backend.add_sighting("Pug", date(2026, 11, 1))
+    rex = backend.add_dog({"username": "rex", "name": "Rex"})
+    sighting_id = backend.list_sightings()[0]["id"]
+    backend.sign_out()
+
+    backend.sign_up("b@example.com", "correct-horse", "bobby")
+    assert backend.my_reports() == {"sighting": set(), "dog": set()}
+    backend.report("sighting", sighting_id, "not_a_dog")
+    backend.report("sighting", sighting_id, "spam")  # twice is harmless
+    backend.report("dog", rex["id"], "photo")
+    assert backend.my_reports() == {"sighting": {sighting_id}, "dog": {rex["id"]}}
+    assert len(backend._reports()) == 2
+    backend.sign_out()
+
+    backend.sign_in("a@example.com", "correct-horse")  # someone else's reports stay theirs
+    assert backend.my_reports() == {"sighting": set(), "dog": set()}
+
+
+def test_a_report_needs_a_real_reason_and_thing(backend):
+    backend.sign_up("a@example.com", "correct-horse", "alice")
+    backend.add_sighting("Pug", date(2026, 11, 1))
+    sighting_id = backend.list_sightings()[0]["id"]
+    with pytest.raises(ValueError):
+        backend.report("sighting", sighting_id, "rude")
+    with pytest.raises(ValueError):
+        backend.report("profile", sighting_id, "spam")
+    with pytest.raises(ValueError):
+        backend.report("dog", 999, "spam")
+
+
+def test_deleting_a_post_or_dog_removes_its_reports(backend):
+    backend.sign_up("a@example.com", "correct-horse", "alice")
+    backend.add_sighting("Pug", date(2026, 11, 1))
+    rex = backend.add_dog({"username": "rex", "name": "Rex"})
+    sighting_id = backend.list_sightings()[0]["id"]
+    backend.report("sighting", sighting_id, "spam")
+    backend.report("dog", rex["id"], "spam")
+    backend.delete_sighting(sighting_id)
+    backend.delete_dog(rex["id"])
+    assert backend.my_reports() == {"sighting": set(), "dog": set()}
+
+
+def test_reports_need_a_sign_in(backend):
+    for call in (backend.my_reports, lambda: backend.report("sighting", 1, "spam")):
+        with pytest.raises(AuthError):
+            call()

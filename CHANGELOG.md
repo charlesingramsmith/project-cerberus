@@ -6,6 +6,10 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.38.0 - 2026-11-27 - Report a post
+- See something that shouldn't be there? Tap **Report** under someone's post in Social, or on a dog's profile page, and pick why: an inappropriate photo, not a dog, spam or something else.
+- It disappears for you straight away, and we review every report. Nobody is told who reported them.
+
 ## 0.37.0 - 2026-11-27 - Private by default for under-18s
 - New members are asked the year they were born. You need to be 13 or over to join.
 - If you're under 18, your sightings start private: other members won't see them in Social until you choose to share them in Settings > Privacy.

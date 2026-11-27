@@ -72,6 +72,10 @@ If you type in a breed that isn't on our list, its name is added to a shared lis
 
 If you send an idea or +1 a planned feature in **Settings**, we keep what you sent with your account. Other members only see vote totals, never who voted.
 
+### Reports
+
+If you tap **Report** on a post or a dog profile, we keep which one you reported, the reason you picked and when, linked to your account, so we can review it and hide it for you. The member you reported is never told who reported them. If either of you deletes their account, or the post or dog is deleted, the report is deleted too.
+
 ### Information kept on your device
 
 The app keeps two small things in your browser's storage (not cookies):
@@ -87,7 +91,7 @@ UK law says we must have a reason ("lawful basis") for using your information:
 
 - **To provide the app you signed up for** (contract): your account, profile, sightings, photos, dogs, life list and badges.
 - **Legal obligations and protecting children**: your birth year, so we only let in people aged 13 and over and keep under-18s' sightings private by default.
-- **Legitimate interests**: keeping the app secure, sharing sightings in Social so the community works (with an off switch you control), suggesting a date, place and breed from your photos (you can ignore or change them), and improving the app from your ideas and votes. We've weighed these against your privacy and keep them limited to what's needed.
+- **Legitimate interests**: keeping the app secure and safe (including reviewing reports), sharing sightings in Social so the community works (with an off switch you control), suggesting a date, place and breed from your photos (you can ignore or change them), and improving the app from your ideas and votes. We've weighed these against your privacy and keep them limited to what's needed.
 - **Legal obligations**: if the law requires us to keep or share something.
 
 We don't make automated decisions about you that have legal or similarly significant effects. Photo ID only suggests a breed; you always choose.
@@ -108,7 +112,7 @@ We never sell your information, and we don't share it with advertisers. We would
 
 ## How long we keep it
 
-- **Your account and everything in it** (profile, sightings, photos, dogs, ideas and votes) is kept until you delete it or ask us to delete your account.
+- **Your account and everything in it** (profile, sightings, photos, dogs, ideas, votes and reports) is kept until you delete it or ask us to delete your account.
 - **When you delete a sighting**, its photo is deleted too. Deleting a dog deletes its profile.
 - **When you ask us to delete your account**, we'll delete it and everything linked to it within **30 days**. Copies in our providers' backups disappear as those backups are replaced, normally within a further 30 days.
 - **Sign-in records** kept by Supabase for security are deleted on their normal schedule.

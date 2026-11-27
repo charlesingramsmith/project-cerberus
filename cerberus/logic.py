@@ -626,6 +626,32 @@ def clean_suggestion(text: str) -> str:
     return text
 
 
+# --- Reports -------------------------------------------------------------------------
+
+# Why a member reports a post or a dog profile: key (stored in reports.reason, matching
+# the check in supabase/schema.sql) -> what the member taps.
+REPORT_REASONS = {
+    "photo": "Inappropriate photo",
+    "not_a_dog": "Not a dog",
+    "spam": "Spam",
+    "other": "Something else",
+}
+REPORT_KINDS = ("sighting", "dog")  # a post in Social, or a dog's profile
+
+
+def check_report(kind: str, reason: str) -> None:
+    """Raise ValueError unless kind and reason are ones a report can have."""
+    if kind not in REPORT_KINDS:
+        raise ValueError("Only posts and dog profiles can be reported.")
+    if reason not in REPORT_REASONS:
+        raise ValueError("Pick a reason for the report.")
+
+
+def without_reported(posts: list[dict], reported: set[int]) -> list[dict]:
+    """The posts the member hasn't reported (a report hides a post from its reporter)."""
+    return [p for p in posts if p["id"] not in reported]
+
+
 # --- Profiles and the Social feed ------------------------------------------------------
 
 MIN_USERNAME_LENGTH, MAX_USERNAME_LENGTH = 3, 30

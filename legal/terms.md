@@ -32,7 +32,7 @@ When you use Derlin, please don't:
 
 **Out spotting:** stay safe and respectful. Don't trespass, don't approach or touch a dog without its owner's OK, and don't photograph people who don't want to be photographed.
 
-If you see something that breaks these rules, email **hello@derlin.app**. We may remove content, or suspend or close an account, that breaks these terms.
+If you see a post or a dog profile that breaks these rules, tap **Report** on it (it's hidden for you straight away, and we review every report). For anything else, email **hello@derlin.app**. We may remove content, or suspend or close an account, that breaks these terms.
 
 ## Photo ID and breed information
 
