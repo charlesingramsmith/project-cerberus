@@ -6,6 +6,11 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.27.0 - 2026-11-27 - Log cross breeds
+- On **Spotted!**, switch on **It's a cross breed** and pick its two breeds, for dogs like a Labrador Retriever x Poodle.
+- Crosses show as **Breed A x Breed B** with a "Cross breed" label in Social and on your profile.
+- Crosses don't count as lifers or towards badges, since the life list is for breeds. They get their own **Crosses** list on your life list.
+
 ## 0.26.0 - 2026-11-27 - Date and place from your photo
 - Add a photo on **Spotted!** and the date it was taken fills in for you, with a suggested place name from where it was taken, like "Hyde Park, London". Change either if it's wrong.
 - The place name comes from OpenStreetMap, sent only a rough spot (about 100 m). Your sighting saves just the place name, and the photo is still saved without its GPS location.

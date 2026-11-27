@@ -790,6 +790,48 @@ def test_listed_breeds_say_they_are_verified(at):
     assert "</svg> Verified breed" in life  # a sketched tick, then the label
 
 
+def log_cross(at: AppTest, first: str, second: str) -> AppTest:
+    at.toggle(key="sighting_is_cross").set_value(True).run()
+    at.selectbox(key="sighting_breed").set_value(first)
+    at.selectbox(key="sighting_breed_2").set_value(second)
+    return click(at, "Spotted!")
+
+
+def test_a_cross_is_logged_as_breed_a_x_breed_b_and_shown_in_social(at):
+    sign_up(at)
+    assert not [s for s in at.selectbox if s.key == "sighting_breed_2"]  # only for crosses
+    log_cross(at, "Labrador Retriever", "Poodle")
+    assert not at.exception
+    assert "Labrador Retriever x Poodle" in at.info[0].value
+    assert not at.success  # not a lifer
+    assert at.metric[0].value == "0/141" and at.metric[1].value == "1"
+    assert not at.toggle(key="sighting_is_cross").value  # ready for the next dog
+    assert "Crosses" in [h.value for h in at.subheader]
+    assert "Unverified breeds" not in [h.value for h in at.subheader]
+    backend = at.session_state["backend"]
+    assert backend.list_sightings()[0]["breed"] == "Labrador Retriever x Poodle"
+    assert backend.list_user_breeds() == []  # both breeds are verified: nothing to review
+
+    open_tab(at, "Social")
+    feed = feed_html(at)
+    assert "Labrador Retriever x Poodle" in feed and "cerb-chip cross" in feed
+
+
+def test_a_cross_needs_two_different_breeds(at):
+    sign_up(at)
+    log_cross(at, "Poodle", "Poodle")
+    assert "two different breeds" in at.warning[0].value
+    assert at.session_state["backend"].list_sightings() == []
+
+
+def test_a_typed_in_breed_in_a_cross_goes_up_for_review(at, typing):
+    sign_up(at)
+    log_cross(at, "Poodle", "Sprocker Spaniel")
+    backend = at.session_state["backend"]
+    assert backend.list_sightings()[0]["breed"] == "Poodle x Sprocker Spaniel"
+    assert backend.list_user_breeds() == ["Sprocker Spaniel"]
+
+
 def test_a_photos_date_and_place_fill_in_the_sighting(at, monkeypatch):
     import datetime as dt
 

@@ -329,14 +329,63 @@ UNVERIFIED = "Unverified breed"
 def clean_breed(text: str | None, known: Iterable[str] = ()) -> str:
     """Tidy a breed picked or typed on the Spotted! form. A known breed (verified, or
     already added by a member) typed in any capitals becomes its usual spelling; anything
-    else is kept as typed, with spaces tidied. Raises ValueError if empty or too long."""
+    else is kept as typed, with spaces tidied. A cross typed as "beagle x pug" is tidied
+    the same way, part by part ("Beagle x Pug"). Raises ValueError if empty or too long."""
     text = " ".join((text or "").split())
     if not text:
         raise ValueError("Pick a breed first, or type one in.")
     if len(text) > MAX_BREED_LENGTH:
         raise ValueError(f"Please keep the breed under {MAX_BREED_LENGTH} characters.")
+    known = list(known)
+    parts = _CROSS_SPLIT.split(text)
+    if len(parts) == 2 and all(parts):
+        return cross_name(*parts, known=known)
     spelling = {name.lower(): name for name in known}
     return spelling.get(text.lower(), text)
+
+
+# --- Cross breeds ----------------------------------------------------------------------
+# A cross (a dog whose parents are two different breeds) is logged with its breed written
+# as "Breed A x Breed B", so it reads the same everywhere (Social, Profile) with no extra
+# database column. Crosses aren't lifers and don't count towards badges: the life list is
+# for breeds. They get their own "Crosses" list on the life list instead.
+
+CROSS = "Cross breed"
+CROSS_SEPARATOR = " x "
+_CROSS_SPLIT = re.compile(r"\s+[xX×]\s+")
+
+
+def cross_name(first: str | None, second: str | None, known: Iterable[str] = ()) -> str:
+    """The breed to log for a cross of two breeds: "Labrador Retriever x Poodle". Each
+    parent is tidied like clean_breed (a known breed gets its usual spelling). Raises
+    ValueError if a parent is missing, both are the same, or the name gets too long."""
+    if not (first or "").strip() or not (second or "").strip():
+        raise ValueError("Pick both breeds in the cross.")
+    known = list(known)
+    first, second = clean_breed(first, known), clean_breed(second, known)
+    if is_cross(first) or is_cross(second):
+        raise ValueError("Pick one breed in each box.")
+    if first.lower() == second.lower():
+        raise ValueError("Pick two different breeds for a cross.")
+    name = f"{first}{CROSS_SEPARATOR}{second}"
+    if len(name) > MAX_BREED_LENGTH:
+        raise ValueError(f"Please keep the two breeds under {MAX_BREED_LENGTH} characters "
+                         "together.")
+    return name
+
+
+def cross_parents(breed: str | None) -> tuple[str, str] | None:
+    """The two parent breeds of a cross ("Beagle x Pug" gives ("Beagle", "Pug")), or None
+    if the breed isn't a cross."""
+    parts = (breed or "").split(CROSS_SEPARATOR)
+    if len(parts) == 2 and all(p.strip() for p in parts):
+        return parts[0], parts[1]
+    return None
+
+
+def is_cross(breed: str | None) -> bool:
+    """True for a cross breed logged as "Breed A x Breed B"."""
+    return cross_parents(breed) is not None
 
 
 _MARKDOWN_SPECIAL = re.compile(r"([\\`*_{}\[\]()#+\-.!|<>~:$])")
@@ -351,15 +400,26 @@ def escape_markdown(text: str | None) -> str:
     return _MARKDOWN_SPECIAL.sub(r"\\\1", str(text))
 
 
-def unverified_breeds(sightings: pd.DataFrame, listed: set[str]) -> pd.DataFrame:
-    """Your sightings of breeds that aren't verified yet: breed, first_seen, times_seen,
-    most seen first."""
-    rest = sightings[~sightings["breed"].isin(listed)]
+def _breed_counts(rest: pd.DataFrame) -> pd.DataFrame:
+    """breed, first_seen, times_seen for these sightings, most seen first."""
     return (rest.groupby("breed")
             .agg(first_seen=("seen_on", "min"), times_seen=("seen_on", "size"))
             .reset_index()
             .sort_values(["times_seen", "breed"], ascending=[False, True])
             .reset_index(drop=True))
+
+
+def unverified_breeds(sightings: pd.DataFrame, listed: set[str]) -> pd.DataFrame:
+    """Your sightings of breeds that aren't verified yet (crosses have their own list):
+    breed, first_seen, times_seen, most seen first."""
+    crosses = sightings["breed"].map(is_cross).astype(bool)
+    return _breed_counts(sightings[~sightings["breed"].isin(listed) & ~crosses])
+
+
+def cross_breeds(sightings: pd.DataFrame) -> pd.DataFrame:
+    """Your sightings of cross breeds ("Labrador Retriever x Poodle"): breed, first_seen,
+    times_seen, most seen first."""
+    return _breed_counts(sightings[sightings["breed"].map(is_cross).astype(bool)])
 
 
 def is_lifer(sightings: pd.DataFrame, breed: str, listed: set[str] | None = None) -> bool:
