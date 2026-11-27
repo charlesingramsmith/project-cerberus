@@ -421,7 +421,7 @@ def test_settings_dot_shows_until_settings_is_opened(at):
 
     open_tab(at, "Settings")
     assert not dot_shown(at)
-    assert any(":orange-badge[New]" in m.value for m in at.markdown)  # the update is marked
+    assert any(":violet-badge[New]" in m.value for m in at.markdown)  # the update is marked
 
     open_tab(at, "Spotted!")
     assert not dot_shown(at)  # stays gone once seen

@@ -11,7 +11,7 @@ It's inspired by bird-watching life lists, but for the dogs you pass in the park
 - **Mobile first**: designed to be used one-handed on a phone while you're out walking, with a bottom tab bar (Spotted!, Life list, Profile, Social, Settings), big tap targets and phone-sized stat cards. On a desktop it shows the same layout in a centred column. Follows your device's light or dark mode.
 - **Its own look**: a pencil-sketch dachshund logo, pastel pistachio green with plum highlights, handwritten headings (Caveat) and a soft rounded body font (Nunito), in light and dark.
 - **Accounts**: one tap with **Continue with Google**, or sign up with email and password. **Keep me signed in** remembers you for 30 days. Your email is never shown to other members.
-- **Spotted!**: log a sighting by picking the breed (searchable, and breeds you haven't collected yet are marked ✨ new), the date, where you saw it, the dog's name and notes, plus an optional photo (one **📷 Add photo** button that takes a picture or picks one from your library, with a preview you can change or remove), and tag any dog that has a profile by its @username (the tagged dog's name and breed fill in as soon as you tag it). Can't find the breed? Type it in: it's logged as an **unverified breed** and added to a list of breeds we review for adding to the app (other members can pick it too). Unverified breeds get their own section on the life list and don't count as lifers until they're verified. Photos are saved smaller and without the GPS location phones store in them, and show in Social when you share your sightings.
+- **Spotted!**: log a sighting by picking the breed (searchable, and breeds you haven't collected yet are marked ✨ new), the date, where you saw it, the dog's name and notes, plus an optional photo (one **📷 Add photo** button that takes a picture or picks one from your library, with a preview you can change or remove), and **Photo ID**: add a photo and a small image model suggests up to 3 breeds ("Very likely", "Possible" or "Long shot"), which you tap to fill in the breed (it says when it isn't sure; the first version knows 73 of the 100 breeds), and tag any dog that has a profile by its @username (the tagged dog's name and breed fill in as soon as you tag it). Can't find the breed? Type it in: it's logged as an **unverified breed** and added to a list of breeds we review for adding to the app (other members can pick it too). Unverified breeds get their own section on the life list and don't count as lifers until they're verified. Photos are saved smaller and without the GPS location phones store in them, and show in Social when you share your sightings.
 - **Lifer celebrations**: a new breed gets balloons 🎉.
 - **Badges**: earn a milestone badge for your first lifer and then every 5 breeds, each with its own name (🐶 Puppy steps, 🎾 Quarter century, 🏅 Halfway hound … 🏆 Top dog). Your profile shows each one, with the date you earned it or how far there is to go, and the life list tells you how many breeds until the next one. When members who share their sightings earn a badge, it shows on that sighting in the Social feed.
 - **Life list**: progress towards 100 breeds, the date you first saw each one and how many times, with a small photo of each breed zoomed in on its face (in colour once you've spotted it), filterable by collected or still to find, and searchable. Tap any breed to open its profile: a photo, a short intro, where it's from, its temperament and a fun fact.
@@ -28,6 +28,7 @@ It's inspired by bird-watching life lists, but for the dogs you pass in the park
 | Auth | [Supabase Auth](https://supabase.com/docs/guides/auth): Google sign-in (OAuth with PKCE) plus email and password |
 | Database | Supabase Postgres, with **row-level security** so users can only write their own rows, and only read others' shared sightings |
 | Photos | Supabase Storage: a private bucket, with each member's sighting and dog photos in their own folder |
+| Photo ID | A small pretrained image model (MobileNetV3, ImageNet) in ONNX format, run in the app with [ONNX Runtime](https://onnxruntime.ai), so photos never leave the server |
 | Data | Pandas |
 | Tests | pytest, Streamlit `AppTest` for end-to-end flows, and a fake Supabase client |
 
@@ -38,6 +39,7 @@ project-cerberus/
 │   ├── logic.py            # Pure life-list, lifer, badge and What's new logic
 │   ├── backends.py         # SupabaseBackend (real) and MemoryBackend (tests/demo)
 │   ├── oauth.py            # Remembers a Google sign-in while the user is at Google
+│   ├── photo_id.py         # Photo ID: runs the breed model on a photo
 │   └── remember.py         # "Keep me signed in" (browser storage)
 ├── .streamlit/config.toml  # Theme (colours, fonts, light/dark) and toolbar settings
 ├── assets/                 # The logo (logo.svg) and app icon (icon.png)
@@ -46,7 +48,9 @@ project-cerberus/
 ├── data/breed_info.csv     # Each breed's intro, origin, temperament and fun fact
 ├── data/breed_photos.csv   # A credited, free-licensed photo per breed
 ├── data/breed_faces.csv    # Where each photo's face is, for small pictures
-├── scripts/                # One-off helpers (fetching breed photos, cropping them to faces)
+├── data/photo_id_breeds.csv # Which of the model's dog classes are which of our breeds
+├── models/dog_breeds.onnx  # The Photo ID model (22 MB)
+├── scripts/                # One-off helpers (breed photos, face crops, exporting the Photo ID model)
 ├── supabase/schema.sql     # Tables plus row-level security policies
 ├── CHANGELOG.md            # Version history, shown in Settings > What's new
 ├── ROADMAP.md              # The plan; its Now and Next items appear in the app
@@ -99,12 +103,13 @@ Run the tests with `pytest`.
 - [x] 🐶 Breed profiles: tap a breed for a photo, intro, origin, temperament and a fun fact
 - [x] 🖼️ Breed photos on the life list, and a breed photo as your profile picture
 - [x] 🏅 Badges for milestones (first lifer, then every 5 breeds), on your profile and in Social
-- [x] 📸 Your own photo on a sighting (stored in Supabase Storage, shown in Social when shared): the first step to Photo ID
+- [x] 📸 Your own photo on a sighting (stored in Supabase Storage, shown in Social when shared)
+- [x] 📷 Photo ID (first version): add a photo and a small model running in the app suggests the breed (you confirm, or just pick it yourself)
 - [x] 🐕 Dog profiles: your dogs get their own @username and profile, and can be tagged in posts
 - [x] ➕ Add your own breeds: typed-in breeds are logged as unverified and reviewed for the app
 - [x] 🎨 A new look: pencil-sketch dachshund logo, pistachio and plum colours, new fonts
-- [ ] 🔎 Dog identification: a wider project to identify dogs from photos. Plan agreed: a small breed model that runs inside the app, first a ready-made one, then one trained on our own breed list
-- [ ] 📷 Photo ID: snap a photo and an ML model suggests the breed (you confirm, or just pick it yourself)
+- [ ] 🔎 Dog identification: a wider project to identify dogs from photos, starting with Photo ID (done)
+- [ ] 🧠 Smarter Photo ID: our own model trained on all 100 breeds plus popular crosses like the Cockapoo
 - [ ] 🧠 Opt-in: share your confirmed photos to help train the model
 - [ ] 🔊 Sound ID: get a hint from a recorded bark (experimental)
 - [ ] 📍 Optional location for a sighting (place name or current location)

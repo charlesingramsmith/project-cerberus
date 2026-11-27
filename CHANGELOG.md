@@ -6,11 +6,18 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
-## 0.21.0 - 2026-11-27 - A fresh new look
+## 0.22.0 - 2026-11-27 - A fresh new look
 - Cerberus has a logo: a pencil sketch of a dachshund's head. It's on the sign-in screen, at the top of the app and on your browser tab.
 - New colours: pastel pistachio green, with plum for the special bits like badges and the new-update dot. Light and dark mode both get the new look.
 - New fonts: handwritten headings and a softer, rounder font for everything else.
 - Everything is still where it was: same tabs, same buttons.
+
+## 0.21.0 - 2026-11-27 - Photo ID
+- Add a photo on **Spotted!** and **Photo ID** suggests the breed: up to 3 guesses, each marked "Very likely", "Possible" or "Long shot".
+- Tap a guess to fill in the breed, then check it before you post. You can always pick a different breed yourself.
+- If Photo ID isn't sure, or can't see a dog, it says so and you pick the breed as usual.
+- This first version knows 73 of our 100 breeds. Breeds like the Dachshund, Bulldog and Cane Corso are coming in a smarter version.
+- Your photo is checked on our own server and never sent to another company.
 
 ## 0.20.0 - 2026-11-26 - More badges, now in Social
 - There's now a badge every 5 breeds, 21 in all: from 🐶 Puppy steps (5 breeds) and 🥏 Frisbee fetcher (20) to 🌌 Dog star (90) and 🥇 Best in show (95). See them all in **Profile > Badges**.
