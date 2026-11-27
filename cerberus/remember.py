@@ -18,6 +18,21 @@ as a tiny invisible component (`st.components.v2`). It does two jobs:
 2. Whenever Python passes `data["save"]`, it saves that token with a fresh 30-day
    expiry, or deletes the saved sign-in if the token is None.
 
+It also looks after **light and dark mode**. Streamlit keeps the theme a visitor picked
+in local storage under THEME_KEY_PREFIX + the page's path + THEME_KEY_SUFFIX, holding
+"Light", "Dark" or "System". The app is light by default, so:
+
+3. On a first visit (nothing saved, or "System") it saves "Light", and reloads the page
+   if the phone is in dark mode so Streamlit picks it up.
+4. Its report also says which theme is saved (`theme`), so the app can match its own
+   colours (DARK_CSS in app.py).
+5. When Python passes `data["theme"]` (the Settings switch) and it differs, it saves it
+   and reloads the page, the only way to make Streamlit change theme. A reload starts a
+   new Streamlit session, so Python can also pass `data["carry"]`: the current sign-in
+   (`{"token", "remember"}`), kept in the tab's sessionStorage for the reload and handed
+   back once in the next report as `carry`. That way people who didn't tick "Keep me
+   signed in" stay signed in too, and nothing is kept once the tab closes.
+
 (The first version used a cookie, but on Streamlit Community Cloud the cookie never
 reaches the app, so `st.context.cookies` came back empty.)
 
@@ -31,6 +46,12 @@ from __future__ import annotations
 MAX_AGE_DAYS = 30
 STORAGE_KEY = "cerberus_saved_sign_in"
 OLD_COOKIE_NAME = "cerberus_refresh"  # from the first version; deleted on sight
+CARRY_KEY = "cerberus_theme_carry"  # sessionStorage: the sign-in kept across a theme reload
+# Streamlit's own storage key for the chosen theme (frontend lib/theme "ACTIVE_THEME").
+# Recheck it after a Streamlit upgrade: if it changes, the Settings switch stops working.
+THEME_KEY_PREFIX = "stActiveTheme-"
+THEME_KEY_SUFFIX = "-v2"
+THEMES = ("Light", "Dark")
 
 SAVED_SIGN_IN_JS = f"""
 const KEY = "{STORAGE_KEY}";
@@ -45,7 +66,53 @@ function readSaved() {{
   return "";
 }}
 
+const THEME_KEY = "{THEME_KEY_PREFIX}" + window.location.pathname + "{THEME_KEY_SUFFIX}";
+const CARRY_KEY = "{CARRY_KEY}";
+
+function readTheme() {{
+  try {{
+    const theme = JSON.parse(localStorage.getItem(THEME_KEY) || "null");
+    if (theme === "Light" || theme === "Dark") return theme;
+  }} catch (err) {{}}
+  return null;
+}}
+
+function useTheme(theme, carry) {{
+  // Save the theme for Streamlit and reload so it's used. Returns false if it can't.
+  try {{
+    localStorage.setItem(THEME_KEY, JSON.stringify(theme));
+    if (carry) sessionStorage.setItem(CARRY_KEY, JSON.stringify(carry));
+  }} catch (err) {{
+    return false;
+  }}
+  window.location.reload();
+  return true;
+}}
+
+function takeCarry() {{
+  try {{
+    const carry = JSON.parse(sessionStorage.getItem(CARRY_KEY) || "null");
+    sessionStorage.removeItem(CARRY_KEY);
+    return carry;
+  }} catch (err) {{
+    return null;
+  }}
+}}
+
 export default function ({{ data, setStateValue }}) {{
+  // Light is the default: a first visit saves it (and reloads if the phone is dark).
+  if (!window.cerberusThemeChecked) {{
+    window.cerberusThemeChecked = true;
+    const darkPhone = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches;
+    if (!readTheme()) {{
+      try {{ localStorage.setItem(THEME_KEY, JSON.stringify("Light")); }} catch (err) {{}}
+      if (darkPhone && readTheme() === "Light") {{ window.location.reload(); return; }}
+    }}
+  }}
+  // The Settings switch: save the new theme and reload.
+  if (data && data.theme && data.theme !== readTheme() && useTheme(data.theme, data.carry)) {{
+    return;
+  }}
   if (data && "save" in data) {{
     try {{
       if (data.save) {{
@@ -64,7 +131,9 @@ export default function ({{ data, setStateValue }}) {{
   const session = data && data.session;
   if (session && window.cerberusSavedSignInReportedTo !== session) {{
     window.cerberusSavedSignInReportedTo = session;
-    setStateValue("saved", {{ session, token: readSaved() }});
+    setStateValue("saved", {{
+      session, token: readSaved(), theme: readTheme() || "Light", carry: takeCarry(),
+    }});
   }}
 }}
 """

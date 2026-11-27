@@ -79,7 +79,7 @@ def test_full_journey(at):
 
 def test_signed_in_app_has_five_main_tabs(at):
     sign_up(at)
-    labels = [t.label.split("\n")[-1] for t in at.tabs]  # drop the icon line
+    labels = [t.label for t in at.tabs]
     assert labels == ["Spotted!", "Life list", "Profile", "Social", "Settings"]
     assert headers(at) == ["Spotted a dog?", "charlie's life list", "Your profile", "Social", "Settings"]
 
@@ -235,6 +235,9 @@ def test_cancelled_google_sign_in_shows_a_message(monkeypatch):
 class FakeBrowser:
     def __init__(self):
         self.saved = ""
+        self.theme = "Light"
+        self.carry = None  # a sign-in kept in the tab across a theme switch's reload
+        self.reloads = 0
         self.reported = None  # the component's last report; None until it has made one
         self.last_session = None  # the session id the app passed on its latest run
 
@@ -245,13 +248,19 @@ class FakeBrowser:
         from types import SimpleNamespace
 
         self.last_session = data["session"]
+        if data.get("theme") and data["theme"] != self.theme:  # like useTheme()
+            self.theme, self.carry = data["theme"], data.get("carry")
+            self.reloads += 1
+            return SimpleNamespace(saved=self.reported)
         if "save" in data:
             self.saved = data["save"] or ""
         return SimpleNamespace(saved=self.reported)
 
     def report(self, app: AppTest):
         """The component reports what's saved to the app's current session, which reruns it."""
-        self.reported = {"session": self.last_session, "token": self.saved}
+        self.reported = {"session": self.last_session, "token": self.saved,
+                         "theme": self.theme, "carry": self.carry}
+        self.carry = None  # handed over once
         app.run()
         assert not app.exception
 
@@ -336,6 +345,41 @@ def test_dead_saved_sign_in_is_forgotten(browser):
     app = browser.open_app()
     assert not app.header  # still on the sign-in screen
     assert browser.saved == ""
+
+
+def dark_colours_on(app: AppTest) -> bool:
+    return any("--pistachio: #A9C985" in str(h.proto) for h in app.get("html"))
+
+
+def test_light_mode_is_the_default(browser):
+    app = browser.open_app()
+    sign_up(app)
+    assert browser.theme == "Light" and not dark_colours_on(app)
+    app.session_state["main_tab"] = "Settings"
+    app.run()
+    assert app.toggle(key="dark_mode").value is False
+
+
+def test_dark_mode_switch_reloads_in_dark_and_keeps_you_signed_in(browser):
+    app = browser.open_app()
+    app.checkbox(key="keep_signed_in").uncheck().run()  # even without "Keep me signed in"
+    sign_up(app)
+    app.session_state["main_tab"] = "Settings"
+    app.run()
+    app.toggle(key="dark_mode").set_value(True).run()
+    assert browser.theme == "Dark" and browser.reloads == 1
+    assert browser.saved == ""  # the sign-in only rides along with the reload
+
+    reloaded = browser.open_app(app.session_state["backend"])  # the page reloads
+    assert "charlie's life list" in headers(reloaded)
+    assert dark_colours_on(reloaded)
+    assert browser.saved == ""  # still not remembered for next time
+
+    reloaded.session_state["main_tab"] = "Settings"
+    reloaded.run()
+    assert reloaded.toggle(key="dark_mode").value is True
+    reloaded.toggle(key="dark_mode").set_value(False).run()
+    assert browser.theme == "Light" and browser.reloads == 2
 
 
 def test_unticking_updates_the_google_link(at):
@@ -540,7 +584,7 @@ def test_life_list_rows_show_a_small_breed_photo(at):
     assert rows.count('class="thumb"') == 141
     # zoomed in on the dog's face (data/breed_faces.csv), with a tick on breeds you've seen
     assert rows.count('<span class="thumb"><span class="face" style="background-image:url(') == 141
-    assert "background-size:" in rows and "<span class=tick>✅</span>" in rows
+    assert "background-size:" in rows and '<span class="tick">' in rows
 
 
 def test_choosing_a_breed_photo_as_your_profile_picture(at):
@@ -728,4 +772,4 @@ def test_a_typed_in_breed_is_logged_as_unverified_and_shared_for_review(at, typi
 def test_listed_breeds_say_they_are_verified(at):
     sign_up(at)
     life = "".join(m.value for m in at.markdown)
-    assert "✓ Verified breed" in life
+    assert "</svg> Verified breed" in life  # a sketched tick, then the label
