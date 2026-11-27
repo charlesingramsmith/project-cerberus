@@ -8,6 +8,7 @@ import io
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
+from datetime import date, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -145,6 +146,87 @@ def prepare_photo(data: bytes, max_side: int = PHOTO_MAX_SIDE) -> bytes:
     except (OSError, SyntaxError, ValueError, Image.DecompressionBombError) as err:
         raise ValueError(NOT_A_PHOTO) from err
     return out.getvalue()
+
+
+# --- Date and place from a photo's metadata ----------------------------------------
+# Phones note when (and often where) a photo was taken in its EXIF metadata. Spotted! reads
+# it from the original upload, before prepare_photo strips it, to fill in the date and
+# suggest a place name. Only the place name the member keeps is saved, never coordinates.
+# Many photos carry none of this (screenshots, some phone browsers remove the location
+# when a photo is picked), and then nothing is filled in.
+
+EXIF_IFD, GPS_IFD = 0x8769, 0x8825  # where the camera details and the GPS spot are kept
+DATE_TAKEN, DATE_CHANGED = 0x9003, 0x0132  # DateTimeOriginal, DateTime
+PLACE_DECIMALS = 3  # about 100 m: the place lookup is never sent a precise spot
+
+
+@dataclass(frozen=True)
+class PhotoDetails:
+    taken_on: date | None = None  # the day the photo was taken
+    where: tuple[float, float] | None = None  # (latitude, longitude), rounded
+
+
+def _exif_date(text) -> date | None:
+    """EXIF dates look like "2025:06:01 14:30:00" (the camera's local time)."""
+    try:
+        return datetime.strptime(str(text).strip()[:10], "%Y:%m:%d").date()
+    except ValueError:
+        return None
+
+
+def _gps_degrees(value, ref) -> float | None:
+    """EXIF GPS is (degrees, minutes, seconds) plus "N"/"S" or "E"/"W"."""
+    try:
+        d, m, s = (float(part) for part in value)
+    except (TypeError, ValueError, ZeroDivisionError):
+        return None
+    degrees = d + m / 60 + s / 3600
+    if isinstance(ref, bytes):
+        ref = ref.decode(errors="ignore")
+    return -degrees if str(ref).strip().upper() in ("S", "W") else degrees
+
+
+def photo_details(data: bytes) -> PhotoDetails:
+    """When and where a photo was taken, from its metadata, as far as it says.
+
+    Never raises: a photo with no (or odd) metadata just gives empty details.
+    """
+    from PIL import Image  # Pillow comes with Streamlit
+
+    try:
+        with Image.open(io.BytesIO(data)) as img:
+            exif = img.getexif()
+            camera = exif.get_ifd(EXIF_IFD)
+            gps = exif.get_ifd(GPS_IFD)
+    except Exception:  # not an image, or metadata Pillow can't read
+        return PhotoDetails()
+    taken_on = _exif_date(camera.get(DATE_TAKEN) or exif.get(DATE_CHANGED) or "")
+    lat = _gps_degrees(gps.get(2), gps.get(1, "N"))
+    lon = _gps_degrees(gps.get(4), gps.get(3, "E"))
+    where = None
+    if lat is not None and lon is not None and abs(lat) <= 90 and abs(lon) <= 180 \
+            and (lat, lon) != (0, 0):  # 0,0 is what some apps write for "no location"
+        where = round(lat, PLACE_DECIMALS), round(lon, PLACE_DECIMALS)
+    return PhotoDetails(taken_on, where)
+
+
+# Address parts from OpenStreetMap's reverse geocoder (Nominatim), most specific first.
+PLACE_SPOT_KEYS = ("park", "leisure", "nature_reserve", "tourism", "beach")
+PLACE_AREA_KEYS = ("suburb", "neighbourhood", "quarter", "village", "hamlet")
+PLACE_TOWN_KEYS = ("city", "town", "village", "municipality", "county")
+
+
+def place_name(address: dict) -> str | None:
+    """A short place name, like "Hyde Park, London" or "Clapham, London", from a
+    reverse-geocoded address (Nominatim's `address` dict). None if it has nothing useful."""
+    def first(keys):
+        return next((str(address[k]).strip() for k in keys if str(address.get(k) or "").strip()),
+                    "")
+
+    spot = first(PLACE_SPOT_KEYS) or first(PLACE_AREA_KEYS)
+    town = first(PLACE_TOWN_KEYS)
+    parts = [p for i, p in enumerate([spot, town]) if p and p not in [spot, town][:i]]
+    return ", ".join(parts) or None
 
 
 def photo_path(user_id: str, photo_id: str) -> str:
