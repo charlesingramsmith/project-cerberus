@@ -2,6 +2,8 @@
 import importlib.util
 from pathlib import Path
 
+from cerberus.logic import load_breeds
+
 SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "face_cropper.py"
 spec = importlib.util.spec_from_file_location("face_cropper", SCRIPT)
 face_cropper = importlib.util.module_from_spec(spec)
@@ -24,5 +26,5 @@ def test_unknown_breeds_are_left_out():
 
 def test_every_breed_is_listed_with_a_photo():
     breeds = face_cropper.breed_list()
-    assert len(breeds) == 100
+    assert len(breeds) == len(load_breeds())
     assert all(b["image"].startswith("https://") for b in breeds)
