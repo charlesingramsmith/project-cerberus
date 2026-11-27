@@ -86,3 +86,6 @@ footer .sketch { color: var(--plum); }
 .legal h3 { font-size: 1.6rem; margin: 1.4rem 0 .2rem; }
 .legal p, .legal li { margin: .5rem 0; }
 .legal ul, .legal ol { padding-left: 1.3rem; }
+footer .follow { font-size: 1rem; font-weight: 700; }
+footer .follow a { text-decoration: none; }
+footer .follow .sketch { color: var(--pistachio-text); }
