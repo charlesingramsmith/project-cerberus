@@ -742,7 +742,7 @@ def test_legal_pages_are_dated_and_give_a_contact(path):
 
 def test_privacy_policy_names_every_service_the_app_uses():
     text = logic.PRIVACY_MD.read_text(encoding="utf-8")
-    for service in ("Supabase", "Streamlit", "Google", "OpenStreetMap", "Wikimedia"):
+    for service in ("Supabase", "Render", "Streamlit", "Google", "OpenStreetMap", "Wikimedia"):
         assert service in text
 
 

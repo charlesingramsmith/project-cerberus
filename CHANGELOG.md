@@ -6,6 +6,11 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.39.0 - 2026-11-27 - Derlin has a new home
+- Derlin now lives at **app.derlin.app**. Bookmark it, or add it to your home screen again from there.
+- You'll need to sign in once at the new address (and pick dark mode again if you use it). Your sightings, life list, badges, dogs and photos are all there, just as you left them.
+- The old address keeps working for a few weeks, so nothing breaks in the meantime.
+
 ## 0.38.0 - 2026-11-27 - Report a post
 - See something that shouldn't be there? Tap **Report** under someone's post in Social, or on a dog's profile page, and pick why: an inappropriate photo, not a dog, spam or something else.
 - It disappears for you straight away, and we review every report. Nobody is told who reported them.

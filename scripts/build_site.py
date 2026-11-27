@@ -25,7 +25,7 @@ sys.path.insert(0, str(ROOT))
 
 from cerberus import sketches  # noqa: E402
 
-APP_URL = "https://project-cerberus.streamlit.app"
+APP_URL = "https://app.derlin.app"
 SITE = ROOT / "site"
 LEGAL_PAGES = {"privacy": "Privacy policy", "terms": "Terms of use"}
 
