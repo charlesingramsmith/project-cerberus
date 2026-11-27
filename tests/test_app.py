@@ -795,6 +795,43 @@ def test_listed_breeds_say_they_are_verified(at):
     assert "</svg> Verified breed" in life  # a sketched tick, then the label
 
 
+def test_a_photos_date_and_place_fill_in_the_sighting(at, monkeypatch):
+    import datetime as dt
+
+    from cerberus import logic, places
+
+    monkeypatch.setattr(places, "fetch_json",
+                        lambda url: {"address": {"park": "Kew Gardens", "city": "London"}})
+    sign_up(at)
+    # AppTest can't upload files, so put what photo_picker reads from a photo in place.
+    taken = dt.date.today() - dt.timedelta(days=3)
+    at.session_state["sighting_photo_details"] = ("photo-1", logic.PhotoDetails(
+        taken, (51.479, -0.295)))
+    at.run()
+    assert at.date_input(key="sighting_date").value == taken
+    assert at.text_input(key="sighting_where").value == "Kew Gardens, London"
+
+    # A different photo replaces what the last one filled in.
+    monkeypatch.setattr(places, "fetch_json",
+                        lambda url: {"address": {"suburb": "Clapham", "city": "London"}})
+    at.session_state["sighting_photo_details"] = ("photo-2", logic.PhotoDetails(
+        taken, (51.462, -0.138)))
+    at.run()
+    assert at.text_input(key="sighting_where").value == "Clapham, London"
+
+
+def test_photos_without_details_change_nothing(at):
+    import datetime as dt
+
+    from cerberus import logic
+
+    sign_up(at)
+    at.session_state["sighting_photo_details"] = ("photo-1", logic.PhotoDetails())
+    at.run()
+    assert at.date_input(key="sighting_date").value == dt.date.today()
+    assert at.text_input(key="sighting_where").value == ""
+
+
 # --- Spotted! in two steps ------------------------------------------------------------
 
 def spot_step(at: AppTest) -> int:
