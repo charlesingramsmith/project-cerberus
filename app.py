@@ -5,6 +5,7 @@ Run with:  streamlit run app.py
 import base64
 import dataclasses
 import datetime as dt
+import hashlib
 import html
 import os
 import sys
@@ -44,6 +45,7 @@ drop_stale_cerberus_modules()
 from cerberus import logic  # noqa: E402
 from cerberus.backends import AuthError, MemoryBackend, SupabaseBackend  # noqa: E402
 from cerberus.oauth import PENDING, with_query, with_trailing_slash  # noqa: E402
+from cerberus.photo_id import PhotoID  # noqa: E402
 from cerberus.remember import MAX_AGE_DAYS, SAVED_SIGN_IN_JS  # noqa: E402
 
 st.set_page_config(
@@ -278,6 +280,17 @@ def load_breeds(version: tuple) -> pd.DataFrame:  # no "_": st.cache_data skips 
 @st.cache_data
 def load_breed_profiles(version: tuple) -> dict[str, logic.BreedProfile]:
     return logic.load_breed_profiles()
+
+
+@st.cache_resource(show_spinner=False)
+def load_photo_id(version: tuple) -> PhotoID | None:
+    """The Photo ID model, loaded once and shared by everyone. That's fine here because
+    it holds no member data (unlike the backend, which must never be cached like this).
+    None if it can't load: then the app works as before, without suggestions."""
+    try:
+        return PhotoID()
+    except Exception:
+        return None
 
 
 def refresh_stale_backend():
@@ -607,6 +620,46 @@ def photo_picker(key: str, note: str, max_side: int = logic.PHOTO_MAX_SIDE) -> b
     return prepared[1]
 
 
+def pick_breed(breed: str):
+    """A Photo ID suggestion was tapped: put that breed in the form's Breed box."""
+    st.session_state.sighting_breed = breed
+
+
+def photo_id_suggestions(photo: bytes):
+    """Photo ID: the model's top breed guesses for this photo, as buttons that fill in
+    the breed. It only suggests; the member checks and can pick any breed instead."""
+    model = load_photo_id(file_version(
+        logic.PHOTO_ID_MODEL, logic.PHOTO_ID_BREEDS_CSV, CERBERUS_DIR / "photo_id.py"))
+    if model is None:
+        return
+    digest = hashlib.sha256(photo).hexdigest()
+    cached = st.session_state.get("photo_id_result")
+    if cached is None or cached[0] != digest:  # run the model once per photo
+        try:
+            cached = digest, model.guesses(photo)
+        except Exception:
+            return
+        st.session_state.photo_id_result = cached
+    result = cached[1]
+    with st.container(key="photo_id"):
+        st.markdown("**🔎 Photo ID**")
+        if not result.is_dog:
+            st.caption("Photo ID can't spot a dog in this photo. Pick the breed yourself.")
+            return
+        if not result.guesses:
+            st.caption("Photo ID isn't sure about this one. Pick the breed yourself.")
+            return
+        with st.container(horizontal=True, gap="small"):
+            for i, guess in enumerate(result.guesses):
+                chosen = st.session_state.get("sighting_breed") == guess.breed
+                st.button(f"{guess.breed} · {guess.label}", key=f"photo_id_pick_{i}",
+                          type="primary" if chosen else "secondary",
+                          on_click=pick_breed, args=(guess.breed,))
+        known = len({b for b in model.class_breeds.values() if b})
+        st.caption(f"Tap one to fill in the breed, then check it. Photo ID knows {known} "
+                   f"of our {len(listed)} breeds so far, so it can't suggest the others yet.")
+
+
 def unverified_chip(breed: str) -> str:
     """The "Unverified breed" label, for a breed that isn't on the verified list."""
     return "" if breed in listed else UNVERIFIED_CHIP
@@ -766,7 +819,7 @@ with st.container(key="main_nav"):
     tab_spotted, tab_life, tab_profile, tab_social, tab_settings = st.tabs(
         NAV_TABS, key="main_tab", on_change="rerun")
 
-# --- Spotted!: log a sighting (later, also identify the dog) --------------------------------------
+# --- Spotted!: log a sighting, with Photo ID suggestions from its photo ---------------------------
 with tab_spotted:
     st.header("Spotted a dog?")
     seen_breeds = set(life.loc[seen, "breed"])
@@ -795,6 +848,8 @@ with tab_spotted:
         "sighting_photo", "Shown with your sighting in Social if you share your sightings "
         "(Settings > Privacy). Saved smaller, without the location your phone may have "
         "stored in it.")
+    if photo is not None:
+        photo_id_suggestions(photo)
     tagged = []
     if all_dogs:  # dogs with a profile (anyone's) can be tagged by their @username
         # Outside the form below, so picking a dog can fill in its name and breed at once
@@ -827,8 +882,8 @@ with tab_spotted:
         notes = st.text_area("Notes", placeholder="Good boy. Very fluffy.", height=80)
         submitted = st.form_submit_button("Spotted!", type="primary", width="stretch")
 
-    st.caption("📷 Photo ID (identify a dog from a photo) is on the roadmap. "
-               "For now, pick the breed yourself.")
+    if photo is None:
+        st.caption("📷 Add a photo and Photo ID will suggest the breed.")
 
     if submitted:
         tagged_dogs = [dogs_by_id[d] for d in tagged if d in dogs_by_id]
