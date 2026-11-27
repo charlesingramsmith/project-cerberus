@@ -22,6 +22,7 @@ def test_script_keeps_the_theme_in_streamlits_own_storage_key():
     # Streamlit reads the chosen theme from this key (if an upgrade renames it, the
     # Settings switch stops working: recheck it in the browser).
     assert f'"{THEME_KEY_PREFIX}" + window.location.pathname + "{THEME_KEY_SUFFIX}"' in SAVED_SIGN_IN_JS
-    assert 'JSON.stringify("Light")' in SAVED_SIGN_IN_JS  # light by default
+    assert 'useTheme("Light")' in SAVED_SIGN_IN_JS  # light by default
     assert f'const CARRY_KEY = "{CARRY_KEY}";' in SAVED_SIGN_IN_JS
     assert "sessionStorage" in SAVED_SIGN_IN_JS  # the sign-in carried over a reload ends with the tab
+    assert "themes.setTheme(wanted)" in SAVED_SIGN_IN_JS  # an instant switch, no reload
