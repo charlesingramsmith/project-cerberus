@@ -1,6 +1,6 @@
 # Roadmap
 
-Where Project Cerberus is heading, and why. This is the single source of truth for planned work: `README.md` shows a short summary and `CLAUDE.md` points here.
+Where Derlin is heading, and why. This is the single source of truth for planned work: `README.md` shows a short summary and `CLAUDE.md` points here.
 
 **How to use this file**
 - Tick an item (`[x]`) in the same commit that finishes it, and update the README summary.
@@ -10,7 +10,7 @@ Where Project Cerberus is heading, and why. This is the single source of truth f
 
 ## Inspiration: identify a dog from a photo or a bark
 
-Bird apps like Merlin identify a bird from a photo or its song. Cerberus aims for the dog equivalent: snap a photo or record a bark and a machine-learning (ML) model suggests the breed. **The model only suggests:** the user always confirms, and can skip it entirely and just pick the breed they saw from the list.
+Bird apps like Merlin identify a bird from a photo or its song. Derlin aims for the dog equivalent: snap a photo or record a bark and a machine-learning (ML) model suggests the breed. **The model only suggests:** the user always confirms, and can skip it entirely and just pick the breed they saw from the list.
 
 | Mode | What the user does | Status |
 |---|---|---|
@@ -123,17 +123,15 @@ Done so far: the name is **Derlin** (27 Nov 2026), `derlin.app` is bought (Porkb
 
 A **privacy policy and terms of use** are drafted in `legal/` (27 Nov 2026) and shown in the app; the landing page can show the same text. Update them at each step (new host, new services), and have them checked before the app stores.
 
-- [ ] **A brand name**: a proper name for the app (it's called Project Cerberus for now).
-  - Planning: shortlist names; check each is free as a domain, on the App Store and Google Play, and on social handles; do a quick trademark search (UK IPO, EUIPO, USPTO) for the pet/app classes; ask a few members which they like.
-  - Decide whether "Cerberus" stays as the code/project name and only the app's display name changes.
-  - The owner chose (27 Nov 2026) to do the visual refresh first under the current name and rework the name later. The dachshund logo can stay; a wordmark follows the name. Do the name before buying a domain (step 1 of the launch plan above).
-  - Changing it touches the page title and text in `app.py` (including the sign-in screen under the logo), `README.md`, the Google sign-in consent screen and Supabase email templates.
-- [ ] **Our own web address (domain)**: e.g. `<brand>.app` instead of `project-cerberus.streamlit.app`.
-  - Planning: pick the name first; choose a registrar (cost per year, renewal price, WHOIS privacy); decide between `.com`, `.app` (HTTPS only, fine for us) or a country domain.
+- [x] **A brand name: Derlin** (chosen 27 Nov 2026). No DERLIN trade mark found in the UK, EU or US; `derlin.com` and `derlin.co.uk` are taken, so we use `derlin.app`.
+  - Only the name people see changed (page title, sign-in screen, About, README, docs). The code package (`cerberus/`), the GitHub repo, the Supabase project and the Streamlit address keep "cerberus" until the hosting move.
+  - Still to rename by hand: the app name on the Google sign-in consent screen (Google Cloud > Google Auth Platform > Branding) and any Supabase email templates that name the app.
+  - Next: a wordmark for the name (the dachshund logo stays).
+- [x] **Our own web address (domain)**: `derlin.app`, bought 27 Nov 2026 at Porkbun (step 2 of the launch plan). The app itself moves there with **Launch a real app**; until then the landing page on it links to `project-cerberus.streamlit.app`.
   - Streamlit Community Cloud can't use a custom domain, so a domain mostly pays off together with **Launch a real app** (new hosting). Until then it could redirect to the current address.
   - A domain also gives us an email sender (e.g. Resend or similar with SPF/DKIM records), which is what **password reset** was waiting for (see Ideas), and a `hello@` address for feedback.
   - After moving: add the new address to Supabase **Redirect URLs** and **Site URL**, and to the Google Cloud OAuth client.
-- [ ] **Launch a real app**: Cerberus on your phone's home screen, and later in the app stores.
+- [ ] **Launch a real app**: Derlin on your phone's home screen, and later in the app stores.
   - First step: an installable "Add to Home Screen" web app. Needs hosting where we control the web app manifest and icons, so it means moving off Streamlit Community Cloud.
   - Then: a store app (iOS and Android). Options to compare: wrapping the web app (e.g. Capacitor) vs. rebuilding the UI natively; Supabase and the RLS rules can stay as they are.
   - Planning: decide on hosting (another Python host such as Render or Fly.io, or a rebuild in a web framework), what it costs per month, and how a deploy works without breaking "Keep me signed in" (saved tokens are tied to the site's address, so members sign in once more after a move). Name and domain should be done first (the visual refresh is done).

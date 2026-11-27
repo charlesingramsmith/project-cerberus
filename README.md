@@ -1,4 +1,4 @@
-# 🐕 Project Cerberus
+# 🐕 Derlin
 
 **[▶ Try it live](https://project-cerberus.streamlit.app)**
 

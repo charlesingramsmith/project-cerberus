@@ -11,7 +11,7 @@ The app shows both, unchanged, in **Settings > Privacy and terms** and at the bo
 
 Update them in the same change whenever the app starts collecting something new, shares it differently or uses a new service (and bump **Last updated**). In particular:
 
-- **Moving hosting off Streamlit Cloud** (launch plan step 4): replace Streamlit in the list of services, and drop "still called Project Cerberus" once the app is renamed.
+- **Moving hosting off Streamlit Cloud** (launch plan step 4): replace Streamlit in the list of services.
 - **New third-party services** (analytics, email sending, a new AI model run elsewhere): add them to "Who else handles your information".
 - **Messaging or friends**: say who can see messages and how to report someone.
 - **An in-app "delete my account" button**: point the policy to it instead of only the email address.

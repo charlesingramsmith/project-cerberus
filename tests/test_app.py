@@ -45,7 +45,7 @@ def log_breed(at: AppTest, breed_name: str) -> AppTest:
 
 
 def test_signed_out_visitors_see_the_sign_in_screen(at):
-    assert at.title[0].value == "Project Cerberus"  # the logo (assets/logo.svg) sits above it
+    assert at.title[0].value == "Derlin"  # the logo (assets/logo.svg) sits above it
     assert any(b.label == "Sign in" for b in at.button)
     assert not at.header  # no life list until signed in
 

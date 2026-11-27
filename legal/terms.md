@@ -2,7 +2,7 @@
 
 **Last updated: 27 November 2026**
 
-These terms are the agreement between you and Charlie, who runs Derlin (still called Project Cerberus in the app while it's in testing). By creating an account or using the app, you agree to them. Please also read the **Privacy policy**, which explains what happens to your information.
+These terms are the agreement between you and Charlie, who runs Derlin. By creating an account or using the app, you agree to them. Please also read the **Privacy policy**, which explains what happens to your information.
 
 ## The app
 
