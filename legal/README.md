@@ -41,7 +41,8 @@ Picked as sensible defaults and approved by Charlie on 27 Nov 2026:
 
 - **Who runs it:** "Charlie, an individual based in the United Kingdom". The app stores and Google's verification may want a full legal name and a postal address: add them here when needed.
 - **ICO fee:** individuals who process personal data for a service may need to pay the ICO's yearly data protection fee (about £52). Check with the ICO's self-assessment at ico.org.uk/fee.
-- **Minimum age:** 13 (the UK's age for consenting to online services).
+- **Minimum age:** 13 (the UK's age for consenting to online services). Sign-up asks for the birth year and turns away anyone certainly under 13.
+- **Under-18s (ICO Children's Code):** Charlie chose (27 Nov 2026) that members aged 13 to 17 start with **Share my sightings off**; they can switch it on themselves. Only the birth year is kept, in the account's private metadata (not on the profile other members can read). A year can't tell if this year's birthday has passed, so anyone who may still be 17 counts as under 18. Members who joined before this aren't asked and keep their setting.
 - **Deletion:** by email to hello@derlin.app, done within 30 days; backups clear within a further 30.
 - **Inactive accounts:** kept until deleted (no automatic clean-up).
 - **Law:** England and Wales.

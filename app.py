@@ -554,6 +554,7 @@ backend = st.session_state.backend
 
 def end_session(message: str | None = None):
     st.session_state.pop("user", None)
+    st.session_state.pop("age_known", None)  # the next person to sign in is checked afresh
     st.session_state.pop("remember", None)
     if message:
         st.session_state.auth_notice = message
@@ -748,12 +749,15 @@ def auth_screen():
                                      help="At least 8 characters.")
             confirm = st.text_input("Confirm password", type="password", key="sign_up_confirm",
                                     autocomplete="new-password")
+            birth_year = birth_year_picker("sign_up_birth_year")
             if st.form_submit_button("Create account", type="primary", width="stretch"):
                 if password != confirm:
                     st.error("Passwords don't match.")
+                elif birth_year is None:
+                    st.error("Please choose the year you were born.")
                 else:
                     try:
-                        user = backend.sign_up(email, password, username)
+                        user = backend.sign_up(email, password, username, birth_year)
                     except AuthError as err:
                         st.error(str(err))
                     else:
@@ -771,6 +775,39 @@ def auth_screen():
     legal_expanders()
 
 
+def birth_year_picker(key: str):
+    """The "Year you were born" box (sign-up, and a Google member's first visit)."""
+    return st.selectbox("Year you were born", logic.birth_years(), index=None, key=key,
+                        placeholder="Choose a year",
+                        help="Only you can see this. Members under 18 start with their "
+                             "sightings private.")
+
+
+def birth_year_screen():
+    """A new member who joined with Google hasn't told us their age yet: ask once,
+    before their profile (and its sharing setting) is made."""
+    st.markdown(logo_html(), unsafe_allow_html=True)
+    st.subheader("One more thing")
+    st.write("What year were you born? You need to be 13 or over to use Derlin, "
+             "and members under 18 start with their sightings private.")
+    with st.form("birth_year"):
+        year = birth_year_picker("google_birth_year")
+        if st.form_submit_button("Continue", type="primary", width="stretch"):
+            try:
+                backend.set_birth_year(year)
+            except AuthError as err:
+                end_session(str(err))
+            except ValueError as err:
+                st.error(str(err))
+            except Exception:
+                st.error("That didn't save. Please try again.")
+            else:
+                st.rerun()
+    if st.button("Sign out", key="birth_year_sign_out", width="stretch"):
+        backend.sign_out()
+        end_session()
+
+
 if "user" not in st.session_state:
     finish_google_sign_in()
 resume_saved_sign_in(sync_saved_sign_in())
@@ -781,6 +818,14 @@ if "user" not in st.session_state:
     st.stop()
 
 user = st.session_state.user
+if not st.session_state.get("age_known"):  # once per visit; existing members are never asked
+    try:
+        if backend.needs_birth_year():
+            birth_year_screen()
+            st.stop()
+    except AuthError as err:
+        end_session(str(err))
+    st.session_state.age_known = True
 st.logo(LOGO_ICON, size="large")  # top-left once signed in (the sign-in screen shows it big)
 
 if backend.demo:
@@ -1084,10 +1129,39 @@ def sharing_notice():
                 st.rerun()
 
 
-if backend.profile_is_new:  # first visit: their profile (sharing on) was just made
+@st.dialog("Your sightings are private", on_dismiss=close_sharing_notice)
+def private_notice():
+    """The new-member notice for anyone under 18: their profile starts with sharing off
+    (UK Children's Code), and only they can switch it on."""
+    st.write("Because you're under 18, the dogs you log aren't shown to other members "
+             "in the **Social** tab. You can still see what others share.")
+    st.write("You can choose to share your sightings any time in **Settings > Privacy**.")
+    with st.container(horizontal=True):
+        if st.button("Keep them private", type="primary", key="notice_keep_private",
+                     width="stretch"):
+            close_sharing_notice()
+            st.rerun()
+        if st.button("Share my sightings", key="notice_start_sharing", width="stretch"):
+            try:
+                backend.save_profile({**profile, "share_sightings": True})
+            except AuthError as err:
+                end_session(str(err))
+            except Exception:
+                st.error("That didn't save. Please try again in Settings > Privacy.")
+            else:
+                st.session_state.share_switch_to = True  # as in sharing_notice above
+                close_sharing_notice()
+                st.rerun()
+
+
+if backend.profile_is_new:  # first visit: their profile was just made
     backend.profile_is_new = False
-    st.session_state.sharing_notice = profiles_ready
-if st.session_state.get("sharing_notice"):
+    st.session_state.sharing_notice = (
+        profiles_ready and ("shared" if profile["share_sightings"] else "private"))
+new_member_notice = st.session_state.get("sharing_notice")
+if new_member_notice == "private":
+    private_notice()
+elif new_member_notice:  # "shared" (or True, from a page opened before under-18s started private)
     sharing_notice()
 
 life = logic.life_list(breeds, sightings)

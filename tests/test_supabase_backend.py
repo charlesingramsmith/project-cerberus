@@ -287,6 +287,42 @@ def test_first_profile_tries_the_next_name_when_one_is_taken():
     assert backend.profile_is_new  # so the app explains sharing
 
 
+def test_birth_year_goes_in_private_metadata_not_the_profile():
+    backend, log = make_backend()
+    teen = date.today().year - 15
+    backend.sign_up("charlie@example.com", "correct-horse", "charlie", teen)
+    assert backend.birth_year() == teen
+    backend.my_profile()
+    inserted = next(args[0] for name, args, _ in log if name == "insert")
+    assert inserted["share_sightings"] is False
+    assert "birth_year" not in inserted  # profiles are readable by every member
+
+
+def test_under_13s_are_refused_before_supabase_is_asked():
+    backend, _ = make_backend()
+    with pytest.raises(AuthError, match="13 or over"):
+        backend.sign_up("kid@example.com", "correct-horse", "kid", date.today().year - 9)
+    assert backend.client.auth.session is None
+
+
+def test_google_members_are_asked_their_birth_year_once():
+    backend, _ = make_backend()
+    backend.finish_google_sign_in("good-code", "verifier-123")
+    backend.client.table = lambda name: FakeQuery([], [])  # no profile yet
+    assert backend.needs_birth_year()
+    backend.set_birth_year(1990)
+    assert backend.client.auth.updated == {"data": {"birth_year": 1990}}
+    assert not backend.needs_birth_year()
+    assert backend.my_profile()["share_sightings"] is True
+
+
+def test_existing_members_are_not_asked_their_birth_year():
+    backend, _ = make_backend()
+    backend.sign_in("charlie@example.com", "correct-horse")
+    backend.client.table = lambda name: FakeQuery([], [{"user_id": "uuid-1"}])
+    assert not backend.needs_birth_year()
+
+
 def test_saving_a_taken_username_is_a_friendly_error():
     backend, _ = make_backend()
     backend.sign_in("charlie@example.com", "correct-horse")

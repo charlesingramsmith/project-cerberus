@@ -220,6 +220,46 @@ def test_profile_is_new_only_when_my_profile_makes_it(backend):
     assert not backend.profile_is_new
 
 
+def this_year_minus(n: int) -> int:
+    return date.today().year - n
+
+
+def test_under_18s_start_with_sharing_off(backend):
+    backend.sign_up("a@example.com", "correct-horse", "teen", this_year_minus(15))
+    assert backend.birth_year() == this_year_minus(15)
+    assert backend.my_profile()["share_sightings"] is False
+
+
+def test_adults_start_with_sharing_on(backend):
+    backend.sign_up("a@example.com", "correct-horse", "adult", 1990)
+    assert backend.my_profile()["share_sightings"] is True
+
+
+def test_under_13s_cant_sign_up(backend):
+    with pytest.raises(AuthError, match="13 or over"):
+        backend.sign_up("a@example.com", "correct-horse", "kid", this_year_minus(10))
+    with pytest.raises(AuthError):  # and no account was made
+        backend.sign_in("a@example.com", "correct-horse")
+
+
+def test_new_members_without_a_birth_year_are_asked_once(backend):
+    backend.sign_up("a@example.com", "correct-horse", "pat")  # as after Google sign-in
+    assert backend.needs_birth_year()
+    with pytest.raises(ValueError, match="13 or over"):
+        backend.set_birth_year(this_year_minus(12))
+    backend.set_birth_year(this_year_minus(14))
+    assert not backend.needs_birth_year()
+    assert backend.my_profile()["share_sightings"] is False
+
+
+def test_members_with_a_profile_are_never_asked(backend):
+    backend.sign_up("a@example.com", "correct-horse", "pat")
+    backend.my_profile()  # joined before sign-up asked
+    assert not backend.needs_birth_year()
+    with pytest.raises(AuthError):
+        MemoryBackend().needs_birth_year()
+
+
 def test_usernames_are_unique_ignoring_capitals(backend):
     backend.sign_up("a@example.com", "correct-horse", "charlie")
     backend.my_profile()
