@@ -10,13 +10,13 @@ Derlin is a free app for logging the dogs you see and building a life list of br
 
 ## Who can use it
 
-You must be **13 or older**. You're responsible for keeping your sign-in details private and for what happens on your account. If you think someone else has got into your account, email **hello@derlin.app**.
+You must be **13 or older**, and we ask the year you were born when you join. Please give it truthfully. If you're under 18, your sightings start private, and you can choose to share them in **Settings > Privacy**. You're responsible for keeping your sign-in details private and for what happens on your account. If you think someone else has got into your account, email **hello@derlin.app**.
 
 One account per person, please, and choose a username that isn't offensive or pretending to be someone else.
 
 ## Your content
 
-Your sightings, photos, notes, dog profiles and anything else you add are yours. So that the app can work, you give us permission to store them and show them to other members in line with your settings (for example, sightings appear in Social while **Share my sightings** is on). This permission ends when you delete the content or your account, except for breed names you added to the shared list, which stay for everyone to use.
+Your sightings, photos, notes, dog profiles and anything else you add are yours. So that the app can work, you give us permission to store them and show them to other members in line with your settings (for example, sightings appear in Social while **Share my sightings** is on: on by default if you're 18 or over, off if you're under 18). This permission ends when you delete the content or your account, except for breed names you added to the shared list, which stay for everyone to use.
 
 Only post photos you took yourself or have the right to share.
 

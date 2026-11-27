@@ -791,3 +791,44 @@ def test_supabase_settings_leave_out_missing_or_blank_values():
 ])
 def test_on_streamlit_cloud(url, expected):
     assert logic.on_streamlit_cloud(url) is expected
+
+
+# --- Age ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("year, under_18", [
+    (2008, True),   # 18 this year, but maybe not yet
+    (2007, False),  # 19 this year: at least 18 now
+    (2013, True),
+    (None, False),  # not known (joined before sign-up asked)
+])
+def test_is_under_18_gives_the_benefit_of_the_doubt(year, under_18):
+    assert logic.is_under_18(year, this_year=2026) is under_18
+
+
+@pytest.mark.parametrize("value, message", [
+    (None, "year you were born"),
+    ("soon", "year you were born"),
+    (2027, "year you were born"),
+    (1900, "year you were born"),
+    (2014, "13 or over"),  # 12 this year: certainly under 13
+])
+def test_clean_birth_year_rejects_bad_years(value, message):
+    with pytest.raises(ValueError, match=message):
+        logic.clean_birth_year(value, this_year=2026)
+
+
+def test_clean_birth_year_lets_in_anyone_who_may_be_13():
+    assert logic.clean_birth_year("2013", this_year=2026) == 2013
+    assert logic.clean_birth_year(1950, this_year=2026) == 1950
+
+
+def test_birth_years_are_newest_first_and_include_this_year():
+    years = logic.birth_years(this_year=2026)
+    assert years[0] == 2026 and years[-1] == 2026 - logic.MAX_AGE
+    assert years == sorted(years, reverse=True)
+
+
+def test_new_profiles_start_private_for_under_18s():
+    assert logic.new_profile("teen", 2012, this_year=2026)["share_sightings"] is False
+    assert logic.new_profile("adult", 1990, this_year=2026)["share_sightings"] is True
+    assert logic.new_profile("unknown")["share_sightings"] is True

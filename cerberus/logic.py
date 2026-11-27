@@ -665,10 +665,53 @@ MAX_DOG_NAME_LENGTH = 40
 USERNAME_TAKEN = "That username is taken. Please choose another."
 
 
-def new_profile(username: str) -> dict:
-    """A brand-new member's profile: sharing is on by default."""
+def new_profile(username: str, birth_year: int | None = None,
+                this_year: int | None = None) -> dict:
+    """A brand-new member's profile: sharing is on by default, but off for anyone who
+    may be under 18 (they can switch it on themselves in Settings > Privacy)."""
     return {"username": username, "avatar": AVATARS[0], "favourite_breed": None,
-            "dogs": [], "share_sightings": True}
+            "dogs": [], "share_sightings": not is_under_18(birth_year, this_year)}
+
+
+# --- Age ---------------------------------------------------------------------------
+# Sign-up asks for the year someone was born (not the full date: less to keep). Members
+# under 18 start with sharing off, as the UK Children's Code expects, and under-13s
+# can't join (the terms say 13 or over). A year alone can't say whether this year's
+# birthday has passed, so each rule gives the benefit of the doubt the safe way: anyone
+# who might still be 17 counts as under 18, and only someone certainly under 13 is
+# turned away.
+MIN_AGE, ADULT_AGE, MAX_AGE = 13, 18, 120
+TOO_YOUNG = "Sorry, you need to be 13 or over to use Derlin."
+
+
+def birth_years(this_year: int | None = None) -> list[int]:
+    """The years offered at sign-up, newest first (including ones too young to join, so
+    nobody has to pick a wrong year to get past the list)."""
+    this_year = this_year or date.today().year
+    return list(range(this_year, this_year - MAX_AGE - 1, -1))
+
+
+def clean_birth_year(value, this_year: int | None = None) -> int:
+    """Check the birth year someone gave. Raises ValueError with a friendly message."""
+    this_year = this_year or date.today().year
+    try:
+        year = int(value)
+    except (TypeError, ValueError):
+        raise ValueError("Please choose the year you were born.") from None
+    if not this_year - MAX_AGE <= year <= this_year:
+        raise ValueError("Please choose the year you were born.")
+    if this_year - year < MIN_AGE:  # certainly under 13, even after this year's birthday
+        raise ValueError(TOO_YOUNG)
+    return year
+
+
+def is_under_18(birth_year: int | None, this_year: int | None = None) -> bool:
+    """True if someone born in `birth_year` may still be under 18 (False if not known,
+    as for members who joined before sign-up asked)."""
+    if birth_year is None:
+        return False
+    this_year = this_year or date.today().year
+    return this_year - int(birth_year) <= ADULT_AGE  # 18 this year may not be 18 yet
 
 
 def clean_profile(profile: dict, breed_names: set[str] | None = None) -> dict:

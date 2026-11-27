@@ -52,8 +52,13 @@ class Backend(Protocol):
     # app can explain sharing. The app sets it back to False after showing that.
     profile_is_new: bool
 
-    def sign_up(self, email: str, password: str, username: str) -> User | None:
-        """Create an account. Returns the signed-in user, or None if email confirmation is needed."""
+    def sign_up(self, email: str, password: str, username: str,
+                birth_year: int | None = None) -> User | None:
+        """Create an account. Returns the signed-in user, or None if email confirmation is needed.
+
+        `birth_year` (checked by logic.clean_birth_year) is kept privately with the
+        account, never on the profile other members can read.
+        """
 
     def sign_in(self, email: str, password: str) -> User: ...
 
@@ -149,10 +154,22 @@ class Backend(Protocol):
     def mark_version_seen(self, version: str) -> None:
         """Remember that the signed-in user has seen this update (clears the Settings dot)."""
 
+    def birth_year(self) -> int | None:
+        """The year the signed-in user said they were born, or None if never asked."""
+
+    def set_birth_year(self, year: int) -> None:
+        """Check and keep the signed-in user's birth year (for Google sign-ups, asked
+        after their first sign-in). Raises ValueError for a bad or too-young year."""
+
+    def needs_birth_year(self) -> bool:
+        """True for a brand-new member (no profile yet) whose birth year isn't known,
+        so the app asks before making their profile. Existing members are never asked."""
+
     def my_profile(self) -> dict:
         """The signed-in user's profile, created on first use from their sign-up username.
 
-        If that username is taken, a number is added ("charlie2").
+        If that username is taken, a number is added ("charlie2"). A new profile shares
+        sightings unless the member may be under 18 (logic.new_profile).
         """
 
     def save_profile(self, profile: dict) -> dict:
@@ -193,6 +210,21 @@ def validate_sign_up(email: str, password: str, username: str) -> tuple[str, str
     if not 3 <= len(username) <= MAX_USERNAME_LENGTH:
         raise AuthError(f"Username must be 3 to {MAX_USERNAME_LENGTH} characters.")
     return email, username
+
+
+def _checked_birth_year(year) -> int:
+    """logic.clean_birth_year, with its message as an AuthError (as sign-up shows those)."""
+    try:
+        return logic.clean_birth_year(year)
+    except ValueError as err:
+        raise AuthError(str(err)) from err
+
+
+def _known_birth_year(value) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _clean(value: str | None) -> str | None:
@@ -278,13 +310,16 @@ class SupabaseBackend:
             raise AuthError("Your session has expired. Please sign in again.")
         return self._user
 
-    def sign_up(self, email, password, username):
+    def sign_up(self, email, password, username, birth_year=None):
         email, username = validate_sign_up(email, password, username)
+        data = {"username": username}
+        if birth_year is not None:
+            data["birth_year"] = _checked_birth_year(birth_year)
         try:
             res = self.client.auth.sign_up({
                 "email": email,
                 "password": password,
-                "options": {"data": {"username": username}},
+                "options": {"data": data},
             })
         except Exception as err:  # supabase raises several error types; show its message
             raise AuthError(getattr(err, "message", str(err))) from err
@@ -558,6 +593,29 @@ class SupabaseBackend:
         self.client.auth.update_user({"data": {"seen_version": version}})
         self._meta = {**self._meta, "seen_version": version}
 
+    # The birth year also lives in user_metadata, not on profiles: other members can read
+    # profiles, but only you (and the project owner) can see your own metadata.
+    def birth_year(self):
+        self._require_user()
+        return _known_birth_year(self._meta.get("birth_year"))
+
+    def set_birth_year(self, year):
+        self._require_user()
+        year = logic.clean_birth_year(year)
+        self.client.auth.update_user({"data": {"birth_year": year}})
+        self._meta = {**self._meta, "birth_year": year}
+
+    def needs_birth_year(self):
+        user = self._require_user()
+        if self.birth_year() is not None:
+            return False
+        try:
+            rows = (self.client.table("profiles").select("user_id")
+                    .eq("user_id", user.id).limit(1).execute().data)
+        except Exception:  # profiles not set up: nothing to protect yet, so don't block
+            return False
+        return not rows
+
     PROFILE_COLUMNS = "username, avatar, favourite_breed, dogs, share_sightings"
 
     def my_profile(self):
@@ -567,7 +625,7 @@ class SupabaseBackend:
         if rows:
             return rows[0]
         for name in logic.username_candidates(user.username):  # first visit: make one
-            profile = logic.new_profile(name)
+            profile = logic.new_profile(name, self.birth_year())
             try:
                 profiles.insert({**profile, "user_id": user.id}).execute()
                 self.profile_is_new = True
@@ -654,6 +712,9 @@ class MemoryBackend:
         self.suggestions: list[dict] = []
         self._seen: dict[str, str] = {}  # user id -> newest update they've seen
         self._profiles: dict[str, dict] = {}  # user id -> profile
+        # user id -> birth year. Like Supabase's user_metadata: with the account, not the
+        # profile other members can read.
+        self._birth_years: dict[str, int] = {}
 
     @staticmethod
     def _hash(password: str) -> str:
@@ -672,12 +733,16 @@ class MemoryBackend:
             raise AuthError("Please sign in first.")
         return self._user
 
-    def sign_up(self, email, password, username):
+    def sign_up(self, email, password, username, birth_year=None):
         email, username = validate_sign_up(email, password, username)
+        if birth_year is not None:
+            birth_year = _checked_birth_year(birth_year)
         if email in self._accounts:
             raise AuthError("An account with that email already exists.")
         user = User(id=f"user-{len(self._accounts) + 1}", email=email, username=username)
         self._accounts[email] = (self._hash(password), user)
+        if birth_year is not None:
+            self._birth_years[user.id] = birth_year
         return self._signed_in(user)
 
     def sign_in(self, email, password):
@@ -911,6 +976,16 @@ class MemoryBackend:
     def mark_version_seen(self, version):
         self._seen[self._require_user().id] = version
 
+    def birth_year(self):
+        return self._birth_years.get(self._require_user().id)
+
+    def set_birth_year(self, year):
+        self._birth_years[self._require_user().id] = logic.clean_birth_year(year)
+
+    def needs_birth_year(self):
+        user = self._require_user()
+        return user.id not in self._profiles and self.birth_year() is None
+
     def _username_taken(self, username: str, by_someone_but: str) -> bool:
         return any(p["username"].lower() == username.lower()
                    for uid, p in self._profiles.items() if uid != by_someone_but)
@@ -920,7 +995,7 @@ class MemoryBackend:
         if user.id not in self._profiles:
             name = next(n for n in logic.username_candidates(user.username)
                         if not self._username_taken(n, user.id))
-            self._profiles[user.id] = logic.new_profile(name)
+            self._profiles[user.id] = logic.new_profile(name, self.birth_year())
             self.profile_is_new = True
         return dict(self._profiles[user.id])
 
