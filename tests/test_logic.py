@@ -1,3 +1,4 @@
+import base64
 from datetime import date
 
 import pytest
@@ -709,3 +710,15 @@ def test_celebration_layout_floats_the_breeds_face_or_both_parents():
     assert all(0 <= face["left"] <= 90 and face["rise"] >= 2 for face in pug)
     cross = logic.celebration_layout("Beagle x Pug", count=4)
     assert [face["breed"] for face in cross] == ["Beagle", "Pug", "Beagle", "Pug"]
+
+
+def test_sketches_and_logo_are_crisp_vectors():
+    # Blur filters (feTurbulence and friends) made the icons and logo look fuzzy and
+    # low-res, so the pencil look is done with plain strokes only.
+    from pathlib import Path
+    root = Path(__file__).parent.parent
+    drawings = [sketches.svg(name) for name in sketches.SKETCHES]
+    drawings += [(root / "assets" / f).read_text("utf-8") for f in ("logo.svg", "icon.svg")]
+    assert not any("<filter" in d or "filter=" in d for d in drawings)
+    mask = base64.b64decode(sketches.data_uri("paw").split(",", 1)[1]).decode()
+    assert 'width="96" height="96"' in mask  # big enough that a mask is never stretched up

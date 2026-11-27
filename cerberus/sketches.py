@@ -7,7 +7,8 @@ the icon takes the colour of whatever it's on (the bottom tab bar, the photo but
 
 To add an icon: add its strokes to SKETCHES (stroke="currentColor" and fill="none" are
 set for you; give solid bits fill="currentColor"). Every icon is drawn twice, the second
-time lighter and slightly shifted, which is what makes it look sketched in pencil.
+time thinner, lighter and slightly shifted, which is what makes it look sketched in pencil.
+They are plain vectors (no blur filters), so they stay sharp on any screen.
 """
 from __future__ import annotations
 
@@ -211,21 +212,16 @@ SKETCHES: dict[str, str] = {
 }
 
 
-# A slight wobble in every line, as if drawn by hand (the logo's "pencil" filter, scaled
-# down to icon size). Every inline icon carries its own copy under the same id; they're
-# identical, so it doesn't matter which one the browser uses.
-_WOBBLE = ('<filter id="cerb-wobble" x="-10%" y="-10%" width="120%" height="120%">'
-           '<feTurbulence type="fractalNoise" baseFrequency="0.22" numOctaves="2" seed="3"/>'
-           '<feDisplacementMap in="SourceGraphic" scale="0.9" xChannelSelector="R" '
-           'yChannelSelector="G"/></filter>')
-
-
+# Crisp vectors, no blur filters, so they stay sharp at any size and screen density.
+# The hand-drawn look comes from going over each line twice, like a pencil: a firm line,
+# then a thinner, lighter one a fraction off and turned a hair, so the ends and corners
+# don't quite meet.
 def _strokes(name: str) -> str:
     """The icon drawn twice: once firmly, once lighter and a fraction off, like pencil."""
     body = SKETCHES[name]
-    return (f'<defs>{_WOBBLE}</defs><g filter="url(#cerb-wobble)">'
-            f'<g stroke-width="1.45">{body}</g>'
-            f'<g stroke-width=".75" opacity=".45" transform="translate(.6 -.45)">{body}</g></g>')
+    return (f'<g stroke-width="1.6">{body}</g>'
+            f'<g stroke-width=".7" opacity=".5" '
+            f'transform="translate(.5 -.4) rotate(-1.5 12 12)">{body}</g>')
 
 
 def svg(name: str, css: str = "sketch") -> str:
@@ -238,8 +234,10 @@ def svg(name: str, css: str = "sketch") -> str:
 
 def data_uri(name: str) -> str:
     """A standalone black copy as a base64 data URI, for CSS `mask-image` (base64, so the
-    stylesheet has no "<" in it: st.html drops a stylesheet that does)."""
-    picture = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
+    stylesheet has no "<" in it: st.html drops a stylesheet that does). It says it's 96px
+    so browsers never draw it small and stretch it up."""
+    picture = (f'<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" '
+               f'viewBox="0 0 24 24" fill="none" '
                f'stroke="black" stroke-linecap="round" stroke-linejoin="round" color="black">'
                f"{_strokes(name)}</svg>")
     return "data:image/svg+xml;base64," + base64.b64encode(picture.encode()).decode()
