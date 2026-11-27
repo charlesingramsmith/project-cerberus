@@ -6,6 +6,9 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.32.2 - 2026-11-27 - Tabs in a new order
+- The tabs at the bottom are now Spotted!, Social, Life list, Profile and Settings, with your life list right in the middle.
+
 ## 0.32.1 - 2026-11-27 - Even stat cards
 - The **Lifers**, **Breeds** and **Spotted** cards at the top of your life list are now all the same size.
 

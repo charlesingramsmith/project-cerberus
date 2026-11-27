@@ -400,7 +400,7 @@ def sketch_css() -> str:
 
 
 # The icons on the bottom tabs, in order (names in cerberus/sketches.py SKETCHES).
-NAV_ICONS = ["binoculars", "notebook", "person", "people", "sliders"]
+NAV_ICONS = ["binoculars", "people", "notebook", "person", "sliders"]
 st.html(sketch_css())
 
 # Dark mode: the dark-theme brand colours, used when the member picked dark in Settings
@@ -1054,7 +1054,7 @@ if photo_problem:
 
 # The five main tabs. The "main_nav" key lets MOBILE_CSS pin them to the bottom of the
 # screen as a tab bar; NAV_ICONS draws a hand-drawn icon above each label (SKETCH_CSS).
-NAV_TABS = ["Spotted!", "Life list", "Profile", "Social", "Settings"]
+NAV_TABS = ["Spotted!", "Social", "Life list", "Profile", "Settings"]  # life list in the middle
 SETTINGS_TAB = NAV_TABS[-1]
 
 
@@ -1098,7 +1098,7 @@ if unseen:
     st.html(NEW_UPDATE_DOT_CSS)
 
 with st.container(key="main_nav"):
-    tab_spotted, tab_life, tab_profile, tab_social, tab_settings = st.tabs(
+    tab_spotted, tab_social, tab_life, tab_profile, tab_settings = st.tabs(
         NAV_TABS, key="main_tab", on_change="rerun")
 
 # --- Spotted!: log a sighting in two steps --------------------------------------------------------
