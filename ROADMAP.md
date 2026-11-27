@@ -51,13 +51,20 @@ _Nothing in progress. Pick the next item from below._
 ## Next
 
 - [ ] **Dog identification**: a bigger project to help you work out which dog you've seen, starting with Photo ID below.
-  - Starts with a brainstorming session with the owner on how to get a simple model working, before anything is built. Questions to bring: identify the *breed* (Stanford Dogs-style classifier) or also a *particular dog* (matching a photo to a dog profile)? Hosted API vs. a small pretrained model (e.g. fine-tuned MobileNet/EfficientNet), and where it runs (Streamlit Cloud's memory limit, an external endpoint, or in the browser)? How to handle mixed breeds and "not sure"? What training data we can use (public datasets, then members' opt-in photos)? How we judge "good enough" (e.g. right breed in the top 3)?
+  - Brainstormed with the owner on 27 Nov 2026. Decisions:
+    - **Breed only** for now. Recognising a *particular* dog (matching a photo to a dog profile) waits until members have uploaded lots of dog photos.
+    - **Step 1, ready-made model:** use a free, pretrained model that already knows dog breeds (a small MobileNet/EfficientNet-style ImageNet model, which includes about 120 breeds, or a Stanford Dogs model shared on Hugging Face). Map its class names to our `data/breeds.csv` names. Its breed list doesn't fully match ours (e.g. no Cane Corso), so missing breeds simply never get suggested.
+    - **Step 2, our own model:** fine-tune the same small model on our exact breed list (free on Google Colab or the owner's PC), adding a few popular UK crosses as extra classes (e.g. Cockapoo, Cavapoo, Labradoodle, Cavachon), picked using the `user_breeds` list. Training happens offline, never in the app.
+    - **Runs inside the app** on the Streamlit Cloud server: free, and photos never leave our setup. Keep the model small (about 20 MB, e.g. via ONNX Runtime) because big models (about 350 MB, like ViT) could exceed the free server's memory. Hosted inference (Hugging Face) and in-browser models were considered and set aside for now.
+    - **Not sure and mixes:** always show the top 3 with plain labels ("Very likely", "Possible", "Long shot"), no percentages. If even the best guess is weak, or it may not be a dog, say "Not sure, pick the breed yourself". For a mix the top 3 are often its parent breeds; the member chooses one or types the cross as an unverified breed. Nothing is logged without a tap.
+    - **Good enough to release:** on about 100 real photos the model hasn't seen (some of the owner's plus breed photos), the right breed is in the top 3 at least 8 times out of 10.
+    - **Licences:** check each model's licence before using it. Stanford Dogs is for research use only: fine for this free portfolio app, but recheck before any paid launch (**Launch a real app**).
   - Covers these items rather than repeating them: **Photo ID** (below), **Help train the model with your photos** and **Sound ID** (Later), and the saved "Not sure / Mixed breed" dog ID mechanics in **Ideas** (built once in PR #25, reverted in PR #27, kept in git).
-  - Don't build any ID features until the brainstorm has happened and the owner picks an approach.
+  - Next step: build Photo ID with the step 1 model so the owner can test it.
 - [ ] **Photo ID**: snap or upload a photo of the dog and get the top 3 likely breeds. Tap one to log it, or skip and pick the breed yourself.
   - Photo is optional: a sighting can always be logged without one, and the breed picker stays on the Spotted! tab.
   - Photo capture and storage are done (see **Photos on sightings** above). Next is the model; it can run on the photo before the sighting is logged, then the same photo is saved with it.
-  - Model options to compare: a hosted image-classification API vs. a small pretrained model fine-tuned on dog breeds (e.g. the Stanford Dogs dataset). Watch Streamlit Cloud's memory limits if running a model in-app.
+  - Model: a small ready-made breed model running in the app first, then our own trained one (see the decisions under **Dog identification** above).
   - Always let the user confirm: the model suggests, the human decides what goes on the life list.
 
 ## Later
