@@ -6,6 +6,10 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.25.0 - 2026-11-27 - Compare Photo ID's guesses
+- Each **Photo ID** suggestion now shows a photo of that breed next to its name, so you can compare it with your own photo and judge whether the guess is right.
+- Tap **Pick** on the one that matches to fill in the breed.
+
 ## 0.24.1 - 2026-11-27 - Smoother dark mode switch
 - The **Dark mode** switch now changes the colours straight away, without reloading the app. You stay right where you were in Settings.
 
