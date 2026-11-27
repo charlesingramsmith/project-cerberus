@@ -3,12 +3,15 @@ import pytest
 from cerberus import logic
 
 
-def test_top_100_breeds_load_in_rank_order():
+def test_breeds_load_top_100_in_rank_order_then_the_rest_a_to_z():
     breeds = logic.load_breeds()
-    assert len(breeds) == 100
+    assert len(breeds) == 141
     assert breeds["breed"].is_unique
     assert breeds.iloc[0]["breed"] == "French Bulldog"
-    assert list(breeds["rank"]) == list(range(1, 101))
+    assert list(breeds["rank"][:100]) == list(range(1, 101))
+    rest = breeds[100:]
+    assert rest["rank"].isna().all()  # added breeds have no AKC rank
+    assert list(rest["breed"]) == sorted(rest["breed"])
 
 
 def test_every_breed_has_a_complete_profile_with_a_credited_photo():
@@ -37,7 +40,7 @@ def test_breed_profiles_still_load_without_a_photo(tmp_path):
 def test_every_breed_has_a_face_crop_inside_the_photo():
     profiles = logic.load_breed_profiles()
     with open(logic.BREED_FACES_CSV, encoding="utf-8") as f:
-        assert len(f.readlines()) == 101  # header + one row per breed, no extra names
+        assert len(f.readlines()) == 142  # header + one row per breed, no extra names
     for profile in profiles.values():
         assert profile.zoom is not None, f"{profile.breed} has no face crop"
         assert 0 <= profile.face_x <= 100 and 0 <= profile.face_y <= 100, profile.breed
@@ -66,7 +69,7 @@ def test_face_photo_gives_a_sharp_enough_copy_and_its_crop(tmp_path):
 
 def test_empty_sightings_give_an_empty_life_list():
     life = logic.life_list(logic.load_breeds(), logic.sightings_frame([]))
-    assert len(life) == 100
+    assert len(life) == 141
     assert (life["times_seen"] == 0).all()
 
 
@@ -100,9 +103,9 @@ def _sample_life():
 
 def test_filter_life_list_by_collected_or_missing():
     life = _sample_life()
-    assert len(logic.filter_life_list(life, "All")) == 100
+    assert len(logic.filter_life_list(life, "All")) == 141
     assert set(logic.filter_life_list(life, "Collected")["breed"]) == {"Beagle", "Pug"}
-    assert len(logic.filter_life_list(life, "Still to find")) == 98
+    assert len(logic.filter_life_list(life, "Still to find")) == 139
 
 
 def test_filter_life_list_search_is_case_insensitive_and_literal():
@@ -321,7 +324,7 @@ def sightings_of(*rows: tuple[str, str]):
 
 def test_no_sightings_means_no_badges():
     progress = logic.badge_progress(sightings_of())
-    assert [p.badge.goal for p in progress] == [1, *range(5, 101, 5)]
+    assert [p.badge.goal for p in progress] == [1, *range(5, 101, 5), 110, 120, 130, 140, 141]
     assert not any(p.earned for p in progress)
     assert logic.next_badge(progress).badge.name == "First lifer"
     assert logic.next_badge(progress).to_go == 1
@@ -354,7 +357,9 @@ def test_collecting_every_breed_earns_every_badge():
 @pytest.mark.parametrize("count, key", [(1, "first-lifer"), (5, "breeds-5"), (10, "breeds-10"),
                                         (25, "breeds-25"), (95, "breeds-95"),
                                         (50, "breeds-50"), (100, "breeds-100"),
-                                        (0, None), (2, None), (11, None), (101, None)])
+                                        (110, "breeds-110"), (141, "breeds-141"),
+                                        (0, None), (2, None), (11, None), (101, None),
+                                        (105, None), (142, None)])
 def test_badge_for_count_only_matches_a_milestone(count, key):
     badge = logic.badge_for_count(count)
     assert (badge.key if badge else None) == key
@@ -369,6 +374,10 @@ def test_badges_have_unique_keys_and_rising_goals():
     assert all(b.key == f"breeds-{b.goal}" for b in logic.BADGES[1:])  # stable ids
     assert logic.BADGES[0].description == "Spot your first breed"
     assert logic.BADGES[1].description == "Spot 5 different breeds"
+
+
+def test_last_badge_is_for_every_verified_breed():
+    assert logic.BADGES[-1].goal == len(logic.load_breeds())
 
 
 # --- Sighting photos ---------------------------------------------------------------

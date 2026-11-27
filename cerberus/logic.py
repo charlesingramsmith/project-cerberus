@@ -27,8 +27,11 @@ SIGHTING_COLUMNS = ["id", "breed", "seen_on", "location", "dog_name", "notes", "
 
 
 def load_breeds(csv_path: Path = BREEDS_CSV) -> pd.DataFrame:
-    """Breeds ordered by popularity rank, with columns: rank, breed."""
-    breeds = pd.read_csv(csv_path)
+    """Breeds ordered by popularity rank, with columns: rank, breed.
+
+    The AKC top 100 have a rank. Breeds added after them (the ones Photo ID knows) have none
+    (<NA>) and come last, in A-Z order."""
+    breeds = pd.read_csv(csv_path, dtype={"rank": "Int64"})
     breeds["breed"] = breeds["breed"].str.strip()
     return breeds.sort_values(["rank", "breed"]).reset_index(drop=True)
 
@@ -598,7 +601,8 @@ class Badge:
         return "Spot your first breed" if self.goal == 1 else f"Spot {self.goal} different breeds"
 
 
-# A badge for your first breed, then one every 5 breeds up to all 100. Keys are stable ids
+# A badge for your first breed, one every 5 breeds up to 100, then every 10, and a last one
+# for every verified breed (141; a test checks it matches data/breeds.csv). Keys are stable ids
 # ("breeds-<goal>"), so names and emoji can change without anyone losing a badge.
 BADGES = (
     Badge("first-lifer", "🐾", "First lifer", 1),
@@ -622,6 +626,11 @@ BADGES = (
     Badge("breeds-90", "🌌", "Dog star", 90),
     Badge("breeds-95", "🥇", "Best in show", 95),
     Badge("breeds-100", "🏆", "Top dog", 100),
+    Badge("breeds-110", "🧳", "Globetrotter", 110),
+    Badge("breeds-120", "🗺️", "World tour", 120),
+    Badge("breeds-130", "🔭", "Rare-breed hunter", 130),
+    Badge("breeds-140", "💎", "Hidden gem", 140),
+    Badge("breeds-141", "👑", "Leader of the pack", 141),
 )
 
 
