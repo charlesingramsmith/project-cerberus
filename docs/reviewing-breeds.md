@@ -22,7 +22,7 @@ order by spotters desc, sightings desc, b.name;
 
 ## Verify a breed
 
-Add it as a row in `data/breeds.csv`, plus `data/breed_info.csv`, `data/breed_photos.csv` (rerun `scripts/fetch_breed_photos.py`) and `data/breed_faces.csv` (`scripts/face_cropper.py`). The tests check these files match. Use the same spelling as in `user_breeds`, so members' earlier sightings of it count straight away. Its row in `user_breeds` can then be deleted (or left: the app ignores added breeds that are now verified).
+Add it as a row in `data/breeds.csv` with a blank rank (only the AKC top 100 have one; the rest are listed A to Z), plus `data/breed_info.csv`, `data/breed_photos.csv` (rerun `scripts/fetch_breed_photos.py`) and `data/breed_faces.csv` (`scripts/face_cropper.py`). Then move the last badge in `cerberus/logic.py` (`BADGES`, the one for spotting every breed) up to the new number of breeds. The tests check these files match, and that the last badge matches. Use the same spelling as in `user_breeds`, so members' earlier sightings of it count straight away. Its row in `user_breeds` can then be deleted (or left: the app ignores added breeds that are now verified).
 
 ## Hide a breed
 

@@ -1,6 +1,6 @@
 class_id,model_label,breed
 151,Chihuahua,Chihuahua
-152,Japanese spaniel,
+152,Japanese spaniel,Japanese Chin
 153,Maltese dog,Maltese
 154,Pekinese,Pekingese
 155,Shih-Tzu,Shih Tzu
@@ -8,53 +8,53 @@ class_id,model_label,breed
 157,papillon,Papillon
 158,toy terrier,
 159,Rhodesian ridgeback,Rhodesian Ridgeback
-160,Afghan hound,
+160,Afghan hound,Afghan Hound
 161,basset,Basset Hound
 162,beagle,Beagle
 163,bloodhound,Bloodhound
-164,bluetick,
-165,black-and-tan coonhound,
-166,Walker hound,
-167,English foxhound,
-168,redbone,
+164,bluetick,Bluetick Coonhound
+165,black-and-tan coonhound,Black and Tan Coonhound
+166,Walker hound,Treeing Walker Coonhound
+167,English foxhound,English Foxhound
+168,redbone,Redbone Coonhound
 169,borzoi,Borzoi
 170,Irish wolfhound,Irish Wolfhound
 171,Italian greyhound,Italian Greyhound
 172,whippet,Whippet
-173,Ibizan hound,
-174,Norwegian elkhound,
-175,otterhound,
-176,Saluki,
-177,Scottish deerhound,
+173,Ibizan hound,Ibizan Hound
+174,Norwegian elkhound,Norwegian Elkhound
+175,otterhound,Otterhound
+176,Saluki,Saluki
+177,Scottish deerhound,Scottish Deerhound
 178,Weimaraner,Weimaraner
 179,Staffordshire bullterrier,Staffordshire Bull Terrier
 180,American Staffordshire terrier,American Staffordshire Terrier
-181,Bedlington terrier,
+181,Bedlington terrier,Bedlington Terrier
 182,Border terrier,Border Terrier
-183,Kerry blue terrier,
-184,Irish terrier,
-185,Norfolk terrier,
-186,Norwich terrier,
+183,Kerry blue terrier,Kerry Blue Terrier
+184,Irish terrier,Irish Terrier
+185,Norfolk terrier,Norfolk Terrier
+186,Norwich terrier,Norwich Terrier
 187,Yorkshire terrier,Yorkshire Terrier
-188,wire-haired fox terrier,
-189,Lakeland terrier,
-190,Sealyham terrier,
+188,wire-haired fox terrier,Wire Fox Terrier
+189,Lakeland terrier,Lakeland Terrier
+190,Sealyham terrier,Sealyham Terrier
 191,Airedale,Airedale Terrier
 192,cairn,Cairn Terrier
-193,Australian terrier,
-194,Dandie Dinmont,
+193,Australian terrier,Australian Terrier
+194,Dandie Dinmont,Dandie Dinmont Terrier
 195,Boston bull,Boston Terrier
 196,miniature schnauzer,Miniature Schnauzer
 197,giant schnauzer,Giant Schnauzer
 198,standard schnauzer,Standard Schnauzer
 199,Scotch terrier,Scottish Terrier
-200,Tibetan terrier,
-201,silky terrier,
+200,Tibetan terrier,Tibetan Terrier
+201,silky terrier,Silky Terrier
 202,soft-coated wheaten terrier,Soft Coated Wheaten Terrier
 203,West Highland white terrier,West Highland White Terrier
 204,Lhasa,Lhasa Apso
 205,flat-coated retriever,Flat-Coated Retriever
-206,curly-coated retriever,
+206,curly-coated retriever,Curly-Coated Retriever
 207,golden retriever,Golden Retriever
 208,Labrador retriever,Labrador Retriever
 209,Chesapeake Bay retriever,Chesapeake Bay Retriever
@@ -62,21 +62,21 @@ class_id,model_label,breed
 211,vizsla,Vizsla
 212,English setter,English Setter
 213,Irish setter,Irish Setter
-214,Gordon setter,
+214,Gordon setter,Gordon Setter
 215,Brittany spaniel,Brittany
-216,clumber,
+216,clumber,Clumber Spaniel
 217,English springer,English Springer Spaniel
-218,Welsh springer spaniel,
+218,Welsh springer spaniel,Welsh Springer Spaniel
 219,cocker spaniel,Cocker Spaniel
-220,Sussex spaniel,
-221,Irish water spaniel,
-222,kuvasz,
-223,schipperke,
-224,groenendael,
+220,Sussex spaniel,Sussex Spaniel
+221,Irish water spaniel,Irish Water Spaniel
+222,kuvasz,Kuvasz
+223,schipperke,Schipperke
+224,groenendael,Belgian Sheepdog
 225,malinois,Belgian Malinois
-226,briard,
-227,kelpie,
-228,komondor,
+226,briard,Briard
+227,kelpie,Australian Kelpie
+228,komondor,Komondor
 229,Old English sheepdog,Old English Sheepdog
 230,Shetland sheepdog,Shetland Sheepdog
 231,collie,Collie
@@ -88,11 +88,11 @@ class_id,model_label,breed
 237,miniature pinscher,Miniature Pinscher
 238,Greater Swiss Mountain dog,Greater Swiss Mountain Dog
 239,Bernese mountain dog,Bernese Mountain Dog
-240,Appenzeller,
-241,EntleBucher,
+240,Appenzeller,Appenzeller Sennenhund
+241,EntleBucher,Entlebucher Mountain Dog
 242,boxer,Boxer
 243,bull mastiff,Bullmastiff
-244,Tibetan mastiff,
+244,Tibetan mastiff,Tibetan Mastiff
 245,French bulldog,French Bulldog
 246,Great Dane,Great Dane
 247,Saint Bernard,Saint Bernard
@@ -100,7 +100,7 @@ class_id,model_label,breed
 249,malamute,Alaskan Malamute
 250,Siberian husky,Siberian Husky
 251,dalmatian,Dalmatian
-252,affenpinscher,
+252,affenpinscher,Affenpinscher
 253,basenji,Basenji
 254,pug,Pug
 255,Leonberg,Leonberger
@@ -116,4 +116,4 @@ class_id,model_label,breed
 265,toy poodle,Poodle
 266,miniature poodle,Poodle
 267,standard poodle,Poodle
-268,Mexican hairless,
+268,Mexican hairless,Xoloitzcuintli

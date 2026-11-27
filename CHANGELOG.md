@@ -6,10 +6,16 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
-## 0.23.0 - 2026-11-27 - Hand-drawn icons and a dark mode switch
+## 0.24.0 - 2026-11-27 - Hand-drawn icons and a dark mode switch
 - The tabs at the bottom have new hand-drawn icons in the same pencil style as the logo.
 - Emoji are gone from the app: every badge has its own pencil sketch, and so do ticks, tips and places in Social.
 - New **Dark mode** switch in **Settings > Appearance**. The app starts in light mode, whatever your phone is set to. Switching reloads the page and keeps you signed in.
+
+## 0.23.0 - 2026-11-27 - 41 more breeds
+- The life list now has **141 breeds**: the 100 most popular, plus 41 more, from the Afghan Hound and Gordon Setter to the Japanese Chin and Xoloitzcuintli.
+- They're all breeds **Photo ID** can recognise, so it can now suggest 114 of our breeds.
+- Each new breed has a photo, an intro and a fun fact. They're listed after the top 100, A to Z.
+- Five new badges: every 10 breeds after 100, and Leader of the pack for spotting all 141.
 
 ## 0.22.0 - 2026-11-27 - A fresh new look
 - Cerberus has a logo: a pencil sketch of a dachshund's head. It's on the sign-in screen, at the top of the app and on your browser tab.

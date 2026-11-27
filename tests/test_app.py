@@ -57,15 +57,15 @@ def test_mismatched_passwords_are_rejected(at):
 def test_full_journey(at):
     sign_up(at)
     assert "charlie's life list" in headers(at)
-    assert at.metric[0].value == "0/100"
+    assert at.metric[0].value == "0/141"
 
     log_breed(at, "Beagle")
     assert "New lifer" in at.success[0].value
-    assert at.metric[0].value == "1/100"
+    assert at.metric[0].value == "1/141"
 
     log_breed(at, "Beagle")
     assert "another" in at.info[0].value
-    assert at.metric[0].value == "1/100"
+    assert at.metric[0].value == "1/141"
     assert at.metric[1].value == "2"
 
     # Sign out, then back in: sightings are still there
@@ -90,13 +90,13 @@ def badge_cards(at: AppTest) -> str:
 
 def test_first_lifer_earns_a_badge(at):
     sign_up(at)
-    assert "Badges (0/21)" in [h.value for h in at.subheader]
+    assert "Badges (0/26)" in [h.value for h in at.subheader]
     assert 'cerb-badge locked" title="Spot your first breed"' in badge_cards(at)
     assert any("Next badge" in c.value and "First lifer" in c.value for c in at.caption)
 
     log_breed(at, "Beagle")
     assert "Badge earned: **First lifer**" in at.success[1].value
-    assert "Badges (1/21)" in [h.value for h in at.subheader]
+    assert "Badges (1/26)" in [h.value for h in at.subheader]
     assert "Earned" in badge_cards(at) and "1/10 breeds" in badge_cards(at)
     assert any("Puppy steps" in c.value and "4 more breeds" in c.value for c in at.caption)
 
@@ -128,7 +128,7 @@ def test_sightings_can_be_deleted_from_their_card(at):
     delete.click().run()
     assert not at.exception
     assert at.metric[1].value == "0"
-    assert at.metric[0].value == "0/100"
+    assert at.metric[0].value == "0/141"
 
 
 def test_life_list_search(at):
@@ -581,9 +581,9 @@ def test_life_list_rows_show_a_small_breed_photo(at):
     sign_up(at)
     log_breed(at, "Beagle")
     rows = "".join(m.value for m in at.markdown if "cerb-breed" in m.value)
-    assert rows.count('class="thumb"') == 100
+    assert rows.count('class="thumb"') == 141
     # zoomed in on the dog's face (data/breed_faces.csv), with a tick on breeds you've seen
-    assert rows.count('<span class="thumb"><span class="face" style="background-image:url(') == 100
+    assert rows.count('<span class="thumb"><span class="face" style="background-image:url(') == 141
     assert "background-size:" in rows and '<span class="tick">' in rows
 
 
@@ -753,7 +753,7 @@ def test_a_typed_in_breed_is_logged_as_unverified_and_shared_for_review(at, typi
     type_breed(at, "Sprocker   Spaniel")
     assert "unverified breed" in at.info[0].value
     assert not at.success  # not a lifer
-    assert at.metric[0].value == "0/100" and at.metric[1].value == "1"
+    assert at.metric[0].value == "0/141" and at.metric[1].value == "1"
     assert "Unverified breeds" in [h.value for h in at.subheader]
     life = "".join(m.value for m in at.markdown)
     assert "Sprocker Spaniel" in life and "Unverified breed" in life
