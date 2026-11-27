@@ -1,0 +1,88 @@
+/* Styles for the Derlin landing page and its privacy and terms pages. Hand-edited
+   (not generated): scripts/build_site.py only writes the HTML pages. */
+/* The app's brand colours (.streamlit/config.toml and MOBILE_CSS / DARK_CSS in app.py).
+   Unlike the app, this page simply follows the phone's light or dark setting. */
+:root {
+  --paper: #FBFAF8; --card: #EFF2E8; --ink: #2E2A30; --ink-soft: #5E5862;
+  --pistachio: #BFD99A; --pistachio-soft: rgba(191, 217, 154, .35);
+  --pistachio-text: #56763A; --plum: #8A5A83; --plum-soft: rgba(138, 90, 131, .12);
+  --on-pistachio: #26222A;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #18171A; --card: #262429; --ink: #ECE9EE; --ink-soft: #B5AFB9;
+    --pistachio: #A9C985; --pistachio-soft: rgba(169, 201, 133, .16);
+    --pistachio-text: #B9D697; --plum: #E3BEDD; --plum-soft: rgba(227, 190, 221, .14);
+    --on-pistachio: #18171A;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font: 400 1.05rem/1.6 Nunito, system-ui, sans-serif;
+}
+main { max-width: 40rem; margin: 0 auto; padding: 0 1rem 2rem; }
+h1, h2, h3 { font-family: Caveat, cursive; font-weight: 700; line-height: 1.1; margin: 0; }
+a { color: var(--pistachio-text); }
+.sketch { width: 1.2em; height: 1.2em; vertical-align: -.25em; }
+
+/* The top: logo, name, one line and the button */
+.hero { text-align: center; padding: 2.5rem 0 1.5rem; }
+.logo { width: 9rem; height: auto; display: block; margin: 0 auto .5rem; }
+.logo .ink { color: var(--ink); }
+.logo .collar { stroke: var(--plum); }
+.hero h1 { font-size: 4.2rem; }
+.hero .tagline { font-family: Caveat, cursive; font-size: 1.9rem; color: var(--plum); margin: .1rem 0 .8rem; }
+.hero p { margin: 0 auto 1.4rem; max-width: 30rem; color: var(--ink-soft); }
+.button {
+  display: inline-block; padding: .85rem 2rem; border-radius: .75rem;
+  background: var(--pistachio); color: var(--on-pistachio); font-weight: 800;
+  font-size: 1.15rem; text-decoration: none; box-shadow: 0 2px 0 var(--pistachio-text);
+}
+.button:hover, .button:focus-visible { filter: brightness(1.05); }
+.button:active { transform: translateY(1px); box-shadow: none; }
+.small { font-size: .9rem; color: var(--ink-soft); margin-top: .7rem; }
+
+section { margin-top: 2.5rem; }
+section > h2 { font-size: 2.4rem; text-align: center; margin-bottom: 1rem; }
+
+/* How it works: three numbered steps */
+.steps { list-style: none; padding: 0; margin: 0; display: grid; gap: .8rem; }
+.steps li {
+  display: flex; gap: .9rem; align-items: flex-start; background: var(--card);
+  border-radius: .9rem; padding: .9rem 1rem;
+}
+.steps .icon {
+  flex: none; width: 2.6rem; height: 2.6rem; border-radius: 50%; display: grid;
+  place-items: center; background: var(--pistachio-soft); color: var(--pistachio-text);
+}
+.steps .icon .sketch { width: 1.6rem; height: 1.6rem; }
+.steps h3, .features h3 { font-size: 1.6rem; }
+.steps p, .features p { margin: .1rem 0 0; }
+
+/* Feature highlights: small cards, two across on wider screens */
+.features { display: grid; gap: .8rem; grid-template-columns: 1fr; }
+@media (min-width: 34rem) { .features { grid-template-columns: 1fr 1fr; } }
+.features div { border: 1.5px solid var(--pistachio-soft); border-radius: .9rem; padding: .9rem 1rem; }
+.features .sketch { width: 1.7rem; height: 1.7rem; color: var(--plum); }
+
+/* Add to home screen */
+.howto { display: grid; gap: .8rem; }
+.howto div { background: var(--plum-soft); border-radius: .9rem; padding: .9rem 1rem; }
+.howto h3 { font-size: 1.6rem; color: var(--plum); }
+.howto ol { margin: .3rem 0 0; padding-left: 1.3rem; }
+
+.closing { text-align: center; }
+footer { text-align: center; color: var(--ink-soft); font-size: .9rem; margin-top: 3rem; }
+footer .sketch { color: var(--plum); }
+
+/* The privacy and terms pages (built from legal/*.md) */
+.legal-top { display: flex; align-items: center; gap: .6rem; padding: 1.2rem 0 .5rem; }
+.legal-top .logo { width: 2.6rem; margin: 0; }
+.legal-top a { font-family: Caveat, cursive; font-size: 2rem; font-weight: 700; color: var(--ink); text-decoration: none; }
+.legal h1 { font-size: 3rem; margin: 1rem 0 .5rem; }
+.legal h2 { font-size: 2rem; text-align: left; margin: 2rem 0 .3rem; }
+.legal h3 { font-size: 1.6rem; margin: 1.4rem 0 .2rem; }
+.legal p, .legal li { margin: .5rem 0; }
+.legal ul, .legal ol { padding-left: 1.3rem; }

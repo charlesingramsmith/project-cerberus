@@ -2,7 +2,7 @@
 
 **Last updated: 27 November 2026**
 
-Derlin is a dog-spotting app: you log the dogs you see and build a life list of breeds. While it's in testing, the app is still called Project Cerberus and lives at project-cerberus.streamlit.app; it will move to derlin.app.
+Derlin is a dog-spotting app: you log the dogs you see and build a life list of breeds. While it's in testing, the app lives at project-cerberus.streamlit.app; it will move to derlin.app.
 
 This policy explains, in plain English, what information Derlin keeps about you, why, who else handles it, and what you can ask for. If anything here is unclear, email **hello@derlin.app**.
 

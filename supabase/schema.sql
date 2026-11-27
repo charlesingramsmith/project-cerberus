@@ -1,4 +1,4 @@
--- Project Cerberus database schema.
+-- Derlin database schema (the code and repo are still called project-cerberus).
 -- Apply with the Supabase CLI (see docs/supabase-cli.md):
 --   supabase db query --remote --yes -f supabase/schema.sql
 -- or paste it into Supabase: Dashboard > SQL Editor > New query > Run.

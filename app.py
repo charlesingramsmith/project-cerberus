@@ -1,4 +1,4 @@
-"""Project Cerberus: log the dogs you spot and build your breed life list.
+"""Derlin: log the dogs you spot and build your breed life list.
 
 Run with:  streamlit run app.py
 """
@@ -52,7 +52,7 @@ from cerberus import sketches  # noqa: E402
 from cerberus.remember import MAX_AGE_DAYS, SAVED_SIGN_IN_JS  # noqa: E402
 
 st.set_page_config(
-    page_title="Project Cerberus",
+    page_title="Derlin",
     page_icon="assets/icon.png",  # a 512px copy of LOGO_ICON (browser tabs want a picture)
     layout="centered",
     initial_sidebar_state="collapsed",
@@ -691,7 +691,7 @@ def resume_saved_sign_in(report: dict | None):
 # --- Sign in / create account ---------------------------------------------------------
 def auth_screen():
     st.markdown(logo_html(), unsafe_allow_html=True)
-    st.title("Project Cerberus")
+    st.title("Derlin")
     st.write("Spot dogs. Collect breeds. Can you find all 141?")
     if backend.demo:
         st.warning(DEMO_NOTICE)
@@ -2022,7 +2022,7 @@ with tab_settings:
     legal_expanders()
 
     st.subheader("About")
-    st.caption("Project Cerberus: spot dogs, collect breeds. Breeds are the AKC 2025 top 100, plus 41 "
+    st.caption("Derlin: spot dogs, collect breeds. Breeds are the AKC 2025 top 100, plus 41 "
                "more that Photo ID knows.")
     st.caption(f"Version {APP_VERSION}")
 

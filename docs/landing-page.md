@@ -3,9 +3,11 @@
 A one-page website that says what the app is and has an **Open the app** button. It lives in
 this repo and GitHub Pages hosts it for free, with HTTPS (which `.app` addresses require).
 
-- `scripts/landing_page.html` is the page's template. Edit this one.
-- `python scripts/build_site.py` fills in the logo and hand-drawn icons and writes
-  `site/index.html` (a test fails if you forget).
+- `scripts/landing_page.html` is the home page's template; `site/style.css` has the styles.
+- The privacy policy and terms (derlin.app/privacy, derlin.app/terms) come from
+  `legal/privacy.md` and `legal/terms.md`, in `scripts/legal_page.html`.
+- After changing any of these, run `python scripts/build_site.py`: it fills in the logo and
+  hand-drawn icons and writes the pages in `site/` (a test fails if you forget).
 - When a change to `site/` reaches `main`, the **Landing page** workflow
   (`.github/workflows/pages.yml`) publishes it. You can also run it by hand from the
   repo's **Actions** tab.
