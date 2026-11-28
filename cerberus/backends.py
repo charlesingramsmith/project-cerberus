@@ -31,7 +31,15 @@ MIN_PASSWORD_LENGTH = 8
 FEED_LIMIT = 50  # sightings shown in the Social tab
 PHOTO_BUCKET = "sighting-photos"  # private Supabase Storage bucket, see supabase/schema.sql
 PHOTO_LINK_SECONDS = 3600  # how long a link to view a photo works
-GOOGLE_FAILED = "Google sign-in didn't work. Please try again."
+# "Continue with ..." sign-in services (Supabase OAuth providers): provider -> name shown.
+SIGN_IN_PROVIDERS = {"google": "Google", "apple": "Apple"}
+
+
+def sign_in_failed(provider: str) -> str:
+    return f"{SIGN_IN_PROVIDERS.get(provider, 'That')} sign-in didn't work. Please try again."
+
+
+GOOGLE_FAILED = sign_in_failed("google")
 RESUME_FAILED = "You've been signed out. Please sign in again."
 
 
@@ -62,14 +70,15 @@ class Backend(Protocol):
 
     def sign_in(self, email: str, password: str) -> User: ...
 
-    def start_google_sign_in(self, redirect_to: str) -> tuple[str, str]:
-        """Begin "Continue with Google". Returns (Google sign-in URL, PKCE code verifier).
+    def start_oauth_sign_in(self, redirect_to: str, provider: str = "google") -> tuple[str, str]:
+        """Begin "Continue with Google" (or Apple: provider is a key of SIGN_IN_PROVIDERS).
+        Returns (the provider's sign-in URL, PKCE code verifier).
 
-        Google sends the user back to `redirect_to` with `code=...` added.
+        The provider sends the user back to `redirect_to` with `code=...` added.
         """
 
-    def finish_google_sign_in(self, code: str, verifier: str) -> User:
-        """Swap the code Google sent back (plus the verifier) for a signed-in user."""
+    def finish_oauth_sign_in(self, code: str, verifier: str, provider: str = "google") -> User:
+        """Swap the code the provider sent back (plus the verifier) for a signed-in user."""
 
     def refresh_token(self) -> str | None:
         """The signed-in user's current refresh token (for "Keep me signed in"), or None."""
@@ -147,6 +156,23 @@ class Backend(Protocol):
     def my_reports(self) -> dict[str, set[int]]:
         """What the signed-in user has reported: {"sighting": ids, "dog": ids}. Empty if
         reports can't be read (e.g. the table isn't set up yet)."""
+
+    def block_member(self, user_id: str) -> None:
+        """Hide another member from the signed-in user: the app leaves out their posts,
+        their dogs and those dogs' tags. Blocking twice is harmless. Raises ValueError
+        for yourself."""
+
+    def unblock_member(self, user_id: str) -> None:
+        """Undo block_member."""
+
+    def blocked_members(self) -> dict[str, str]:
+        """Who the signed-in user has blocked: user id -> username ("" if they have no
+        profile). Empty if blocks can't be read (e.g. the table isn't set up yet)."""
+
+    def delete_account(self) -> None:
+        """Delete the signed-in user's account for good, with everything in it (profile,
+        sightings, photos, dogs, tags, votes, ideas, reports, blocks), then sign out.
+        Breeds they added stay on the shared list, no longer linked to them."""
 
     def seen_version(self) -> str | None:
         """The newest app update (e.g. "0.6.0") the signed-in user has seen, or None."""
@@ -262,6 +288,13 @@ def _with_tags(rows: list[dict], tags: dict[int, list[int]]) -> list[dict]:
     return [{**r, "dog_ids": tags.get(r["id"], [])} for r in rows]
 
 
+def _check_block(user: User, user_id: str) -> None:
+    if not user_id:
+        raise ValueError("Pick a member to block.")
+    if user_id == user.id:
+        raise ValueError("You can't block yourself.")
+
+
 def _check_photo_path(user: User, path: str) -> None:
     """A sighting may only point at a photo in its owner's own folder."""
     if not path.startswith(f"{user.id}/"):
@@ -338,23 +371,25 @@ class SupabaseBackend:
         self._user = self._keep(res.user)
         return self._user
 
-    def start_google_sign_in(self, redirect_to):
+    def start_oauth_sign_in(self, redirect_to, provider="google"):
+        if provider not in SIGN_IN_PROVIDERS:
+            raise ValueError(f"Unknown sign-in provider: {provider}")
         auth = self.client.auth
         res = auth.sign_in_with_oauth(
-            {"provider": "google", "options": {"redirect_to": redirect_to}}
+            {"provider": provider, "options": {"redirect_to": redirect_to}}
         )
         # The client keeps the verifier it just made in its own storage, but that storage
         # dies with this Streamlit session, so hand it to the caller to keep safe.
         verifier = auth._storage.get_item(f"{auth._storage_key}-code-verifier")
         return res.url, verifier
 
-    def finish_google_sign_in(self, code, verifier):
+    def finish_oauth_sign_in(self, code, verifier, provider="google"):
         try:
             res = self.client.auth.exchange_code_for_session(
                 {"auth_code": code, "code_verifier": verifier}
             )
         except Exception as err:
-            raise AuthError(GOOGLE_FAILED) from err
+            raise AuthError(sign_in_failed(provider)) from err
         self._user = self._keep(res.user)
         return self._user
 
@@ -581,6 +616,52 @@ class SupabaseBackend:
                     reported[kind].add(row[f"{kind}_id"])
         return reported
 
+    def block_member(self, user_id):
+        user = self._require_user()
+        _check_block(user, user_id)
+        # Blocking twice is harmless: the (user_id, blocked_id) key already exists.
+        self.client.table("blocks").upsert(
+            {"user_id": user.id, "blocked_id": user_id},
+            on_conflict="user_id,blocked_id", ignore_duplicates=True).execute()
+
+    def unblock_member(self, user_id):
+        user = self._require_user()
+        (self.client.table("blocks").delete()
+         .eq("user_id", user.id).eq("blocked_id", user_id).execute())
+
+    def blocked_members(self):
+        user = self._require_user()
+        try:  # blocks are extras: if they can't be read, nobody is hidden
+            ids = [r["blocked_id"] for r in (
+                self.client.table("blocks").select("blocked_id")
+                .eq("user_id", user.id).execute().data)]
+            names = {p["user_id"]: p["username"] for p in (
+                self.client.table("profiles").select("user_id, username")
+                .in_("user_id", ids).execute().data)} if ids else {}
+        except Exception:
+            return {}
+        return {i: names.get(i, "") for i in ids}
+
+    def delete_account(self):
+        user = self._require_user()
+        # Photos first: they're files in Storage, which the database can't delete. Keep
+        # going until the member's folder (and its dogs/ folder) is empty, a page at a time.
+        bucket = self.client.storage.from_(PHOTO_BUCKET)
+        for _ in range(100):  # a safety limit: 100 pages of 1,000 photos
+            files = [f"{folder}/{f['name']}" for folder in (user.id, f"{user.id}/dogs")
+                     for f in bucket.list(folder, {"limit": 1000}) or []
+                     if f.get("id")]  # folders (like dogs/) have no id
+            if not files:
+                break
+            bucket.remove(files)
+        # Then the account, and with it every row that belongs to it (supabase/schema.sql).
+        self.client.rpc("delete_my_account").execute()
+        try:  # the account is gone, so this only forgets the session here
+            self.client.auth.sign_out({"scope": "local"})
+        except Exception:
+            pass
+        self._user, self._meta = None, {}
+
     # The last update a user has seen lives in their Supabase user_metadata, so no table
     # is needed and it follows them to every device. Supabase merges `data` into the
     # existing metadata, so the username is kept.
@@ -716,6 +797,12 @@ class MemoryBackend:
         # profile other members can read.
         self._birth_years: dict[str, int] = {}
 
+    def _new_user_id(self) -> str:
+        # Counted, not len(accounts)+1, so a deleted account's id is never reused.
+        self.__dict__.setdefault("_user_count", len(self._accounts))
+        self._user_count += 1
+        return f"user-{self._user_count}"
+
     @staticmethod
     def _hash(password: str) -> str:
         return hashlib.sha256(password.encode()).hexdigest()
@@ -739,7 +826,7 @@ class MemoryBackend:
             birth_year = _checked_birth_year(birth_year)
         if email in self._accounts:
             raise AuthError("An account with that email already exists.")
-        user = User(id=f"user-{len(self._accounts) + 1}", email=email, username=username)
+        user = User(id=self._new_user_id(), email=email, username=username)
         self._accounts[email] = (self._hash(password), user)
         if birth_year is not None:
             self._birth_years[user.id] = birth_year
@@ -754,21 +841,25 @@ class MemoryBackend:
     # Demo mode can't reach Google, so it pretends: the "Google" URL sends the user straight
     # back with a code derived from the verifier, which is checked just like the real thing.
     DEMO_GOOGLE_EMAIL = "demo.google.user@example.com"
+    DEMO_EMAILS = {"google": DEMO_GOOGLE_EMAIL, "apple": "demo.apple.user@example.com"}
 
     @staticmethod
     def _demo_code(verifier: str) -> str:
         return "demo-" + hashlib.sha256(verifier.encode()).hexdigest()[:16]
 
-    def start_google_sign_in(self, redirect_to):
+    def start_oauth_sign_in(self, redirect_to, provider="google"):
+        if provider not in SIGN_IN_PROVIDERS:
+            raise ValueError(f"Unknown sign-in provider: {provider}")
         verifier = secrets.token_urlsafe(32)
         return with_query(redirect_to, code=self._demo_code(verifier)), verifier
 
-    def finish_google_sign_in(self, code, verifier):
+    def finish_oauth_sign_in(self, code, verifier, provider="google"):
         if code != self._demo_code(verifier):
-            raise AuthError(GOOGLE_FAILED)
-        email = self.DEMO_GOOGLE_EMAIL
-        if email not in self._accounts:  # first time: Google sign-in creates the account
-            user = User(id=f"user-{len(self._accounts) + 1}", email=email, username="Google User")
+            raise AuthError(sign_in_failed(provider))
+        email = self.DEMO_EMAILS[provider]
+        if email not in self._accounts:  # first time: signing in creates the account
+            user = User(id=self._new_user_id(), email=email,
+                        username=f"{SIGN_IN_PROVIDERS[provider]} User")
             self._accounts[email] = (None, user)  # no password, so password sign-in can't match
         return self._signed_in(self._accounts[email][1])
 
@@ -969,6 +1060,51 @@ class MemoryBackend:
         return {kind: {r[f"{kind}_id"] for r in self._reports()
                        if r["user_id"] == user.id and r.get(f"{kind}_id") is not None}
                 for kind in logic.REPORT_KINDS}
+
+    def _blocks(self) -> set[tuple[str, str]]:
+        """(blocker id, blocked id), like the blocks table. Made on first use."""
+        return self.__dict__.setdefault("blocks", set())
+
+    def block_member(self, user_id):
+        user = self._require_user()
+        _check_block(user, user_id)
+        if not any(u.id == user_id for _, u in self._accounts.values()):
+            raise ValueError("That member doesn't exist.")  # like the foreign key
+        self._blocks().add((user.id, user_id))
+
+    def unblock_member(self, user_id):
+        self._blocks().discard((self._require_user().id, user_id))
+
+    def blocked_members(self):
+        user = self._require_user()
+        return {b: self._profiles.get(b, {}).get("username", "")
+                for a, b in sorted(self._blocks()) if a == user.id}
+
+    def delete_account(self):
+        user = self._require_user()
+        mine = {s["id"] for s in self._sightings if s["user_id"] == user.id}
+        dogs = {i for i, d in self._dogs().items() if d["owner_id"] == user.id}
+        # Like "on delete cascade": everything that belongs to the account goes with it.
+        self._sightings = [s for s in self._sightings if s["id"] not in mine]
+        for i in dogs:
+            del self._dogs()[i]
+        self.__dict__["tags"] = {t for t in self._tags() if t[0] not in mine and t[1] not in dogs}
+        self.__dict__["reports"] = [
+            r for r in self._reports() if r["user_id"] != user.id
+            and r.get("sighting_id") not in mine and r.get("dog_id") not in dogs]
+        self.__dict__["blocks"] = {b for b in self._blocks() if user.id not in b}
+        for path in [p for p in self._photos() if p.startswith(f"{user.id}/")]:
+            del self._photos()[path]
+        self._votes = {v for v in self._votes if v[0] != user.id}
+        self.suggestions = [s for s in self.suggestions if s["user_id"] != user.id]
+        for kept in (self._seen, self._profiles, self._birth_years):
+            kept.pop(user.id, None)
+        for breed in self._user_breeds().values():  # "on delete set null"
+            if breed["added_by"] == user.id:
+                breed["added_by"] = None
+        self._tokens = {t: e for t, e in self._tokens.items() if e != user.email}
+        del self._accounts[user.email]
+        self._token, self._user = None, None
 
     def seen_version(self):
         return self._seen.get(self._require_user().id)

@@ -14,7 +14,7 @@ Update them in the same change whenever the app starts collecting something new,
 - **Retiring the old Streamlit Cloud address**: remove Streamlit from the list of services and the cookies line.
 - **New third-party services** (analytics, email sending, a new AI model run elsewhere): add them to "Who else handles your information".
 - **Messaging or friends**: say who can see messages and how to report someone.
-- **An in-app "delete my account" button**: point the policy to it instead of only the email address.
+- **Sign in with Apple, once it's switched on** (`APPLE_SIGN_IN`, see `docs/apple-sign-in.md`): add Apple to "Your account" (Apple shares your name and email, or a private relay address if you hide it) and to "Who else handles your information".
 
 ## Approval
 
@@ -30,9 +30,9 @@ This is still not legal advice: a solicitor's review is worth it before a paid o
 
 These are app features the store rules need, not changes to the wording (update the wording when they land):
 
-- **Delete your account in the app.** Apple requires it inside the app; Google Play also needs a web page where people can ask for deletion (derlin.app/privacy's email instructions can do for that).
-- **Block another member.** Both stores require it for apps where members post content (with Report, which PR 65 adds).
-- **Sign in with Apple**, on the iPhone app, because it offers Google sign-in.
+- [x] **Delete your account in the app** (27 Nov 2026): Settings > Account > Delete my account (type DELETE to confirm). Apple requires it inside the app; Google Play also needs a web page where people can ask for deletion (derlin.app/privacy's email instructions do for that). The policy now points to the button.
+- [x] **Block another member** (27 Nov 2026): "Report or block" on posts and dog pages, unblock in Settings > Privacy. Both stores require it for apps where members post content (with Report, which PR 65 added).
+- [ ] **Sign in with Apple**, on the iPhone app, because it offers Google sign-in. The web app has the button ready but hidden until Apple is set up (needs a paid Apple Developer account): `docs/apple-sign-in.md`. Update the policy when it's switched on (see above).
 - **Store privacy forms:** Apple's privacy labels and Google Play's Data safety form, filled in from `privacy.md`.
 
 ## Choices the owner made
@@ -43,7 +43,7 @@ Picked as sensible defaults and approved by Charlie on 27 Nov 2026:
 - **ICO fee:** individuals who process personal data for a service may need to pay the ICO's yearly data protection fee (about £52). Check with the ICO's self-assessment at ico.org.uk/fee.
 - **Minimum age:** 13 (the UK's age for consenting to online services). Sign-up asks for the birth year and turns away anyone certainly under 13.
 - **Under-18s (ICO Children's Code):** Charlie chose (27 Nov 2026) that members aged 13 to 17 start with **Share my sightings off**; they can switch it on themselves. Only the birth year is kept, in the account's private metadata (not on the profile other members can read). A year can't tell if this year's birthday has passed, so anyone who may still be 17 counts as under 18. Members who joined before this aren't asked and keep their setting.
-- **Deletion:** by email to hello@derlin.app, done within 30 days; backups clear within a further 30.
+- **Deletion:** in the app (Settings > Account, immediate), or by email to hello@derlin.app, done within 30 days; backups clear within a further 30.
 - **Inactive accounts:** kept until deleted (no automatic clean-up).
 - **Law:** England and Wales.
 - **Contact:** hello@derlin.app must be working before these go live on derlin.app.

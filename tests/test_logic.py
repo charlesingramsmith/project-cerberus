@@ -845,3 +845,22 @@ def test_new_profiles_start_private_for_under_18s():
     assert logic.new_profile("teen", 2012, this_year=2026)["share_sightings"] is False
     assert logic.new_profile("adult", 1990, this_year=2026)["share_sightings"] is True
     assert logic.new_profile("unknown")["share_sightings"] is True
+
+
+def test_without_blocked_and_visible_dogs():
+    posts = [{"id": 1, "user_id": "a"}, {"id": 2, "user_id": "b"}]
+    assert logic.without_blocked(posts, {"a": "alice"}) == [{"id": 2, "user_id": "b"}]
+    dogs = [{"id": 1, "owner_id": "a"}, {"id": 2, "owner_id": "b"}, {"id": 3, "owner_id": "c"}]
+    assert [d["id"] for d in logic.visible_dogs(dogs, {3}, {"a"})] == [2]
+
+
+@pytest.mark.parametrize("typed, ok", [("DELETE", True), (" delete ", True),
+                                       ("", False), (None, False), ("delet", False)])
+def test_delete_confirmed(typed, ok):
+    assert logic.delete_confirmed(typed) is ok
+
+
+@pytest.mark.parametrize("value, on", [("1", True), ("true", True), (True, True), ("on", True),
+                                       ("", False), (None, False), ("0", False), ("no", False)])
+def test_setting_on(value, on):
+    assert logic.setting_on(value) is on

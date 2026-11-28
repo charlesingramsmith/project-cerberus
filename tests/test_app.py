@@ -1177,3 +1177,94 @@ def test_reporting_a_dog_closes_its_page_and_hides_it(at):
     assert "dog_page" not in at.session_state
     assert backend.my_reports()["dog"] == {rex_id}
     assert not [s for s in at.selectbox if s.key == "social_dog"]  # no dogs left to find
+
+
+# --- Blocking ---------------------------------------------------------------------------
+
+def test_blocking_a_member_hides_their_posts_and_dogs_until_unblocked(at):
+    sign_up(at, username="alice", email="alice@example.com")
+    add_dog(at, "Rex", username="rex", breed="Pug")
+    log_breed(at, "Pug")
+    backend = at.session_state["backend"]
+    pug_post = backend.list_sightings()[0]["id"]
+    open_tab(at, "Social")
+    assert not [b for b in at.button if b.key == f"blockwho_sighting_{pug_post}"]  # own post
+    click(at, "Sign out")
+    sign_up(at, username="bobby", email="bobby@example.com")
+    click(at, "Keep sharing")
+
+    open_tab(at, "Social")
+    assert "Pug" in feed_html(at)
+    block = at.button(key=f"blockwho_sighting_{pug_post}")
+    assert block.label == "Block alice"
+    block.click().run()
+    assert not at.exception
+    assert "Pug" not in feed_html(at)
+    assert not [s for s in at.selectbox if s.key == "social_dog"]  # alice's dog is hidden too
+
+    open_tab(at, "Settings")
+    assert any(t.value == "alice" for t in at.text)
+    unblock = next(b for b in at.button if (b.key or "").startswith("unblock_"))
+    unblock.click().run()
+    assert not at.exception
+    open_tab(at, "Social")
+    assert "Pug" in feed_html(at)
+
+
+def test_blocking_from_a_dogs_page_closes_it(at):
+    sign_up(at, username="alice", email="alice@example.com")
+    add_dog(at, "Rex", username="rex", breed="Pug")
+    backend = at.session_state["backend"]
+    rex_id = backend.list_dogs()[0]["id"]
+    click(at, "Sign out")
+    sign_up(at, username="bobby", email="bobby@example.com")
+    click(at, "Keep sharing")
+
+    open_tab(at, "Social")
+    at.selectbox(key="social_dog").set_value(rex_id).run()
+    at.button(key=f"blockwho_dog_{rex_id}").click().run()
+    assert not at.exception
+    assert "dog_page" not in at.session_state
+    assert list(backend.blocked_members().values()) == ["alice"]
+
+
+# --- Deleting your account ------------------------------------------------------------
+
+def test_deleting_your_account_needs_the_word_then_signs_you_out(at):
+    sign_up(at)
+    log_breed(at, "Pug")
+    backend = at.session_state["backend"]
+    open_tab(at, "Settings")
+    at.button(key="delete_account").click().run()
+    assert any("Type DELETE" in e.value for e in at.error)
+    assert backend.list_sightings()  # nothing deleted yet
+
+    at.text_input(key="delete_confirm").input("delete")
+    at.button(key="delete_account").click().run()
+    assert not at.exception
+    assert "user" not in at.session_state
+    assert any("deleted" in i.value for i in at.info)  # back on the sign-in screen
+    assert "charlie@example.com" not in backend._accounts
+
+
+# --- Continue with Apple ------------------------------------------------------------------
+
+def apple_link(at: AppTest) -> str:
+    button = next(b for b in at.get("link_button") if b.proto.label == "Continue with Apple")
+    return button.proto.url
+
+
+def test_continue_with_apple_signs_in_on_return(at, monkeypatch):
+    from urllib.parse import parse_qs, urlparse
+
+    params = {k: v[0] for k, v in parse_qs(urlparse(apple_link(at)).query).items()}
+    assert params["provider"] == "apple"
+    back = returning_from_google(monkeypatch, **params)
+    back.selectbox(key="google_birth_year").set_value(1990)
+    click(back, "Continue")
+    assert "Apple User's life list" in headers(back)
+
+
+def test_cancelled_apple_sign_in_names_apple(monkeypatch):
+    back = returning_from_google(monkeypatch, error="access_denied", provider="apple")
+    assert "Apple sign-in was cancelled" in back.info[0].value

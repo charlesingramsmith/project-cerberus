@@ -381,3 +381,60 @@ create policy "Users can add their own reports"
     on public.reports for insert
     to authenticated
     with check ((select auth.uid()) = user_id and not reviewed);
+
+
+-- Blocks: a member hides another member from themselves. Their posts, their dogs and
+-- those dogs' tags disappear for the blocker (the app filters them out); the blocked
+-- member isn't told. Members can only see, add and remove their own blocks.
+create table if not exists public.blocks (
+    user_id     uuid not null default auth.uid() references auth.users (id) on delete cascade,
+    blocked_id  uuid not null references auth.users (id) on delete cascade,
+    created_at  timestamptz not null default now(),
+    primary key (user_id, blocked_id),
+    check (user_id <> blocked_id)
+);
+
+alter table public.blocks enable row level security;
+
+drop policy if exists "Users can read their own blocks" on public.blocks;
+create policy "Users can read their own blocks"
+    on public.blocks for select
+    to authenticated
+    using ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can add their own blocks" on public.blocks;
+create policy "Users can add their own blocks"
+    on public.blocks for insert
+    to authenticated
+    with check ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can remove their own blocks" on public.blocks;
+create policy "Users can remove their own blocks"
+    on public.blocks for delete
+    to authenticated
+    using ((select auth.uid()) = user_id);
+
+
+-- Delete my account (Settings > Account). The app only has the public key, which can't
+-- remove sign-in accounts, so this function runs as its owner ("security definer") and
+-- deletes exactly one account: the caller's own. Everything that belongs to it goes with
+-- it ("on delete cascade" above): profile, sightings, tags, dogs, votes, ideas, reports
+-- and blocks. Breeds they added stay, no longer linked to them ("on delete set null").
+-- Photos are files, which the database can't delete, so the app removes them first
+-- through Storage (SupabaseBackend.delete_account).
+create or replace function public.delete_my_account()
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+    if auth.uid() is null then
+        raise exception 'Not signed in';
+    end if;
+    delete from auth.users where id = auth.uid();
+end;
+$$;
+
+revoke execute on function public.delete_my_account() from public, anon;
+grant execute on function public.delete_my_account() to authenticated;

@@ -32,7 +32,7 @@ When you use Derlin, please don't:
 
 **Out spotting:** stay safe and respectful. Don't trespass, don't approach or touch a dog without its owner's OK, and don't photograph people who don't want to be photographed.
 
-If you see a post or a dog profile that breaks these rules, tap **Report** on it (it's hidden for you straight away, and we review every report). For anything else, email **hello@derlin.app**. We may remove content, or suspend or close an account, that breaks these terms.
+If you see a post or a dog profile that breaks these rules, tap **Report or block** on it and pick a reason (it's hidden for you straight away, and we review every report). If a member is bothering you, **block** them from the same menu: their posts and dogs are hidden from you, and they aren't told. For anything else, email **hello@derlin.app**. We may remove content, or suspend or close an account, that breaks these terms.
 
 ## Photo ID and breed information
 
@@ -46,7 +46,7 @@ As far as the law allows, we aren't responsible for any loss that comes from usi
 
 ## Ending things
 
-You can stop using Derlin at any time, and ask us to delete your account by emailing **hello@derlin.app**. We may close an account that breaks these terms, or stop running the app; if we decide to close the app, we'll give you notice in the app and a chance to ask for a copy of your information first.
+You can stop using Derlin at any time, and delete your account yourself in **Settings > Account > Delete my account** (or ask us to by emailing **hello@derlin.app**). We may close an account that breaks these terms, or stop running the app; if we decide to close the app, we'll give you notice in the app and a chance to ask for a copy of your information first.
 
 ## Changes to these terms
 

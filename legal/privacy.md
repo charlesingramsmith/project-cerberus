@@ -17,7 +17,7 @@ Derlin is run by Charlie, an individual based in the United Kingdom (not a compa
 - We ask the **year you were born** (not your full birthday), to check you're old enough and to keep under-18s' sightings private unless they choose to share. Other members never see it.
 - Before a photo is saved, it's made smaller and **everything hidden inside it, including its GPS location, is removed**. Exact coordinates are never stored.
 - No adverts, no tracking cookies, no analytics, and we never sell your information.
-- You can ask for a copy of your information, or for your account and everything in it to be deleted, by emailing **hello@derlin.app**.
+- You can **delete your account and everything in it yourself**, any time, in **Settings > Account > Delete my account**. You can also ask for a copy of your information, or for deletion, by emailing **hello@derlin.app**.
 
 ## What we collect and why
 
@@ -76,6 +76,10 @@ If you send an idea or +1 a planned feature in **Settings**, we keep what you se
 
 If you tap **Report** on a post or a dog profile, we keep which one you reported, the reason you picked and when, linked to your account, so we can review it and hide it for you. The member you reported is never told who reported them. If either of you deletes their account, or the post or dog is deleted, the report is deleted too.
 
+### Blocks
+
+If you block a member, we keep who you blocked, linked to your account, so their posts and dogs stay hidden from you. They aren't told. You can unblock them in **Settings > Privacy**, which deletes that record.
+
 ### Information kept on your device
 
 The app keeps two small things in your browser's storage (not cookies):
@@ -113,9 +117,9 @@ We never sell your information, and we don't share it with advertisers. We would
 
 ## How long we keep it
 
-- **Your account and everything in it** (profile, sightings, photos, dogs, ideas, votes and reports) is kept until you delete it or ask us to delete your account.
+- **Your account and everything in it** (profile, sightings, photos, dogs, ideas, votes, reports and blocks) is kept until you delete it or ask us to delete your account.
 - **When you delete a sighting**, its photo is deleted too. Deleting a dog deletes its profile.
-- **When you ask us to delete your account**, we'll delete it and everything linked to it within **30 days**. Copies in our providers' backups disappear as those backups are replaced, normally within a further 30 days.
+- **When you delete your account** in **Settings > Account > Delete my account**, it and everything linked to it (profile, sightings, photos, dogs, tags, ideas, votes, reports and blocks) are deleted straight away. If you ask us by email instead, we'll do the same within **30 days**. Copies in our providers' backups disappear as those backups are replaced, normally within a further 30 days.
 - **Sign-in records** kept by Supabase for security are deleted on their normal schedule.
 - **Breed names you added** stay on the shared list, no longer linked to you.
 
@@ -125,12 +129,12 @@ Under UK data protection law you can ask us to:
 
 - **give you a copy** of your information (including in a format you can take elsewhere);
 - **correct** anything that's wrong (you can edit most things yourself in the app);
-- **delete** your information or your whole account;
+- **delete** your information or your whole account (you can delete your account yourself in **Settings > Account**);
 - **stop or limit** how we use it, or **object** to us using it for our legitimate interests.
 
 Email **hello@derlin.app** from the address on your account. We'll reply within one month and won't charge you. We may need to check it's really you first.
 
-You can also do a lot yourself: edit or delete sightings and dogs, change your profile, and switch off sharing in **Settings > Privacy**.
+You can also do a lot yourself: edit or delete sightings and dogs, change your profile, switch off sharing in **Settings > Privacy**, and delete your whole account in **Settings > Account**.
 
 If you're unhappy with how we've handled your information, please tell us first so we can try to put it right. You also have the right to complain to the **Information Commissioner's Office (ICO)**, the UK's data protection regulator: ico.org.uk or 0303 123 1113.
 
