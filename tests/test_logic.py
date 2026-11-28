@@ -727,12 +727,15 @@ def test_sketches_and_logo_are_crisp_vectors():
 
 
 def test_sketches_are_shaded_freehand_and_the_same_every_time():
-    import importlib
+    import importlib.util
     before = {name: sketches.svg(name) for name in sketches.SKETCHES}
     assert set(sketches.SHADING) <= set(sketches.SKETCHES)  # shading only for real icons
     assert all(sketches.SHADING.values())  # every shaded icon got some hatch lines
     assert len(sketches.SHADING) >= 30  # most icons have pencil shading, like the logo
-    again = importlib.reload(sketches)  # the wobbles are seeded, so nothing moves
+    # A fresh copy of the module draws exactly the same: the wobbles are seeded
+    spec = importlib.util.spec_from_file_location("sketches_again", sketches.__file__)
+    again = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(again)
     assert {name: again.svg(name) for name in again.SKETCHES} == before
 
 
