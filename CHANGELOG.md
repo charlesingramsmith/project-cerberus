@@ -6,6 +6,9 @@ Version numbers are `MAJOR.MINOR.PATCH`: a new feature bumps MINOR (0.5.0 → 0.
 
 Each entry is a heading `## <version> - <YYYY-MM-DD> - <short title>` followed by `- ` bullet lines.
 
+## 0.39.1 - 2026-11-28 - Rustic pencil icons
+- Every icon in the app has been redrawn by hand to match the dachshund: freehand lines gone over twice, with a little pencil shading. You'll see them on the tab bar, your badges and around the app.
+
 ## 0.39.0 - 2026-11-27 - Derlin has a new home
 - Derlin now lives at **app.derlin.app**. Bookmark it, or add it to your home screen again from there.
 - You'll need to sign in once at the new address (and pick dark mode again if you use it). Your sightings, life list, badges, dogs and photos are all there, just as you left them.
